@@ -1,0 +1,31 @@
+Author: Andrea Fabrizi
+Email:  andrea.fabrizi@gmail.com
+Web:    http://www.andreafabrizi.it
+
+DNS proxy listens for incoming DNS requests on the local interface and resolves the hosts 
+using an external PHP script, through http proxy requests. 
+
+If you can't use VPN, UDP tunnels or other methods to resolve external names in your LAN, 
+DNS proxy is a good and simple solution.
+
+
+BUILD:
+
+To compile the source code you need libCurl (with headers). 
+For debian users simply install libcurl4-openssl-dev package. 
+
+Usage: 
+    dnsp -p 53 -l 127.0.0.1 -h 10.0.0.2 -r 8080 -s http://www.andreafabrizi.it/nslookup.php
+    *Listen on port 53 (bind on 127.0.0.1) and sends the requests to external script over 10.0.0.2:8080 proxy
+
+
+CHANGELOG:
+
+Version 0.4 - November 16 2009
+- Now using libCurl for http requests
+- Implemented concurrent DNS server
+- Bug fixes
+- Code clean
+
+Version 0.1 - April 09 2009
+- Initial release
