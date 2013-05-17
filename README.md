@@ -40,6 +40,40 @@ Instead host the nslookup.php script on your own server or use a free hosting se
       -k		 Proxy password (optional)
       -s		 Lookup script URL
 ```
+## Testing
+
+To test if DNS proxy is working correctly, first run the program as following (replace the placeholders with the correct proxy IP and port!):
+
+```bash
+dnsp -l 127.0.0.1 -h x.x.x.x -r nnnn -s http://www.andreafabrizi.it/nslookup.php
+```
+
+then, try to resolve an hostname using the **dig** command:
+
+```bash
+dig www.google.com @127.0.0.1
+```
+
+The result must be something like this:
+
+```bash
+; <<>> DiG 9.8.1-P1 <<>> www.google.com @127.0.0.1
+;; global options: +cmd
+;; Got answer:
+;; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: 29155
+;; flags: qr aa rd ra; QUERY: 1, ANSWER: 1, AUTHORITY: 0, ADDITIONAL: 0
+
+;; QUESTION SECTION:
+;www.google.com. 		IN	A
+
+;; ANSWER SECTION:
+www.google.com.		3600	IN	A	173.194.64.106
+
+;; Query time: 325 msec
+;; SERVER: 127.0.0.1#53(127.0.0.1)
+;; WHEN: Fri May 17 11:52:08 2013
+;; MSG SIZE  rcvd: 48
+```
 
 ## Changelog:
 
