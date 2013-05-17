@@ -26,6 +26,20 @@ requests to external script through the 10.0.0.2:8080 proxy.
 **IMPORTANT:** Please, don't use the script hosted on my server, it's only for testing purpose. 
 Instead host the nslookup.php script on your own server or use a free hosting services. Thanks!
 
+```bash
+ dnsp 0.5
+ usage: dnsp -l [local_host] -h [proxy_host] -r [proxy_port] -s [lookup_script]
+
+ OPTIONS:
+      -v  	 Enable DEBUG mode
+      -p		 Local port
+      -l		 Local host
+      -r		 Proxy port
+      -h		 Proxy host
+      -u		 Proxy username (optional)
+      -k		 Proxy password (optional)
+      -s		 Lookup script URL
+```
 
 ## Changelog:
 
