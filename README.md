@@ -56,7 +56,7 @@ dig www.google.com @127.0.0.1
 
 The result must be something like this:
 
-```bash
+```
 ; <<>> DiG 9.8.1-P1 <<>> www.google.com @127.0.0.1
 ;; global options: +cmd
 ;; Got answer:
