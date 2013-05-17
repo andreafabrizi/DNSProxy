@@ -345,7 +345,7 @@ static size_t write_data(void *ptr, size_t size, size_t nmemb, void *stream)
 }
 
 /*
- *  Hostname lockup
+ *  Hostname lookup
  *  Return:
  *   OK: Resolved IP
  *   KO: Null
@@ -478,7 +478,7 @@ int main(int argc, char *argv[])
                 fprintf(stderr," *** Invalid proxy port\n");
             else 
             if (optopt == 's')
-                fprintf(stderr," *** Invalid lockup script URL\n");
+                fprintf(stderr," *** Invalid lookup script URL\n");
             else 
             if (isprint(optopt))
                 fprintf(stderr," *** Invalid option -- '%c'\n", optopt);
