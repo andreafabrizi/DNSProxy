@@ -80,6 +80,7 @@ www.google.com.		3600	IN	A	173.194.64.106
 Version 0.5 - May 17 2013:
 * Add proxy authentication support
 * port option is now optional (default is 53)
+* Fixed compilation error
 * Minor bug fixes
 
 Version 0.4 - November 16 2009:
