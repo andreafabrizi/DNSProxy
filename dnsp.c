@@ -1,7 +1,7 @@
 /*
- * DNS proxy 0.4
+ * DNS proxy 0.5
  *  
- * Copyright (C) 2009 Andrea Fabrizi <andrea.fabrizi@gmail.com>
+ * Copyright (C) 2009-2013 Andrea Fabrizi <andrea.fabrizi@gmail.com>
  *  
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -16,13 +16,6 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
- *  
- * DNS proxy listens for incoming DNS requests on the local interface and resolves the hosts
- * using an external PHP script, over http proxy requests.
- * If you can't use VPN, UDP tunnels or other methods to resolve external names, 
- * DNS proxy is a good and simple solution.
- * 
- * dnsp -p 53 -l 127.0.0.1 -h 10.0.0.2 -r 8080 -s http://www.andreafabrizi.it/nslookup.php
  *
  */
 #include <stdio.h>
@@ -39,7 +32,6 @@
 #include <unistd.h>
 #include <ctype.h>
 #include <curl/curl.h>
-#include <curl/types.h>
 #include <curl/easy.h>
 #include <signal.h>
 
@@ -47,9 +39,10 @@
 #define UDP_DATAGRAM_SIZE   1024
 #define HTTP_RESPONSE_SIZE  1024
 #define URL_SIZE            256
-#define VERSION             "0.4"
+#define VERSION             "0.5"
 #define DNS_MODE_ANSWER     1
 #define DNS_MODE_ERROR      2
+#define DEFAULT_LOCAL_PORT  53
 
 int DEBUG;
 
@@ -77,16 +70,18 @@ struct dns_reponse
 void usage(void)
 {
     fprintf(stderr, "\n dnsp %s\n"
-                       " usage: dnsp -p [local_port] -l [local_host] -h [proxy_port] -r [proxy_port] -s [lockup_script]\n\n"
+                       " usage: dnsp -l [local_host] -h [proxy_host] -r [proxy_port] -s [lookup_script]\n\n"
                        " OPTIONS:\n"
                        "      -v\t\t Enable DEBUG mode\n"
                        "      -p\t\t Local port\n"
                        "      -l\t\t Local host\n"
                        "      -r\t\t Proxy port\n"
                        "      -h\t\t Proxy host\n"
-                       "      -s\t\t Lockup script URL\n"
+                       "      -u\t\t Proxy username (optional)\n"
+                       "      -k\t\t Proxy password (optional)\n"
+                       "      -s\t\t Lookup script URL\n"
                        "\n"
-                       " Example: dnsp -p 53 -l 127.0.0.1 -h 10.0.0.2 -r 8080 -s http://www.andreafabrizi.it/nslookup.php\n"
+                       " Example: dnsp -l 127.0.0.1 -h 10.0.0.2 -r 8080 -s http://www.andreafabrizi.it/nslookup.php\n"
     ,VERSION);
     exit(EXIT_FAILURE);
 }
@@ -114,7 +109,6 @@ void debug_msg(const char* fmt, ...)
         va_end(ap);
     }
 }
-
 
 /*
  * Return the length of the pointed buffer
@@ -356,7 +350,7 @@ static size_t write_data(void *ptr, size_t size, size_t nmemb, void *stream)
  *   OK: Resolved IP
  *   KO: Null
  */
-char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_port, const char *lockup_script)
+char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_port, const char *proxy_user, const char *proxy_pass, const char *lookup_script)
 {
     CURL *ch;
     char *http_response,
@@ -366,7 +360,7 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
     script_url = malloc(URL_SIZE);
     http_response = malloc(HTTP_RESPONSE_SIZE);
     bzero(script_url, URL_SIZE);
-    snprintf(script_url, URL_SIZE-1, "%s/?host=%s", lockup_script, host);
+    snprintf(script_url, URL_SIZE-1, "%s/?host=%s", lookup_script, host);
     
     /* curl setup */
     ch = curl_easy_init();
@@ -379,9 +373,14 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
     curl_easy_setopt(ch, CURLOPT_PROXYTYPE,  CURLPROXY_HTTP);
     curl_easy_setopt(ch, CURLOPT_VERBOSE,  0); /* Verbose OFF */
 
+    /* option proxy username and password */
+    if ((proxy_user != NULL) && (proxy_pass != NULL)) {
+        curl_easy_setopt(ch, CURLOPT_PROXYUSERNAME, proxy_user);
+        curl_easy_setopt(ch, CURLOPT_PROXYPASSWORD, proxy_pass);
+    }
+
     /* Performing http request */
     ret = curl_easy_perform(ch);    
-    printf("-> ret %d\n", ret);
     if (ret < 0) {
         curl_easy_cleanup(ch);
         free(script_url);
@@ -390,7 +389,7 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
         return NULL;
     }
    
-    printf("-> '%s'\n", http_response);
+    debug_msg("HTTP Response: '%s'\n", http_response);
    
     /* Can't resolve host */
     if ((strlen(http_response) > 16) || (strncmp(http_response, "0.0.0.0", 7) == 0)) {
@@ -407,34 +406,27 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
 }
 
 /*
- * Trying to execute the remote script through the proxy server
- */
-void connection_test (void)
-{
-
-
-}
-
-/*
  *   main
  */
 int main(int argc, char *argv[])
 {
     int sockfd, 
-        port = 0,
+        port = DEFAULT_LOCAL_PORT,
         proxy_port = 0,
         c;
     struct sockaddr_in serv_addr;
     struct hostent *local_address;
     char *bind_address = NULL,
          *proxy_host = NULL,
-         *lockup_script = NULL;
+         *proxy_user = NULL,
+         *proxy_pass = NULL,
+         *lookup_script = NULL;
 
     opterr = 0;
     DEBUG = 0;
        
     /* Command line args */
-    while ((c = getopt (argc, argv, "s:p:l:r:h:v::")) != -1)
+    while ((c = getopt (argc, argv, "s:p:l:r:h:u:k:v::")) != -1)
     switch (c)
     {
         case 'p':
@@ -443,6 +435,7 @@ int main(int argc, char *argv[])
                 fprintf(stdout," *** Invalid local port\n");
                 exit(EXIT_FAILURE);
             }
+
         break;
 
         case 'r':
@@ -465,8 +458,16 @@ int main(int argc, char *argv[])
             proxy_host = (char *)optarg;
         break;
 
+        case 'u':
+            proxy_user = (char *)optarg;
+        break;
+
+        case 'k':
+            proxy_pass = (char *)optarg;
+        break;
+
         case 's':
-            lockup_script = (char *)optarg;
+            lookup_script = (char *)optarg;
         break;
                                         
         case '?':
@@ -489,17 +490,16 @@ int main(int argc, char *argv[])
         abort ();
     }
 
-    if ((port == 0) || (proxy_port == 0) || (bind_address == NULL) || (proxy_host == NULL) || (lockup_script == NULL))
+    if ((port == 0) || (proxy_port == 0) || (bind_address == NULL) || (proxy_host == NULL) || (lookup_script == NULL))
         usage();
+
+    debug_msg("Starting DNS proxy v%s (DEBUG mode enabled!)\n", VERSION);
     
     /* Prevent child process from becoming zombie process */
     signal(SIGCLD, SIG_IGN);
     
     /* libCurl init */
     curl_global_init(CURL_GLOBAL_ALL);
-
-    /* connection test */
-    connection_test();
     
     /* socket() */
     sockfd = socket(AF_INET, SOCK_DGRAM, 0);
@@ -545,7 +545,7 @@ int main(int argc, char *argv[])
 
             /* Please, don't resolve the matching hosts :) */
             if (strstr(dns_req->hostname, ".example.com") == NULL) {
-                ip = lookup_host(dns_req->hostname, proxy_host, proxy_port, lockup_script);
+                ip = lookup_host(dns_req->hostname, proxy_host, proxy_port, proxy_user, proxy_pass, lookup_script);
                 if (ip != NULL) {
                     debug_msg("Hostname resolved: %s\n", ip);
                     build_dns_reponse(sockfd, client, dns_req, ip, DNS_MODE_ANSWER);
