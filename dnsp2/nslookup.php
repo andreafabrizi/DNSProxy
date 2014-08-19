@@ -40,13 +40,15 @@ if (isSet($_GET["host"]) && isSet($_GET["type"])) {
  	//DNS_A, DNS_CNAME, DNS_HINFO, DNS_MX, DNS_NS, DNS_PTR, DNS_SOA, DNS_TXT, DNS_AAAA, DNS_SRV, DNS_NAPTR, DNS_A6, DNS_ALL or DNS_ANY.
 	//print_r(checkdnsrr('8.8.8.8'));
         //$result = dns_get_record($host, DNS_ALL, $authns, $addtl);
-        if ($_GET["type"] == "ALL"){
+    if ($_GET["type"] == "ALL"){
                 $result = dns_get_record($host, DNS_ALL, $authns, $addtl);
+                print '<pre>';
                 print_r($result);
                 print_r($authns);
                 print_r($addtl);
-        }
-        if ($_GET["type"] == "PTR"){
+                print '</pre>';
+    }
+    if ($_GET["type"] == "PTR"){
        //         $result = checkdnsrr($host);
                 $result = dns_get_record($host, DNS_PTR, $authns, $addtl);
                 //$result = checkdnsrr($host);
@@ -55,11 +57,42 @@ if (isSet($_GET["host"]) && isSet($_GET["type"])) {
                 print_r($addtl);
                 //$ccc = sizeof($result);
                 //print $result[rand(0,$ccc-1)][mname];
-        }
-        if ($_GET["type"] == "SOA"){
+    }
+    if ($_GET["type"] == "SOA"){
                 $result = dns_get_record($host, DNS_SOA, $authns, $addtl);
                 $ccc = sizeof($result);
                 print $result[rand(0,$ccc-1)][mname];
+	}
+    if ($_GET["type"] == "SPF" || $_GET["type"] == "TXT"){
+                $res = dns_get_record($host, DNS_TXT, $authns, $addtl) or print '0.0.0.0';
+
+                $ccc = sizeof($res);
+                $result = $res[rand(0,$ccc-1)][txt];
+                print $result . '</br>';
+                
+				$ddd = sizeof($res[entries]);
+				
+				$rx = $res[rand(0,$ddd-1)][entries][0];
+                print_r($rx);
+                print '</br>';
+                
+				$rm = $res[rand(0,$ddd-1)][entries][1];
+                print_r($rm);
+                print '</br>';
+                
+				$rv = $res[rand(0,$ddd-1)][entries][2];
+                print_r($rv);
+                print '</br>';
+                
+                //print_r($result);
+                //print_r($authns);
+                //print_r($addtl);
+	}
+    if ($_GET["type"] == "AAAA"){
+                $res = dns_get_record($host, DNS_AAAA, $authns, $addtl) or print '0.0.0.0';
+                $ccc = sizeof($res);
+                $result = $res[rand(0,$ccc-1)][ipv6];
+           		print_r($result);
 	}
 	if ($_GET["type"] == "MX"){
 		$res = (dns_get_record($host, DNS_MX, $authns, $addtl)) or print '0.0.0.0';
@@ -82,7 +115,7 @@ if (isSet($_GET["host"]) && isSet($_GET["type"])) {
 		//print_r(array_keys($result[0]));
         }
         if ($_GET["type"] == "CNAME"){
-                $res = dns_get_record($host, DNS_CNAME, $authns, $addtl);
+                $res = dns_get_record($host, DNS_CNAME, $authns, $addtl) or print '0.0.0.0';
 		$ccc = sizeof($res);
 		$result = $res[rand(0,$ccc-1)][target];
 		print $result;
