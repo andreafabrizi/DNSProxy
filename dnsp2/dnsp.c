@@ -1,8 +1,8 @@
 /*
  * DNS proxy 0.99
  *  
- * Copyright (C) 2009-2014 Andrea Fabrizi <andrea.fabrizi@gmail.com>
  * Copyright (C) 2014 Massimiliano Fantuzzi <superfantuz@gmail.com>
+ * Copyright (C) 2009-2013 Andrea Fabrizi <andrea.fabrizi@gmail.com>
  *  
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -36,13 +36,17 @@
 #include <curl/easy.h>
 #include <signal.h>
 
+#ifndef SIGCLD
+#   define SIGCLD SIGCHLD
+#endif
+
 #define DELAY		    500
 #define MAXCONN             2048
 #define UDP_DATAGRAM_SIZE   255
 #define DNSREWRITE          255
-#define HTTP_RESPONSE_SIZE  255
-#define URL_SIZE            255
-#define VERSION             "0.98"
+#define HTTP_RESPONSE_SIZE  256
+#define URL_SIZE            512
+#define VERSION             "0.99"
 #define DNS_MODE_ANSWER     1
 #define DNS_MODE_ERROR      2
 #define DEFAULT_LOCAL_PORT  53
@@ -80,12 +84,12 @@ void usage(void)
                        "      -l\t\t Local host\n"
                        "      -r\t\t Proxy port\n"
                        "      -h\t\t Proxy host\n"
-                       "      -u\t\t Proxy username (not mandatory)\n"
-                       "      -k\t\t Proxy password (not mandatory)\n"
-                       "      -w\t\t Webserver port (optional, defaults to 80)\n"
+                       "      -u\t\t Proxy username (optional)\n"
+                       "      -k\t\t Proxy password (optional)\n"
+                       "      -w\t\t Webserver port (optional, default 80)\n"
                        "      -s\t\t Lookup script URL\n"
                        "\n"
-                       " Example: dnsp -p 53 -l 127.0.0.1 -h 127.0.0.1 -r 8118 -w 80 -s http://www.fantuz.net/nslookup.php\n\n"
+                       " Example: dnsp -p 53 -l 10.121.8.129 -h 10.121.8.129 -r 8118 -w 80 -s http://www.fantuz.net/nslookup.php\n\n"
     ,VERSION);
     exit(EXIT_FAILURE);
 }
@@ -435,14 +439,14 @@ void build_dns_reponse(int sd, struct sockaddr_in client, struct dns_request *dn
 	//memcpy(response,ip,strlen(ip)-1);
 	//strncpy(response,ip,strlen(ip)-1);
         bytes_sent = sendto(sd,response_ptr,response - response_ptr,0,(struct sockaddr *)&client,sizeof(client));
-        //fsync(sd);
-        close(sd);
+        fsync(sd);
+        //close(sd);
     } else {
     /* Are we into "No such name" ?... just an NXDOMAIN ?? */ 
     //if (mode == DNS_MODE_ERROR)
         bytes_sent = sendto(sd,response_ptr,response - response_ptr,0,(struct sockaddr *)&client,sizeof(client));
-        //fsync(sd);
-	close(sd);
+        fsync(sd);
+	//close(sd);
     }
     // DNS VOLUME CALCULATION
     //debug_msg("Dns response sent to client (DEC %d bytes)\n", bytes_sent);
@@ -492,17 +496,20 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
     curl_easy_setopt(ch, CURLOPT_MAXCONNECTS, 16);
     curl_easy_setopt(ch, CURLOPT_FRESH_CONNECT, 0); /* HTTP CACHE  */
     curl_easy_setopt(ch, CURLOPT_FORBID_REUSE, 1);
+//curl_setopt ($curl, CURLOPT_AUTOREFERER, 1);
+//curl_setopt ($curl, CURLOPT_FOLLOWLOCATION, 1);
 
     //CURL_LOCK_DATA_SHARE
     //    curl_share_setopt(curlsh, CURLSHOPT_SHARE, CURL_LOCK_DATA_COOKIE);
     curl_share_setopt(curlsh, CURLSHOPT_SHARE, CURL_LOCK_DATA_DNS); 
     curl_easy_setopt(ch, CURLOPT_SHARE, curlsh);
 
+/* PROXY AUTH REMOVED; just uncomment to enable !! */
 /* option proxy username and password */
-    if ((proxy_user != NULL) && (proxy_pass != NULL)) {
-        curl_easy_setopt(ch, CURLOPT_PROXYUSERNAME, proxy_user);
-        curl_easy_setopt(ch, CURLOPT_PROXYPASSWORD, proxy_pass);
-    }
+//    if ((proxy_user != NULL) && (proxy_pass != NULL)) {
+//        curl_easy_setopt(ch, CURLOPT_PROXYUSERNAME, proxy_user);
+//        curl_easy_setopt(ch, CURLOPT_PROXYPASSWORD, proxy_pass);
+//    }
 
 
     /* Problem in performing http request */
@@ -693,12 +700,12 @@ int main(int argc, char *argv[])
     	    //setsockopt(sockfd, SOL_SOCKET, SO_RCVBUF, &buffsize, sizeof(buffsize));
             ip = lookup_host(dns_req->hostname, proxy_host, proxy_port, proxy_user, proxy_pass, lookup_script, typeq, wport);
 
+            //if (ip != NULL) {
+            if (ip != NULL && ip != "0.0.0.0") {
             //if (ip != NULL && ((strstr(dns_req->hostname, "bbc.com") == NULL ) || (strstr(dns_req->hostname, "skype.com") == NULL )) ) {
-            //if (ip != NULL && ip != "0.0.0.0") {
-            if (ip != NULL) {
                 build_dns_reponse(sockfd, client, dns_req, ip, DNS_MODE_ANSWER);
                 free(ip);
-            } else if ( (strstr(dns_req->hostname, "onair.aero") != NULL ) || (strstr(dns_req->hostname, "skype.com") != NULL )) {
+            } else if (strstr(dns_req->hostname, "hamachi.cc") != NULL ) {
         	printf("BALCKLIST: pid [%d] - name %s - host %s - size %d \r\n", getpid(), dns_req->hostname, ip, request_len);
                 build_dns_reponse(sockfd, client, dns_req, ip, DNS_MODE_ANSWER);
          	free(ip);
