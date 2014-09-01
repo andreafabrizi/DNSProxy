@@ -39,13 +39,14 @@ Instead host the nslookup.php script on your own server or use a free hosting se
       -u		 Proxy username (optional)
       -k		 Proxy password (optional)
       -s		 Lookup script URL
+      -w   HTTP port
 ```
 ## Testing
 
 To test if DNS proxy is working correctly, first run the program as following (replace the placeholders with the correct proxy IP and port!):
 
 ```bash
-dnsp -l 127.0.0.1 -h x.x.x.x -r nnnn -s http://www.andreafabrizi.it/nslookup.php
+dnsp -l 127.0.0.1 -h x.x.x.x -r nnnn -s http://www.fantuz.net/nslookup.php
 ```
 
 then, try to resolve an hostname using the **dig** command:
@@ -76,6 +77,9 @@ www.google.com.		3600	IN	A	173.194.64.106
 ```
 
 ## Changelog:
+Version 0.99 - July 2014:
+* Add HTTP port selection
+* Add NS, MX, AAAA, PTR, CNAM and other resolving caps.
 
 Version 0.5 - May 17 2013:
 * Add proxy authentication support
