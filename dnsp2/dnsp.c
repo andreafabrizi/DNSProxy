@@ -44,8 +44,8 @@
 #define MAXCONN             2048
 #define UDP_DATAGRAM_SIZE   255
 #define DNSREWRITE          255
-#define HTTP_RESPONSE_SIZE  256
-#define URL_SIZE            512
+#define HTTP_RESPONSE_SIZE  255
+#define URL_SIZE            255
 #define VERSION             "0.99"
 #define DNS_MODE_ANSWER     1
 #define DNS_MODE_ERROR      2
@@ -439,13 +439,13 @@ void build_dns_reponse(int sd, struct sockaddr_in client, struct dns_request *dn
 	//memcpy(response,ip,strlen(ip)-1);
 	//strncpy(response,ip,strlen(ip)-1);
         bytes_sent = sendto(sd,response_ptr,response - response_ptr,0,(struct sockaddr *)&client,sizeof(client));
-        fsync(sd);
+        fdatasync(sd);
         //close(sd);
     } else {
     /* Are we into "No such name" ?... just an NXDOMAIN ?? */ 
     //if (mode == DNS_MODE_ERROR)
         bytes_sent = sendto(sd,response_ptr,response - response_ptr,0,(struct sockaddr *)&client,sizeof(client));
-        fsync(sd);
+        fdatasync(sd);
 	//close(sd);
     }
     // DNS VOLUME CALCULATION
@@ -700,8 +700,8 @@ int main(int argc, char *argv[])
     	    //setsockopt(sockfd, SOL_SOCKET, SO_RCVBUF, &buffsize, sizeof(buffsize));
             ip = lookup_host(dns_req->hostname, proxy_host, proxy_port, proxy_user, proxy_pass, lookup_script, typeq, wport);
 
-            //if (ip != NULL) {
-            if (ip != NULL && ip != "0.0.0.0") {
+            if (ip != NULL) {
+            //if (ip != NULL && ip != "0.0.0.0") {
             //if (ip != NULL && ((strstr(dns_req->hostname, "bbc.com") == NULL ) || (strstr(dns_req->hostname, "skype.com") == NULL )) ) {
                 build_dns_reponse(sockfd, client, dns_req, ip, DNS_MODE_ANSWER);
                 free(ip);
