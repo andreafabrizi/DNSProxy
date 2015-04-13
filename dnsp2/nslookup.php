@@ -4,8 +4,8 @@
 
 //Vary: Accept-Encoding, User-Agent
 // --- SET HEADERS AND DETECT CACHE CONTROL PRESENCE/EXPIRATION.
-session_cache_limiter('public'); //This stop php’s default no-cache
-session_cache_expire(1800); // Optional expiry time in minutes
+session_cache_limiter('public');					//This stop php’s default no-cache
+session_cache_expire(1800);						// Optional expiry time in minutes
 header("Connection: keep-alive");
 header("Cache-control: public, max-age=1800, s-maxage=1800");
 $host = rtrim($_GET["host"],'.');

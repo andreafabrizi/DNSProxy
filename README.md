@@ -13,6 +13,7 @@ TOR-friendly.
 ## Building
 
 For debian/ubuntu users:  
+
 `apt-get install libcurl4-openssl-dev`
 
 then
@@ -33,7 +34,7 @@ Instead - host yourself the nslookup.php script, and spread it on a friend's ser
 The more we are, the less DNS becomes a 'trackable' TOR leak.
 
 ```bash
- dnsp 0.5
+ dnsp 0.99
  usage: dnsp -l [local_host] -h [proxy_host] -r [proxy_port] -s [lookup_script]
 
  OPTIONS:
