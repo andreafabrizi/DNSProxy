@@ -1,10 +1,14 @@
 # DNS Proxy
 
-DNS proxy listens for incoming DNS requests on the local interface and 
-resolves remote hosts using an external PHP script, through http proxy requests. 
+DNS proxy listens for incoming DNS requests (A,NS,MX,TXT,SRV..) on the local
+interface (UDP only) and resolves using an external PHP script, through 
+simple HTTP requests.
 
-If you can't use VPN, UDP tunnels or other methods to resolve external names 
-in your LAN, DNS proxy is a good and simple solution.
+If you can't use tunnels to resolve names externally (i.e. TOR users),
+DNS proxy is a simple and efficient solution.
+
+To work, it needs to know a PHP-enabled external server, completeley 
+TOR-friendly.
 
 ## Building
 
@@ -20,33 +24,36 @@ then
 ```bash
 dnsp -l 127.0.0.1 -h 10.0.0.2 -r 8080 -s http://www.andreafabrizi.it/nslookup.php
 ```
-In this case, DNS proxy listens on port 53 (bind on 127.0.0.1) and sends the
-requests to external script through the 10.0.0.2:8080 proxy.
+In this example, DNS proxy listens on local UDP port 53 and sends the HTTPed
+requests to PHP external script through the 10.0.0.2:8080 proxyi (TORed ?).
 
-**IMPORTANT:** Please, don't use the script hosted on my server, it's only for testing purpose. 
-Instead host the nslookup.php script on your own server or use a free hosting services. Thanks!
+**IMPORTANT:** Please, don't use the script hosted on my server as demonstration.
+It might be subjected to umpredicted change, offlining, deface.
+Instead - host yourself the nslookup.php script, and spread it on a friend's server!
+The more we are, the less DNS becomes a 'trackable' TOR leak.
 
 ```bash
  dnsp 0.5
  usage: dnsp -l [local_host] -h [proxy_host] -r [proxy_port] -s [lookup_script]
 
  OPTIONS:
-      -v  	 Enable DEBUG mode
-      -p		 Local port
-      -l		 Local host
-      -r		 Proxy port
-      -h		 Proxy host
-      -u		 Proxy username (optional)
-      -k		 Proxy password (optional)
-      -s		 Lookup script URL
-      -w   HTTP port
+      -v  	 	Enable DEBUG mode
+      -l		Local server host
+      -p		Local server port
+      -h		Remote proxy host
+      -r		Remote proxy port
+      -u		Proxy username (optional)
+      -k		Proxy password (optional)
+      -s		Remote HTTP lookup-script URL
+      -w		Remote HTTP port
 ```
 ## Testing
 
-To test if DNS proxy is working correctly, first run the program as following (replace the placeholders with the correct proxy IP and port!):
+To test if DNS proxy is working correctly, first run the program as following, by
+filling in Your favorite TOR proxy address:
 
 ```bash
-dnsp -l 127.0.0.1 -h x.x.x.x -r nnnn -s http://www.fantuz.net/nslookup.php
+dnsp -l 127.0.0.1 -h x.x.x.x -r NNN -s http://www.fantuz.net/nslookup.php
 ```
 
 then, try to resolve an hostname using the **dig** command:
@@ -76,10 +83,15 @@ www.google.com.		3600	IN	A	173.194.64.106
 ;; MSG SIZE  rcvd: 48
 ```
 
+When You properly implement cache on the webserver, answers will come back in
+ few milliseconds, after the firs recursive resolution.
+
 ## Changelog:
 Version 0.99 - July 2014:
 * Add HTTP port selection
-* Add NS, MX, AAAA, PTR, CNAM and other resolving caps.
+* Add NS, MX, AAAA, PTR, CNAM and other resolving capabilities.
+* Code cleanup and performance review.
+* Implementation with nginx and memcache and load testing 
 
 Version 0.5 - May 17 2013:
 * Add proxy authentication support

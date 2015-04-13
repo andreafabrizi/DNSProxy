@@ -79,15 +79,15 @@ void usage(void)
     fprintf(stderr, "\n dnsp %s\n"
                        " usage: dnsp -l [local_host] -h [proxy_host] -r [proxy_port] -w [webport] -s [lookup_script]\n\n"
                        " OPTIONS:\n"
-                       "      -v\t\t Enable DEBUG mode\n"
-                       "      -p\t\t Local port\n"
-                       "      -l\t\t Local host\n"
-                       "      -r\t\t Proxy port\n"
-                       "      -h\t\t Proxy host\n"
+                       "      -l\t\t Local server host\n"
+                       "      -p\t\t Local server port\n"
+                       "      -h\t\t Remote proxy host\n"
+                       "      -r\t\t Remote proxy port\n"
                        "      -u\t\t Proxy username (optional)\n"
                        "      -k\t\t Proxy password (optional)\n"
-                       "      -w\t\t Webserver port (optional, default 80)\n"
                        "      -s\t\t Lookup script URL\n"
+                       "      -w\t\t Webserver port (optional, default 80)\n"
+                       "      -v\t\t Enable DEBUG mode\n"
                        "\n"
                        " Example: dnsp -p 53 -l 10.121.8.129 -h 10.121.8.129 -r 8118 -w 80 -s http://www.fantuz.net/nslookup.php\n\n"
     ,VERSION);
@@ -245,6 +245,20 @@ void build_dns_reponse(int sd, struct sockaddr_in client, struct dns_request *dn
  * XRRSET (RCODE:7) : RRset that should not exist, does exist
  * NOTAUTH (RCODE:9) : Server not authoritative for the zone
  * NOTZONE (RCODE:10) : Name not in zone
+ * 11-15           available for assignment
+ * 16    BADVERS   Bad OPT Version             
+ * 16    BADSIG    TSIG Signature Failure      
+ * 17    BADKEY    Key not recognized          
+ * 18    BADTIME   Signature out of time window
+ * 19    BADMODE   Bad TKEY Mode               
+ * 20    BADNAME   Duplicate key name          
+ * 21    BADALG    Algorithm not supported     
+ * 22-3840         available for assignment
+ *   0x0016-0x0F00
+ * 3841-4095       Private Use
+ *   0x0F01-0x0FFF
+ * 4096-65535      available for assignment
+ *   0x1000-0xFFFF
  * */
 
         response[0] = 0x81;
@@ -329,17 +343,16 @@ void build_dns_reponse(int sd, struct sockaddr_in client, struct dns_request *dn
 	//ptr,ns
 	if (dns_req->qtype == 0x0c || dns_req->qtype == 0x02) {
         
-        /* Data length (4 bytes)*/
-        response[0] = 0x00;
-        response[1] = 0x04;
-        response+=2;
-	response[0] = 0xc0;
-	response[1] = 0x0c;
-       	response+=2;
+	        /* Data length (4 bytes)*/
+	        response[0] = 0x00;
+	        response[1] = 0x04;
+	        response+=2;
+		response[0] = 0xc0;
+		response[1] = 0x0c;
+	       	response+=2;
 
-	} else if 
+	} else if (dns_req->qtype == 0x05) { //CNAME RECORD
 
-	(dns_req->qtype == 0x05) { //CNAME RECORD
 	        /* Data length (4 bytes)*/
         	response[0] = 0x00;
 		response[1] = (strlen(ip)+1);
@@ -367,6 +380,7 @@ void build_dns_reponse(int sd, struct sockaddr_in client, struct dns_request *dn
 		}
 
 		*response++ = 0x00;
+
 	} else if (dns_req->qtype == 0x0f) { //MX RECORD
 	        /* Data length (4 bytes)*/
         	response[0] = 0x00;
@@ -412,6 +426,7 @@ void build_dns_reponse(int sd, struct sockaddr_in client, struct dns_request *dn
 		*response++ = 0x00;
 		
 	} else if (dns_req->qtype == 0x01) { // A RECORD 
+
         /* Data length (4 bytes)*/
 	*response++ = 0x00;
 	*response++ = 0x04;
@@ -435,13 +450,15 @@ void build_dns_reponse(int sd, struct sockaddr_in client, struct dns_request *dn
 		response+=4;
 		
       	} else { return;}
-//	*response++=(unsigned char)(strlen(ip)+1);
+	//	*response++=(unsigned char)(strlen(ip)+1);
 	//memcpy(response,ip,strlen(ip)-1);
 	//strncpy(response,ip,strlen(ip)-1);
         bytes_sent = sendto(sd,response_ptr,response - response_ptr,0,(struct sockaddr *)&client,sizeof(client));
         fdatasync(sd);
         //close(sd);
+
     } else {
+
     /* Are we into "No such name" ?... just an NXDOMAIN ?? */ 
     //if (mode == DNS_MODE_ERROR)
         bytes_sent = sendto(sd,response_ptr,response - response_ptr,0,(struct sockaddr *)&client,sizeof(client));
