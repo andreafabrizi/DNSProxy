@@ -41,7 +41,7 @@
 #endif
 
 #define DELAY		    500
-#define MAXCONN             2048
+#define MAXCONN             4096
 #define UDP_DATAGRAM_SIZE   255
 #define DNSREWRITE          255
 #define HTTP_RESPONSE_SIZE  255
@@ -89,7 +89,7 @@ void usage(void)
                        "      -w\t\t Webserver port (optional, default 80)\n"
                        "      -v\t\t Enable DEBUG mode\n"
                        "\n"
-                       " Example: dnsp -p 53 -l 10.121.8.129 -h 10.121.8.129 -r 8118 -w 80 -s http://www.fantuz.net/nslookup.php\n\n"
+                       " Example: dnsp -p 53 -l 127.0.0.1 -h 127.0.0.1 -r 8118 -w 80 -s http://www.fantuz.net/nslookup.php\n\n"
     ,VERSION);
     exit(EXIT_FAILURE);
 }
@@ -454,16 +454,16 @@ void build_dns_reponse(int sd, struct sockaddr_in client, struct dns_request *dn
 	//memcpy(response,ip,strlen(ip)-1);
 	//strncpy(response,ip,strlen(ip)-1);
         bytes_sent = sendto(sd,response_ptr,response - response_ptr,0,(struct sockaddr *)&client,sizeof(client));
-        fdatasync(sd);
-        //close(sd);
+        //fdatasync(sd);
+        close(sd);
 
     } else {
 
     /* Are we into "No such name" ?... just an NXDOMAIN ?? */ 
     //if (mode == DNS_MODE_ERROR)
         bytes_sent = sendto(sd,response_ptr,response - response_ptr,0,(struct sockaddr *)&client,sizeof(client));
-        fdatasync(sd);
-	//close(sd);
+        //fdatasync(sd);
+	close(sd);
     }
     // DNS VOLUME CALCULATION
     //debug_msg("Dns response sent to client (DEC %d bytes)\n", bytes_sent);
