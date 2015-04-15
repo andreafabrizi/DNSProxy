@@ -454,16 +454,16 @@ void build_dns_reponse(int sd, struct sockaddr_in client, struct dns_request *dn
 	//memcpy(response,ip,strlen(ip)-1);
 	//strncpy(response,ip,strlen(ip)-1);
         bytes_sent = sendto(sd,response_ptr,response - response_ptr,0,(struct sockaddr *)&client,sizeof(client));
-        //fdatasync(sd);
-        close(sd);
+        fdatasync(sd);
+        //close(sd);
 
     } else {
 
     /* Are we into "No such name" ?... just an NXDOMAIN ?? */ 
     //if (mode == DNS_MODE_ERROR)
         bytes_sent = sendto(sd,response_ptr,response - response_ptr,0,(struct sockaddr *)&client,sizeof(client));
-        //fdatasync(sd);
-	close(sd);
+        fdatasync(sd);
+	//close(sd);
     }
     // DNS VOLUME CALCULATION
     //debug_msg("Dns response sent to client (DEC %d bytes)\n", bytes_sent);
@@ -510,9 +510,9 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
     curl_easy_setopt(ch, CURLOPT_PROXYTYPE,  CURLPROXY_HTTP);
     curl_easy_setopt(ch, CURLOPT_VERBOSE,  0); /* Verbose OFF */
     curl_easy_setopt(ch, CURLOPT_DNS_USE_GLOBAL_CACHE, 0); /* DNS CACHE  */
-    curl_easy_setopt(ch, CURLOPT_MAXCONNECTS, 16);
-    curl_easy_setopt(ch, CURLOPT_FRESH_CONNECT, 0); /* HTTP CACHE  */
-    curl_easy_setopt(ch, CURLOPT_FORBID_REUSE, 1);
+    curl_easy_setopt(ch, CURLOPT_MAXCONNECTS, 8);
+    curl_easy_setopt(ch, CURLOPT_FRESH_CONNECT, 0); /* HOW DOES A NEW TCP INFLUENCE WEB CACHE ?? */
+    curl_easy_setopt(ch, CURLOPT_FORBID_REUSE, 0);
 //curl_setopt ($curl, CURLOPT_AUTOREFERER, 1);
 //curl_setopt ($curl, CURLOPT_FOLLOWLOCATION, 1);
 
