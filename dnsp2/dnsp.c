@@ -591,7 +591,7 @@ int main(int argc, char *argv[])
     /* Command line args */
     while ((c = getopt (argc, argv, "s:p:l:r:h:w:u:k:v::")) != -1)
     switch (c)
-    {
+     {
         case 'p':
             port = atoi(optarg);
             if (port <= 0) {
@@ -720,9 +720,9 @@ int main(int argc, char *argv[])
 	    } else if (dns_req->qtype == 0x0f) {
 		typeq = "MX";
 	    } //else { dns_req->qtype == 0xff;} 
-//
+// MAKE BETTER FILTER
 
-//	CORE DNS LOOKUP, MADE ONCE (via HTTP)AND THEN CACHED BY POLIPO... MEMCACHED... OR OTHER DAEMONS
+//	CORE DNS LOOKUP, MADE ONCE (via HTTP) AND THEN CACHED INTO THE NETWORK
 //	WITH DOMAIN BLACKLISTING
 
     	    //int buffsize = 2048;
@@ -742,7 +742,7 @@ int main(int argc, char *argv[])
        	        printf("ERROR: pid [%d] - name %s - host %s - size %d \r\n", getpid(), dns_req->hostname, ip, request_len);
                 build_dns_reponse(sockfd, client, dns_req, ip, DNS_MODE_ERROR);
          	free(ip);
-}
+	    }
 
             free(dns_req);
             exit(EXIT_SUCCESS);
