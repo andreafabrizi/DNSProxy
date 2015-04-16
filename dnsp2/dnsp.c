@@ -20,6 +20,7 @@
  */
 
 #include <stdio.h>
+#include <pthread.h>
 #include <sys/types.h> 
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -35,6 +36,9 @@
 #include <curl/curl.h>
 #include <curl/easy.h>
 #include <signal.h>
+#include <semaphore.h>
+//#include <omp.h>
+
 
 #ifndef SIGCLD
 #   define SIGCLD SIGCHLD
@@ -454,16 +458,16 @@ void build_dns_reponse(int sd, struct sockaddr_in client, struct dns_request *dn
 	//memcpy(response,ip,strlen(ip)-1);
 	//strncpy(response,ip,strlen(ip)-1);
         bytes_sent = sendto(sd,response_ptr,response - response_ptr,0,(struct sockaddr *)&client,sizeof(client));
-        fdatasync(sd);
-        //close(sd);
+        //fdatasync(sd);
+        close(sd);
 
     } else {
 
     /* Are we into "No such name" ?... just an NXDOMAIN ?? */ 
     //if (mode == DNS_MODE_ERROR)
         bytes_sent = sendto(sd,response_ptr,response - response_ptr,0,(struct sockaddr *)&client,sizeof(client));
-        fdatasync(sd);
-	//close(sd);
+        //fdatasync(sd);
+	close(sd);
     }
     // DNS VOLUME CALCULATION
     //debug_msg("Dns response sent to client (DEC %d bytes)\n", bytes_sent);
@@ -488,6 +492,9 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
     char *http_response,
          *script_url;
     int ret;
+    struct curl_slist *hosting = NULL;
+    hosting = curl_slist_append(NULL, "fantuz.net:80:127.0.0.1");
+
     script_url = malloc(URL_SIZE);
     http_response = malloc(HTTP_RESPONSE_SIZE);
     bzero(script_url, URL_SIZE);
@@ -495,6 +502,8 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
     //CALLBACK TO PHP, BEHIND WHICH SITS THE "REAL" RESOLVER
     snprintf(script_url, URL_SIZE-1, "%s?host=%s&type=%s", lookup_script, host, typeq);
 
+    /* try to see.... */
+    hosting = curl_slist_append(NULL, "example.com:80:127.0.0.1");
     /* curl setup */
     ch = curl_easy_init();
     curlsh = curl_share_init();
@@ -509,7 +518,9 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
     curl_easy_setopt(ch, CURLOPT_PROXYPORT, proxy_port); //8118
     curl_easy_setopt(ch, CURLOPT_PROXYTYPE,  CURLPROXY_HTTP);
     curl_easy_setopt(ch, CURLOPT_VERBOSE,  0); /* Verbose OFF */
+
     curl_easy_setopt(ch, CURLOPT_DNS_USE_GLOBAL_CACHE, 0); /* DNS CACHE  */
+    curl_easy_setopt(ch, CURLOPT_RESOLVE, hosting);
     curl_easy_setopt(ch, CURLOPT_MAXCONNECTS, 8);
     curl_easy_setopt(ch, CURLOPT_FRESH_CONNECT, 0); /* HOW DOES A NEW TCP INFLUENCE WEB CACHE ?? */
     curl_easy_setopt(ch, CURLOPT_FORBID_REUSE, 0);
@@ -553,6 +564,7 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
    
     curl_easy_cleanup(ch);
     free(script_url);
+    curl_slist_free_all(hosting);
     return http_response;
 }
 
