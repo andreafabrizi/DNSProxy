@@ -519,9 +519,13 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
     curl_easy_setopt(ch, CURLOPT_PROXYTYPE,  CURLPROXY_HTTP);
     curl_easy_setopt(ch, CURLOPT_VERBOSE,  0); /* Verbose OFF */
 
-    curl_easy_setopt(ch, CURLOPT_DNS_USE_GLOBAL_CACHE, 0); /* DNS CACHE  */
+    //curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0)
+    curl_easy_setopt(ch, CURLOPT_SSL_VERIFYPEER, 0L);
+    curl_easy_setopt(ch, CURLOPT_SSL_VERIFYHOST, 0L);;
+
+    curl_easy_setopt(ch, CURLOPT_DNS_USE_GLOBAL_CACHE, 1); /* DNS CACHE  */
     curl_easy_setopt(ch, CURLOPT_RESOLVE, hosting);
-    curl_easy_setopt(ch, CURLOPT_MAXCONNECTS, 8);
+    curl_easy_setopt(ch, CURLOPT_MAXCONNECTS, 32);
     curl_easy_setopt(ch, CURLOPT_FRESH_CONNECT, 0); /* HOW DOES A NEW TCP INFLUENCE WEB CACHE ?? */
     curl_easy_setopt(ch, CURLOPT_FORBID_REUSE, 0);
 //curl_setopt ($curl, CURLOPT_AUTOREFERER, 1);
