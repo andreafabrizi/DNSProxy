@@ -117,7 +117,8 @@ struct thread_info {    /* Used as argument to thread_start() */
 ////char password[256];
 ////	
 ////};
-/// MT STOP
+
+/// MT END
 
 int DEBUG;
 
@@ -298,6 +299,7 @@ void build_dns_reponse(int sd, struct sockaddr_in client, struct dns_request *dn
         response+=2;
     }
     /* DNS_MODE_ERROR should truncate message instead of building it up ...  */
+    //else if (mode == DNS_MODE_ERROR) {
     else {
         /* Server failure (0x8182), but what if we want NXDOMAIN (0x....) ???*/
 /*
@@ -523,10 +525,12 @@ void build_dns_reponse(int sd, struct sockaddr_in client, struct dns_request *dn
         //fdatasync(sd);
         close(sd);
 
-    } else {
-
+    } else if (mode == DNS_MODE_ERROR) {
     /* Are we into "No such name" ?... just an NXDOMAIN ?? */ 
-    //if (mode == DNS_MODE_ERROR)
+        bytes_sent = sendto(sd,response_ptr,response - response_ptr,0,(struct sockaddr *)&client,sizeof(client));
+        //fdatasync(sd);
+	close(sd);
+    } else {
         bytes_sent = sendto(sd,response_ptr,response - response_ptr,0,(struct sockaddr *)&client,sizeof(client));
         //fdatasync(sd);
 	close(sd);
@@ -671,10 +675,24 @@ int main(int argc, char *argv[])
     opterr = 0;
     DEBUG = 0;
        
+    int s, tnum, opt, num_threads;
+    struct thread_info *tinfo;
+    pthread_attr_t attr;
+    int stack_size;
+    void *res;
+
+   /* The "-s" option specifies a stack size for our threads */
+   stack_size = -1;
+
     /* Command line args */
-    while ((c = getopt (argc, argv, "s:p:l:r:h:w:u:k:v::")) != -1)
+    while ((c = getopt (argc, argv, "s:p:l:r:h:t:w:u:k:v::")) != -1)
     switch (c)
      {
+        case 't':
+            stack_size = strtoul(optarg, NULL, 0);
+            fprintf(stdout," *** Stack size %d\n",stack_size);
+        break;
+
         case 'p':
             port = atoi(optarg);
             if (port <= 0) {
@@ -736,13 +754,19 @@ int main(int argc, char *argv[])
             if (optopt == 's')
                 fprintf(stderr," *** Invalid lookup script URL\n");
             else 
+	    if  (optopt == 't')
+                fprintf(stderr," *** Invalid stack size\n");
+	    else
             if (isprint(optopt))
                 fprintf(stderr," *** Invalid option -- '%c'\n", optopt);
-                
             usage();
         break;
         
         default:
+            fprintf(stderr, "Usage: %s [-s stack-size] arg...\n",
+                    argv[0]);
+            exit(EXIT_FAILURE);
+
         abort ();
     }
 
@@ -788,23 +812,23 @@ int main(int argc, char *argv[])
     int NUM_THREADS =2;
     pthread_t thread[NUM_THREADS];
     pthread_t tid[NUMT];
-    int i;
+    int i=0;
     int errore;
     int s, tnum, opt;
     struct thread_info *tinfo;
     //pthread_attr_t attr;
     int stack_size;
-    i=0;
+    int rc, t, status;
 /// MT END
+
 /// MT START
     // Initialize and set thread detached attribute 
     //struct thread_data data_array[NUM_THREADS];
     //struct thread_data data_array[4];
-    int rc, t, status;
 ////    pthread_t thread[NUMT];
 ////    pthread_attr_init(&attr);
 ////    pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
-////	
+
     tinfo = calloc(NUMT, sizeof(struct thread_info));
      if (tinfo == NULL)
          handle_error("calloc");
@@ -812,8 +836,8 @@ int main(int argc, char *argv[])
     //for(i=0; i< NUMT; i++) {
       //errore = pthread_create(&tid[i], NULL, (void*)&ip, (void *) &data_array[i]);
       //errore = pthread_create(&tid[i], NULL, (void *)&build_dns_reponse, ip);
-        ///////errore = pthread_create(&tid[i], NULL, (void*)&request_len, (void*)&request_len);
-        //errore = pthread_create(&tid[i], NULL, (void*)&request_len, (void *) &request_len);
+      //errore = pthread_create(&tid[i], NULL, (void*)&request_len, (void*)&request_len);
+      //errore = pthread_create(&tid[i], NULL, (void*)&request_len, (void *) &request_len);
 
 ////	  data_array[t].threads = NUMT-1;
 ////	  data_array[t].thread_id = t;
@@ -827,18 +851,19 @@ int main(int argc, char *argv[])
 ////	  data_array[1].uselogin =1;
 ///            ip = lookup_host(dns_req->hostname, proxy_host, proxy_port, proxy_user, proxy_pass, lookup_script, typeq, wport);
 
-      if(0 != errore)
-        fprintf(stderr, "Couldn't run thread number %d, errno xxx\n", i);
-        //fprintf(stderr, "Couldn't run thread number %d, errno %d\n", i, errore);
-      else
-        fprintf(stderr, "Thread %d, status OK\n", i);
-        //fprintf(stderr, "Thread %d, gets %s\n", i, dns_request);
 /// MT END 
 
+      //if(0 != errore)
+        //fprintf(stderr, "Couldn't run thread number %d, errno %d\n", i, errore);
+      //else
+        //fprintf(stderr, "Thread %d, gets %s\n", i, dns_request);
+
         /* Child */
-	if (fork() == 0)
-	{
+	if (fork() == 0) {
+            fprintf(stderr, "Child %d, status OK\n", i);
+
             dns_req = parse_dns_request(request, request_len);
+
             if (dns_req == NULL) {
         	//printf("BL: pid [%d] - name %s - host %s - size %d \r\n", getpid(), dns_req->hostname, ip, request_len);
             	printf("FORK: tid: %x - name %s - size %d \r\n", dns_req->transaction_id, dns_req->hostname, request_len);
@@ -880,18 +905,20 @@ int main(int argc, char *argv[])
          	free(ip);
 	    }
 
-            free(dns_req);
 	 //   pthread_exit(NULL);
+            free(dns_req);
             exit(EXIT_SUCCESS);
+	} else {
+            fprintf(stderr, "Couldn't run child process %d, error in forking\n", i);
 	}
     //}
-//MT START
+//MT CHAINED WAIT SEQUENCE ... START
     /* now wait for all threads to terminate */ 
 	for(i=0; i< NUMT; i++) {
 		errore = pthread_join(tid[i], NULL);
 		fprintf(stderr, "Thread %d terminated\n", i);
 	}
-//MT END
+//MT CHAINED WAIT SEQUENCE ... END
 
     }
 }
