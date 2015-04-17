@@ -1,7 +1,7 @@
 /*
  * DNS proxy 0.99
  *  
- * Copyright (C) 2014 Massimiliano Fantuzzi <superfantuz@gmail.com>
+ * Copyright (C) 2014-2015 Massimiliano Fantuzzi <superfantuz@gmail.com>
  * Copyright (C) 2009-2013 Andrea Fabrizi <andrea.fabrizi@gmail.com>
  *  
  * This program is free software; you can redistribute it and/or modify
@@ -57,17 +57,17 @@
 #define DEFAULT_LOCAL_PORT  53
 #define DEFAULT_WEB_PORT    80
 //#define TYPEQ		    2
-#define NUMT	            1
+#define NUMT	            2
 
 /// MT START
-///#define handle_error(msg) \
-///        do { perror(msg); exit(EXIT_FAILURE); } while (0)
-///
-///struct thread_info {    /* Used as argument to thread_start() */
-///    pthread_t thread_id;        /* ID returned by pthread_create() */
-///    int       thread_num;       /* Application-defined thread # */
-///    char     *argv_string;      /* From command-line argument */
-///};
+#define handle_error(msg) \
+        do { perror(msg); exit(EXIT_FAILURE); } while (0)
+
+struct thread_info {    /* Used as argument to thread_start() */
+    pthread_t thread_id;        /* ID returned by pthread_create() */
+    int       thread_num;       /* Application-defined thread # */
+    char     *argv_string;      /* From command-line argument */
+};
 ///
 ///void start_thread(pthread_t *mt)
 ///{
@@ -785,29 +785,29 @@ int main(int argc, char *argv[])
         request_len = recvfrom(sockfd,request,UDP_DATAGRAM_SIZE,0,(struct sockaddr *)&client,&client_len);
 
 /// MT START
-    //pthread_t tid[NUMT];
+    int NUM_THREADS =2;
+    pthread_t thread[NUM_THREADS];
+    pthread_t tid[NUMT];
     int i;
     int errore;
     int s, tnum, opt;
-    //struct thread_info *tinfo;
+    struct thread_info *tinfo;
     //pthread_attr_t attr;
     int stack_size;
-
+    i=0;
 /// MT END
 /// MT START
     // Initialize and set thread detached attribute 
-    int NUM_THREADS =1;
     //struct thread_data data_array[NUM_THREADS];
     //struct thread_data data_array[4];
-    //pthread_t thread[NUM_THREADS];
     int rc, t, status;
 ////    pthread_t thread[NUMT];
 ////    pthread_attr_init(&attr);
 ////    pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
 ////	
-////    tinfo = calloc(NUMT, sizeof(struct thread_info));
-////     if (tinfo == NULL)
-////         handle_error("calloc");
+    tinfo = calloc(NUMT, sizeof(struct thread_info));
+     if (tinfo == NULL)
+         handle_error("calloc");
 
     //for(i=0; i< NUMT; i++) {
       //errore = pthread_create(&tid[i], NULL, (void*)&ip, (void *) &data_array[i]);
@@ -827,12 +827,12 @@ int main(int argc, char *argv[])
 ////	  data_array[1].uselogin =1;
 ///            ip = lookup_host(dns_req->hostname, proxy_host, proxy_port, proxy_user, proxy_pass, lookup_script, typeq, wport);
 
-////      if(0 != errore)
-////        fprintf(stderr, "Couldn't run thread number %d, errno \n", i);
-////        //fprintf(stderr, "Couldn't run thread number %d, errno %d\n", i, errore);
-////      else
-////        fprintf(stderr, "Thread %d, errno \n", i);
-////        //fprintf(stderr, "Thread %d, gets %s\n", i, dns_request);
+      if(0 != errore)
+        fprintf(stderr, "Couldn't run thread number %d, errno xxx\n", i);
+        //fprintf(stderr, "Couldn't run thread number %d, errno %d\n", i, errore);
+      else
+        fprintf(stderr, "Thread %d, status OK\n", i);
+        //fprintf(stderr, "Thread %d, gets %s\n", i, dns_request);
 /// MT END 
 
         /* Child */
@@ -887,10 +887,10 @@ int main(int argc, char *argv[])
     //}
 //MT START
     /* now wait for all threads to terminate */ 
-////	for(i=0; i< NUMT; i++) {
-////		errore = pthread_join(tid[i], NULL);
-////		fprintf(stderr, "Thread %d terminated\n", i);
-////	}
+	for(i=0; i< NUMT; i++) {
+		errore = pthread_join(tid[i], NULL);
+		fprintf(stderr, "Thread %d terminated\n", i);
+	}
 //MT END
 
     }
