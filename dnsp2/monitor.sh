@@ -1,10 +1,11 @@
 #!/bin/bash
 
 DNS=$1
-NUM=$2
+PORT=$2
+NUM=$3
 
-if [ -z $1 ] || [ -z $2 ] ; then echo "parameters missing"; exit 127; fi
+if [ -z $1 ] || [ -z $2 ] || [ -z $3 ] ; then echo "parameters missing"; exit 127; fi
 
-cat DNS.txt | head -$NUM | xargs -n 10 -I {} -P $(echo $NUM/10| bc) \
-dig {} @$DNS | grep -E '^[A-Za-z0-9]|Query time' | \
+cat DNS.txt | head -$NUM | xargs -n 100 -I {} -P $(echo $NUM/10| bc) \
+dig -p $PORT {} @$DNS | grep -E '^[A-Za-z0-9]|Query time' | \
 awk -v xxx=$NUM 'begin{sum=0}{/Query time/(sum+=$4)}END{print "Average query time: "sum/xxx" ms"}'
