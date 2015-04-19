@@ -23,5 +23,5 @@ for i in $(cat DNS.txt | head -$NUM); do
 		wait $!
 	fi
 done | \
-awk -v xxx=$NUM 'begin{sum=0}{/Query time/(sum+=$4)}END{print "Average query time: "sum/xxx" ms"}'
+awk -v xxx=$NUM 'begin{sum=0}{/Query time/(sum+=$4)}END{print "\nAverage query time: "sum/xxx" ms"}'
 #dig {} @$DNS | grep -E '^[A-Za-z0-9]|Query time' | \
