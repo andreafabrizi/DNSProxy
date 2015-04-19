@@ -35,7 +35,8 @@ The more we are, the less DNS becomes a 'trackable' TOR leak.
 
 ```bash
  dnsp 0.99
- usage: dnsp -l [local_host] -h [proxy_host] -r [proxy_port] -w [webport] -s [lookup_script] -t [stack_size]
+ usage: dnsp -l [local_host] -h [proxy_host] -r [proxy_port] -w [webport] \
+	-s [lookup_script] -t [stack_size]
 
  OPTIONS:
       -l		 Local server host
@@ -49,7 +50,8 @@ The more we are, the less DNS becomes a 'trackable' TOR leak.
       -t		 Stack size in format 0x1000000 (MB)
       -v		 Enable DEBUG logging
 
- Example: dnsp -p 53 -l 127.0.0.1 -h 127.0.0.1 -r 8118 -w 80 -s http://www.fantuz.net/nslookup.php
+ Example: dnsp -p 53 -l 127.0.0.1 -h 127.0.0.1 -r 8118 -w 80 \
+	-s https://www.fantuz.net/nslookup.php
 
 ```
 ## Testing
@@ -92,9 +94,14 @@ When You properly implement cache on the webserver, answers will come back in
  few milliseconds, after the firs recursive resolution.
 
 ## Changelog:
+Version 0.99 - April 2015:
+* HTTPS support (even more privacy)
+* Multithreaded
+* Better nginx/polipo setup
+
 Version 0.99 - July 2014:
 * Add HTTP port selection
-* Add NS, MX, AAAA, PTR, CNAM and other resolving capabilities.
+* Add NS, MX, AAAA, PTR, CNAME and other resolving capabilities.
 * Code cleanup and performance review.
 * Implementation with nginx and memcache and load testing 
 
