@@ -35,18 +35,22 @@ The more we are, the less DNS becomes a 'trackable' TOR leak.
 
 ```bash
  dnsp 0.99
- usage: dnsp -l [local_host] -h [proxy_host] -r [proxy_port] -s [lookup_script]
+ usage: dnsp -l [local_host] -h [proxy_host] -r [proxy_port] -w [webport] -s [lookup_script] -t [stack_size]
 
  OPTIONS:
-      -v  	 	Enable DEBUG mode
-      -l		Local server host
-      -p		Local server port
-      -h		Remote proxy host
-      -r		Remote proxy port
-      -u		Proxy username (optional)
-      -k		Proxy password (optional)
-      -s		Remote HTTP lookup-script URL
-      -w		Remote HTTP port
+      -l		 Local server host
+      -p		 Local server port
+      -h		 Remote proxy host
+      -r		 Remote proxy port
+      -u		 Proxy username (optional)
+      -k		 Proxy password (optional)
+      -s		 Lookup script URL
+      -w		 Webserver port (optional, default 80)
+      -t		 Stack size in format 0x1000000 (MB)
+      -v		 Enable DEBUG logging
+
+ Example: dnsp -p 53 -l 127.0.0.1 -h 127.0.0.1 -r 8118 -w 80 -s http://www.fantuz.net/nslookup.php
+
 ```
 ## Testing
 

@@ -66,8 +66,16 @@
 
 struct readThreadParams {
 //    struct BoundedBuffer b;
+    char* xhostname;
     char* input;
+    char* xproxy_user;
+    char* xproxy_pass;
+    char* xproxy_host;
+    char* xlookup_script;
+    char* xtypeq;
     int digit;
+    int xproxy_port;
+    int xwport;
 };
 
 struct thread_info {    /* Used as argument to thread_start() */
@@ -84,14 +92,20 @@ void *threadFunc(void *arg)
 	char *str;
 	int trf = 0;
 	int test = params->digit;
+	int proxy_port = params->xproxy_port;
+	int wport = params->xwport;
 	char* data = params->input;
+	char* proxy_user = params->xproxy_user;
+	char* proxy_pass = params->xproxy_pass;
+	char* proxy_host = params->xproxy_host;
+	char* lookup_script = params->xlookup_script;
+	char* typeq = params->xtypeq;
+	char* hostname = params->xhostname;
 
 	str=(char*)arg;
 
 // while(trf < 10 ) { usleep(1); ++trf;	}
-//		printf("threadFunc says: %s\n",str);
-		printf("threadFunc says: %s\n",data);
-		printf("threadFunc says: %d\n",test);
+	printf("threadFunc says: %s\n",hostname);
 
 	return NULL;
 }
@@ -310,7 +324,7 @@ void build_dns_reponse(int sd, struct sockaddr_in client, struct dns_request *dn
     
     if (mode == DNS_MODE_ANSWER) {
         /* Default flags for a standard query (0x8580) */
-	/* authoritative answer... or not ? :) */
+	/* Shall it be authoritative answer... or not ? :) */
         //response[0] = 0x81;
         response[0] = 0x85;
         response[1] = 0x80;
@@ -328,32 +342,32 @@ void build_dns_reponse(int sd, struct sockaddr_in client, struct dns_request *dn
     //else if (mode == DNS_MODE_ERROR) {
     else {
         /* Server failure (0x8182), but what if we want NXDOMAIN (0x....) ???*/
-/*
- * NOERROR (RCODE:0) : DNS Query completed successfully
- * FORMERR (RCODE:1) : DNS Query Format Error
- * SERVFAIL (RCODE:2) : Server failed to complete the DNS request
- * NXDOMAIN (RCODE:3) : Domain name does not exist
- * NOTIMP (RCODE:4) : Function not implemented
- * REFUSED (RCODE:5) : The server refused to answer for the query
- * YXDOMAIN (RCODE:6) : Name that should not exist, does exist
- * XRRSET (RCODE:7) : RRset that should not exist, does exist
- * NOTAUTH (RCODE:9) : Server not authoritative for the zone
- * NOTZONE (RCODE:10) : Name not in zone
- * 11-15           available for assignment
- * 16    BADVERS   Bad OPT Version             
- * 16    BADSIG    TSIG Signature Failure      
- * 17    BADKEY    Key not recognized          
- * 18    BADTIME   Signature out of time window
- * 19    BADMODE   Bad TKEY Mode               
- * 20    BADNAME   Duplicate key name          
- * 21    BADALG    Algorithm not supported     
- * 22-3840         available for assignment
- *   0x0016-0x0F00
- * 3841-4095       Private Use
- *   0x0F01-0x0FFF
- * 4096-65535      available for assignment
- *   0x1000-0xFFFF
- * */
+	    /*
+	     * NOERROR (RCODE:0) : DNS Query completed successfully
+	     * FORMERR (RCODE:1) : DNS Query Format Error
+	     * SERVFAIL (RCODE:2) : Server failed to complete the DNS request
+	     * NXDOMAIN (RCODE:3) : Domain name does not exist
+	     * NOTIMP (RCODE:4) : Function not implemented
+	     * REFUSED (RCODE:5) : The server refused to answer for the query
+	     * YXDOMAIN (RCODE:6) : Name that should not exist, does exist
+	     * XRRSET (RCODE:7) : RRset that should not exist, does exist
+	     * NOTAUTH (RCODE:9) : Server not authoritative for the zone
+	     * NOTZONE (RCODE:10) : Name not in zone
+	     * 11-15           available for assignment
+	     * 16    BADVERS   Bad OPT Version             
+	     * 16    BADSIG    TSIG Signature Failure      
+	     * 17    BADKEY    Key not recognized          
+	     * 18    BADTIME   Signature out of time window
+	     * 19    BADMODE   Bad TKEY Mode               
+	     * 20    BADNAME   Duplicate key name          
+	     * 21    BADALG    Algorithm not supported     
+	     * 22-3840         available for assignment
+	     *   0x0016-0x0F00
+	     * 3841-4095       Private Use
+	     *   0x0F01-0x0FFF
+	     * 4096-65535      available for assignment
+	     *   0x1000-0xFFFF
+	     * */
 
         response[0] = 0x81;
         response[1] = 0x82;
@@ -596,22 +610,21 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
     //CALLBACK TO PHP, BEHIND WHICH SITS THE "REAL" RESOLVER
     snprintf(script_url, URL_SIZE-1, "%s?host=%s&type=%s", lookup_script, host, typeq);
 
-//--resolve my.site.com:80:1.2.3.4
-//-H "Host: my.site.com"
+    //--resolve my.site.com:80:1.2.3.4
+    //-H "Host: my.site.com"
+    
     /* curl setup */
     ch = curl_easy_init();
     curlsh = curl_share_init();
     curl_easy_setopt(ch, CURLOPT_URL, script_url);
     curl_easy_setopt(ch, CURLOPT_PORT, wport); //80
 
+    /* try to see.... */
     //curl_easy_setopt(ch, CURLINFO_HEADER_OUT, "" );
     //curl_easy_setopt(ch, CURLOPT_HEADER, 1L);
-
-    /* try to see.... */
     hosting = curl_slist_append(NULL, "fantuz.net:80:217.114.216.51");
     //hosting = curl_slist_append(NULL, "example.com:80:127.0.0.1");
     //list = curl_slist_append(list, "Host: fantuz.net");
-
     //list = curl_slist_append(list, "Shoesize: 10");
     //list = curl_slist_append(list, "Accept:");
     curl_easy_setopt(ch, CURLOPT_HTTPHEADER, list);
@@ -629,6 +642,13 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
     curl_easy_setopt(ch, CURLOPT_SSL_VERIFYPEER, 0L);
     curl_easy_setopt(ch, CURLOPT_SSL_VERIFYHOST, 0L);;
 
+    /* PROXY AUTH REMOVED; just uncomment to enable !! */
+    /* option proxy username and password */
+    //    if ((proxy_user != NULL) && (proxy_pass != NULL)) {
+    //        curl_easy_setopt(ch, CURLOPT_PROXYUSERNAME, proxy_user);
+    //        curl_easy_setopt(ch, CURLOPT_PROXYPASSWORD, proxy_pass);
+    //    }
+
     curl_easy_setopt(ch, CURLOPT_DNS_USE_GLOBAL_CACHE, 1); /* DNS CACHE  */
     curl_easy_setopt(ch, CURLOPT_RESOLVE, hosting);
     curl_easy_setopt(ch, CURLOPT_MAXCONNECTS, MAXCONN);
@@ -638,25 +658,17 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
     //curl_setopt ($curl, CURLOPT_FOLLOWLOCATION, 1);
 
     //CURL_LOCK_DATA_SHARE
-    //    curl_share_setopt(curlsh, CURLSHOPT_SHARE, CURL_LOCK_DATA_COOKIE);
+    //curl_share_setopt(curlsh, CURLSHOPT_SHARE, CURL_LOCK_DATA_COOKIE);
     curl_share_setopt(curlsh, CURLSHOPT_SHARE, CURL_LOCK_DATA_DNS); 
     curl_easy_setopt(ch, CURLOPT_SHARE, curlsh);
-
-/* PROXY AUTH REMOVED; just uncomment to enable !! */
-/* option proxy username and password */
-//    if ((proxy_user != NULL) && (proxy_pass != NULL)) {
-//        curl_easy_setopt(ch, CURLOPT_PROXYUSERNAME, proxy_user);
-//        curl_easy_setopt(ch, CURLOPT_PROXYPASSWORD, proxy_pass);
-//    }
-
 
     /* Problem in performing http request */
     ret = curl_easy_perform(ch);    
 
     if (ret < 0) {
-//	curl_share_cleanup(curlsh);
         debug_msg ("Error performing HTTP request (Error %d) - spot on !!!\n");
         curl_easy_cleanup(ch);
+	//curl_share_cleanup(curlsh);
         free(script_url);
 	curl_slist_free_all(list);
 	curl_slist_free_all(hosting);
@@ -699,12 +711,11 @@ int main(int argc, char *argv[])
     pthread_attr_t attr;
     int stack_size;
     void *res;
-
     pthread_t pth;	// this is our thread identifier
     int thr = 0;
 
-   /* The "-s" option specifies a stack size for our threads */
-   stack_size = -1;
+    /* The "-s" option specifies a stack size for our threads */
+    stack_size = -1;
 
     /* Command line args */
     while ((c = getopt (argc, argv, "s:p:l:r:h:t:w:u:k:v::")) != -1)
@@ -877,33 +888,47 @@ int main(int argc, char *argv[])
 	    int ret;
 	    int test = 42;
 	    char* str = "maxnumberone";
+	    char* xproxy_user = NULL;
+	    char* xproxy_pass = NULL;
+	    char* xproxy_host = proxy_host;
+	    int xproxy_port = proxy_port;
+	    char* xlookup_script = lookup_script;
+	    char* xtypeq = typeq;
+	    int xwport = wport;
+	    char* xhostname = dns_req->hostname;
+
 	    struct readThreadParams *readParams = malloc(sizeof(*readParams));
-	    //readParams.b = buffer2;
-	    ////	  readParams->threads = NUMT-1;
-	    ////	  readParams->thread_id = t;
-	    ////	  readParams->exec = 10;
-	    ////	  readParams->max_req_client = 10;
-	    ////	  readParams->random = 0;
-	    ////	  readParams->ssl = 0;
-	    ////	  readParams->uselogin = 1;
-	    ////	  readParams->proxy_host = "";
-	    ////	  readParams->proxy_port = "";
-	    ////	  readParams->proxy_user = "";
-	    ////	  readParams->proxy_pass = "";
-	    ////	  readParams->lookup_script = "";
-	    ////	  readParams->typeq = "";
-	    ////	  readParams->wport = "";
-	    
+	    //    readParams.b = buffer2;
+	    //	  readParams->threads = NUMT-1;
+	    //	  readParams->thread_id = t;
+	    //	  readParams->exec = 10;
+	    //	  readParams->max_req_client = 10;
+	    //	  readParams->random = 0;
+	    //	  readParams->ssl = 0;
+	    //	  readParams->uselogin = 1;
+	    readParams->xproxy_user = proxy_user;
+	    readParams->xproxy_pass = proxy_pass;
+	    readParams->xproxy_host = proxy_host;
+	    readParams->xproxy_port = proxy_port;
+	    readParams->xlookup_script = lookup_script;
+	    readParams->xtypeq = typeq;
+	    readParams->xwport = wport;
+	    readParams->xhostname = xhostname;
 	    ////      ip = lookup_host(dns_req->hostname, proxy_host, proxy_port, proxy_user, proxy_pass, lookup_script, typeq, wport);
 	    readParams->input = str;
 	    readParams->digit = test;
+
 	    ret = pthread_create(&pth,NULL,threadFunc,readParams);
 	    //ret = pthread_create(&pth,NULL,threadFunc,&readParams);
 	    //errore = pthread_create(&tid[i], NULL, (void*)&ip, (void *) &data_array[i]);
 //    while(thr < 5) { usleep(1); printf("main is running...\n"); ++thr; }
 	    usleep(1);
 	    pthread_join(pth,NULL);
-//    if (!ret) { pthread_join(&readParams.b.readThread, NULL); } //    free(out_array); //    return ret;
+//	    if (!ret) {
+//	    	pthread_join(pth,NULL);
+//		pthread_join(&readParams.b.readThread, NULL); }
+	    //free(out_array);
+	    //return ret;
 	    tinfo = calloc(NUMT, sizeof(struct thread_info));
 	     if (tinfo == NULL)
 	         handle_error("calloc");
