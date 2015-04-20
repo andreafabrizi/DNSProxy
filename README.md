@@ -23,7 +23,7 @@ then
 ## Usage 
 
 ```bash
-dnsp -l 127.0.0.1 -h 10.0.0.2 -r 8080 -s http://www.andreafabrizi.it/nslookup.php
+dnsp -p 53 -l 127.0.0.1 -h 127.0.0.1 -r 8118 -w 80 -s https://www.fantuz.net/nslookup.php
 ```
 In this example, DNS proxy listens on local UDP port 53 and sends the HTTPed
 requests to PHP external script through the 10.0.0.2:8080 proxyi (TORed ?).
