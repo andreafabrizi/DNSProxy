@@ -57,7 +57,7 @@
 #define DEFAULT_LOCAL_PORT  53
 #define DEFAULT_WEB_PORT    80
 //#define TYPEQ		    2
-#define NUMT	            4
+#define NUMT	            1
 //define NUM_THREADS	    2
 //#define DEBUG		    0
 
@@ -68,7 +68,6 @@ pthread_key_t glob_var_key;
 
 struct readThreadParams {
 //    struct BoundedBuffer b;
-    struct sockaddr_in *xclient;
     char* xhostname;
     char* input;
     char* xproxy_user;
@@ -81,6 +80,7 @@ struct readThreadParams {
     int xwport;
     int xsockfd;
     int xrequestlen;
+    struct sockaddr_in xclient;
 };
 
 struct thread_info {    	/* Used as argument to thread_start() */
@@ -138,7 +138,7 @@ struct dns_request
              flags,
              qtype,
              qclass;
-    	     char hostname[256],
+    char hostname[256],
              query[256];
     size_t hostname_len;
 };  
@@ -668,16 +668,10 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
 /* This is our thread function.  It is like main(), but for a thread*/
 void *threadFunc(void *arg)
 {
-	struct readThreadParams *params = arg;
 	//    BoundedBuffer *buffer = params->b;
-	//struct sockaddr_in *addr_in = (struct sockaddr_in *)params->xclient;
-        //struct sockaddr_in *xclient = params->xclient;
-        struct sockaddr_in *xclient = malloc(sizeof(params->xclient));
-	//struct sockaddr_in *addr_in = xclient;
+	struct readThreadParams *params = arg;
 	struct dns_request *dns_req;
 	char *str;
-	char *ip = malloc(sizeof(char));
-	//char *ip = NULL;
 
 	int test = params->digit;
 	int proxy_port = params->xproxy_port;
@@ -692,36 +686,60 @@ void *threadFunc(void *arg)
 	int sockfd = params->xsockfd;
 	int request_len = params->xrequestlen;
 	int ret;
+	char *ip = malloc(sizeof(char));
+	//char *ip = NULL;
+        //struct sockaddr_in xclient = params->xclient;
+        struct sockaddr_in *xclient = malloc(sizeof(params->xclient));
+	//struct sockaddr_in *addr_in = (struct sockaddr_in *)params->xclient;
+	struct sockaddr_in *addr_in = xclient;
 
 	str=(char*)arg;
 
-	char *s = inet_ntoa(xclient->sin_addr);
-	printf("IP address: %s - hostname %s\n", s,hostname);
+	//char *s = inet_ntoa(xclient->sin_addr);
+	//char *p = &serv_addr.sin_addr.s_addr;
 
         ip = lookup_host(hostname, proxy_host, proxy_port, proxy_user, proxy_pass, lookup_script, typeq, wport);
 	pthread_setspecific(glob_var_key, ip);
 	pthread_getspecific(glob_var_key);
-	printf("VARIABLE: %s\n",ip);
+	printf("VARIABLE-IN: %s\n", ip);
+	//pthread_setspecific(glob_var_key, xclient);
+	//pthread_getspecific(glob_var_key);
+	//printf("VARIABLE: %s", xclient);
+	    //char *p = inet_ntoa(&addr_in.sin_addr.s_addr);
+	    //char *p = inet_ntoa(addr_in.sin_addr.s_addr);
+	    //printf("Source IP address: %s\n", p);
+	    //printf("Source IP address: %s, %s\n", p, inet_ntoa(*(struct in_addr*)&ip_header->saddr));
+	    //printf("build: %s", inet_ntop(AF_INET, &ip_header->saddr, ipbuf, sizeof(ipbuf)));
+	    //const struct ip_hdr *ip_header;
+	    //printf("Dest: %s )\n", inet_ntoa(*(struct in_addr *)&ip_header->ip_dest_addr));
+
+	in_addr_t x;
+	char *z; /* well set this equal to the IP string address returned by inet_ntoa */
+	char *y = (char *)&x; /* so that we can address the individual bytes */
+	z = inet_ntoa(*(struct in_addr *)&x); /* cast x as a struct in_addr */
+	printf("inside = %s\n", z);
+
         //if (ip != NULL && ip != "0.0.0.0") 
         if (ip != NULL) {
-	    //pthread_join(pth,NULL);
 	    printf("NOTE: ret [%d] - answer %s - type %d - type %s - size %d \r\n", ret, ip, dns_req->qtype, typeq, request_len);
-	    printf("NOTE: sockfd %d - hostname %s - ip %s \r\n", sockfd, hostname,s);
+	    printf("NOTE: sockfd %d - hostname %s \r\n", sockfd, hostname);
             build_dns_reponse(sockfd, xclient, dns_req, ip, DNS_MODE_ANSWER);
+	    printf("Generic resolution problem\n");
             //free(ip);
         } else if (strstr(dns_req->hostname, "hamachi.cc") != NULL ) {
             printf("BALCKLIST: pid [%d] - name %s - host %s - size %d \r\n", getpid(), dns_req->hostname, ip, request_len);
-	    printf("BLACKLIST: sockfd %d - hostname %s - ip %s \r\n", sockfd, hostname,s);
+	    printf("BLACKLIST: sockfd %d - hostname %s \r\n", sockfd, hostname);
             build_dns_reponse(sockfd, xclient, dns_req, ip, DNS_MODE_ANSWER);
             //free(ip);
         } else {
-	    //pthread_join(pth,NULL);
        	    printf("ERROR: pid [%d] - name %s - host %s - size %d \r\n", getpid(), dns_req->hostname, ip, request_len);
-	    printf("ERROR: sockfd %d - hostname %s - ip %s \r\n", sockfd, hostname,s);
+	    printf("ERROR: sockfd %d - hostname %s \r\n", sockfd, hostname);
             build_dns_reponse(sockfd, xclient, dns_req, ip, DNS_MODE_ERROR);
             //free(ip);
 	}
 	//pthread_exit(ip);
+
+	pthread_setspecific(glob_var_key, NULL);
 }
 
 /* *   main */
@@ -740,7 +758,6 @@ int main(int argc, char *argv[])
     pthread_attr_t attr;
     int stack_size;
     void *res;
-    pthread_t pth;			// this is our thread identifier
     int thr = 0;
 
     /* The "-s" option specifies a stack size for our threads */
@@ -842,8 +859,11 @@ int main(int argc, char *argv[])
     /* socket() */
     sockfd = socket(AF_INET, SOCK_DGRAM, 0);
 
+    int socketid = 0;
     if (sockfd < 0) 
         error("Error opening socket");
+    if ((socketid = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) < 0) err(1, "socket(2) failed");
+
 
     bzero((char *) &serv_addr, sizeof(serv_addr));
     local_address = gethostbyname(bind_address);
@@ -864,12 +884,13 @@ int main(int argc, char *argv[])
 	    unsigned int request_len, client_len;
 	    struct dns_request *dns_req;
 	    struct sockaddr_in client;
-	    int NUM_THREADS = 4;
+	    int NUM_THREADS = 1;
 	    int errore;
 	    int s, tnum, opt;
 	    struct thread_info *tinfo;
 	    int stack_size;
 	    int rc, t, status;
+	    pthread_t pth;			// this is our thread identifier
 
 	    /* Initialize and set thread detached attribute */
 	    pthread_t thread[NUM_THREADS];
@@ -882,13 +903,13 @@ int main(int argc, char *argv[])
 	
 	    client_len = sizeof(client);
 	    request_len = recvfrom(sockfd,request,UDP_DATAGRAM_SIZE,0,(struct sockaddr *)&client,&client_len);
-	
-            //dns_req = parse_dns_request(request, request_len);
 	    int nnn;
 	    int i = 0;
-	
+
+
         /* Child */
 	if (fork() == 0) {
+
             dns_req = parse_dns_request(request, request_len);
 
             if (dns_req == NULL) {
@@ -896,6 +917,7 @@ int main(int argc, char *argv[])
             	printf("FORK: tid: %x - name %s - size %d \r\n", dns_req->transaction_id, dns_req->hostname, request_len);
                 exit(EXIT_FAILURE);
             }
+            	printf("FORK: tid: %x - name %s - size %d \r\n", dns_req->transaction_id, dns_req->hostname, request_len);
 
 	    if (dns_req->qtype == 0x02) {
 		typeq = "NS";
@@ -909,7 +931,11 @@ int main(int argc, char *argv[])
 		typeq = "MX";
 	    } //else { dns_req->qtype == 0xff;} 
 	    // MAKE BETTER FILTER
-	
+
+	    // CORE DNS LOOKUP IS MADE ONCE (via HTTP and nslookup.php) THEN CACHED INTO THE NETWORK (polipo, memcache ...)
+	    // IMPLEMENTS DOMAIN BLACKLISTING, AUTHENTICATION, SSL. PENDING MULTITHREADING.
+    	    int buffsize = 512;
+    	    setsockopt(sockfd, SOL_SOCKET, SO_RCVBUF, &buffsize, sizeof(buffsize));
 	    int ret;
 	    int test = 42;
 	    char* str = "maxnumberone";
@@ -942,63 +968,68 @@ int main(int argc, char *argv[])
 	    readParams->xwport = wport;
 	    readParams->xhostname = xhostname;
 	    readParams->xsockfd = sockfd;
-	    readParams->xclient = xclient;
+	    readParams->xclient = client;
 	    readParams->input = str;
 	    readParams->digit = test;
 	    readParams->xrequestlen = request_len;
 
-    	    //int buffsize = 2048;
-    	    //setsockopt(sockfd, SOL_SOCKET, SO_RCVBUF, &buffsize, sizeof(buffsize));
-	    // CORE DNS LOOKUP IS MADE ONCE (via HTTP and nslookup.php) THEN CACHED INTO THE NETWORK (polipo, memcache ...)
-	    // IMPLEMENTS DOMAIN BLACKLISTING, AUTHENTICATION, SSL. PENDING MULTITHREADING.
-
-//    while(thr < 5) { usleep(1); printf("main is running...\n"); ++thr; }
 	    //free(out_array);
-	    //return ret;
 	    tinfo = calloc(NUMT, sizeof(struct thread_info));
 	     if (tinfo == NULL)
 	         handle_error("calloc");
 	
 	    //errore = pthread_create(&tid[i], NULL, threadFunc, &data_array[i]);
-	    //if(0 != errore) //fprintf(stderr, "Couldn't run thread number %d, errno %d\n", i, errore);
-	    //else 
 	    //fprintf(stderr, "Thread %d, gets %s\n", i, dns_request);
+	    //ip = lookup_host(dns_req->hostname, proxy_host, proxy_port, proxy_user, proxy_pass, lookup_script, typeq, wport);
 
-////        ip = lookup_host(dns_req->hostname, proxy_host, proxy_port, proxy_user, proxy_pass, lookup_script, typeq, wport);
+	    //$1 = {sin_family = 2, sin_port = 50345, sin_addr = {s_addr = 16777343}, sin_zero = "\000\000\000\000\000\000\000"}
 
 	    ret = pthread_create(&pth,NULL,threadFunc,readParams);
-	    //printf("VARIABLE: %s",glob_var_key);
+	    pthread_getspecific(glob_var_key);
+	    printf("VARIABLE-OUT: %s\n",ip);
+//////	    //usleep(1);
+//////	    //errore = pthread_join(tid[nnn], NULL);
+
+	    printf("CHECK: pid [%d] - ip %s - hostname %s - size %d \r\n", ret, ip, dns_req->hostname, request_len);
+	    for(i=0; i< NUMT; i++) {
+	    	if(0 != ret) {
+			fprintf(stderr, "Couldn't run thread number %d, errno %d\n", i, ret);
+            		//pthread_join(pth,NULL);
+	    	}
+	    }
+	    usleep(1000);
+
+	    in_addr_t xx;
+	    char *ff;			/* well set this equal to the IP string address returned by inet_ntoa */
+	    char *yy = (char *)&xx;			/* so that we can address the individual bytes */
+	    ff = inet_ntoa(*(struct in_addr *)&xx);	/* cast x as a struct in_addr */
+	    printf("outside = %s\n", ff);
+
 	    pthread_exit(ip);
 	    pthread_setspecific(glob_var_key, NULL);
-	    //ret = pthread_create(&pth,NULL,threadFunc,&readParams);
-//////	    //usleep(1);
-//////	    // else { pthread_exit(ip); }
-//////	    /* now wait for all threads to terminate */ 
-//////	    for(nnn=0; nnn< NUMT; nnn++) {
-//////	        //errore = pthread_join(tid[nnn], NULL);
-//////	        fprintf(stderr, "Thread %d terminated\n", nnn);
-//////            	printf("CHECK: pid [%d] - ip %s - hostname %s - size %d \r\n", ret, ip, dns_req->hostname, request_len);
-//////	    	pthread_exit(ip);
-	    for(i=0; i< NUMT; i++) {
-		printf("CHECK: pid [%d] - ip %s - hostname %s - size %d \r\n", ret, ip, dns_req->hostname, request_len);
-            	pthread_join(pth,NULL);
-	    }
-//////	    }
-//////            free(dns_req);
-//////            free(ip);
-//////            exit(EXIT_SUCCESS);
-//////	    if (!ret) {
-//////	    	pthread_join(pth,NULL);
-//////         	free(ip);
-//////		//pthread_join(&readParams.b.readThread, NULL);
-//////	    }
+
+            free(dns_req);
+            free(ip);
+            //exit(EXIT_SUCCESS);
+	    return ret;
+//	    if (!ret) {
+//	    	pthread_join(pth,NULL);
+//         	free(ip);
+//		//pthread_join(&readParams.b.readThread, NULL);
+//	    }
 	} else {
-            fprintf(stderr, "Couldn't run child process - error in forking\n");
+            //fprintf(stderr, "Couldn't run child process - error in forking\n");
 	    for(nnn=0; nnn< NUMT; nnn++) {
-	    	pthread_join(pth,NULL);
 		//errore = pthread_join(tid[nnn], NULL);
 		fprintf(stderr, "Thread %d terminated\n", nnn);
 	    }
+	    //pthread_exit(NULL);
+            //exit(EXIT_FAILURE);
+	    if(pthread_join(pth, NULL)) {
+		fprintf(stderr, "Error joining thread\n");
+		//return 2;
+	    }
+	    //pthread_join(pth,NULL);
 	}
     }
 }
