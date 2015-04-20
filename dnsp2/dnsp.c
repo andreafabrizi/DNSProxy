@@ -64,7 +64,8 @@
 #define handle_error(msg) \
         do { perror(msg); exit(EXIT_FAILURE); } while (0)
 
-pthread_key_t glob_var_key;
+pthread_key_t glob_var_key_ip;
+pthread_key_t glob_var_key_client;
 
 struct readThreadParams {
 //    struct BoundedBuffer b;
@@ -686,12 +687,13 @@ void *threadFunc(void *arg)
 	int sockfd = params->xsockfd;
 	int request_len = params->xrequestlen;
 	int ret;
-	char *ip = malloc(sizeof(char));
-	//char *ip = NULL;
+	//char *ip = malloc(sizeof(char));
+	char *ip = NULL;
         //struct sockaddr_in xclient = params->xclient;
         struct sockaddr_in *xclient = malloc(sizeof(params->xclient));
 	//struct sockaddr_in *addr_in = (struct sockaddr_in *)params->xclient;
 	struct sockaddr_in *addr_in = xclient;
+	//struct in_addr_t *raddr_in = xclient;
 
 	str=(char*)arg;
 
@@ -699,26 +701,46 @@ void *threadFunc(void *arg)
 	//char *p = &serv_addr.sin_addr.s_addr;
 
         ip = lookup_host(hostname, proxy_host, proxy_port, proxy_user, proxy_pass, lookup_script, typeq, wport);
-	pthread_setspecific(glob_var_key, ip);
-	pthread_getspecific(glob_var_key);
+	pthread_setspecific(glob_var_key_ip, ip);
+	pthread_setspecific(glob_var_key_client, xclient);
+	pthread_getspecific(glob_var_key_ip);
+	pthread_getspecific(glob_var_key_client);
 	printf("VARIABLE-IN: %s\n", ip);
-	//pthread_setspecific(glob_var_key, xclient);
-	//pthread_getspecific(glob_var_key);
-	//printf("VARIABLE: %s", xclient);
-	    //char *p = inet_ntoa(&addr_in.sin_addr.s_addr);
-	    //char *p = inet_ntoa(addr_in.sin_addr.s_addr);
-	    //printf("Source IP address: %s\n", p);
-	    //printf("Source IP address: %s, %s\n", p, inet_ntoa(*(struct in_addr*)&ip_header->saddr));
-	    //printf("build: %s", inet_ntop(AF_INET, &ip_header->saddr, ipbuf, sizeof(ipbuf)));
-	    //const struct ip_hdr *ip_header;
-	    //printf("Dest: %s )\n", inet_ntoa(*(struct in_addr *)&ip_header->ip_dest_addr));
+	printf("VARIABLE-IN: %x\n", glob_var_key_client);
+	//char *p = inet_ntoa(addr_in.sin_addr.s_addr);
+	//printf("Source IP address: %s\n", p);
+	//printf("build: %s", inet_ntop(AF_INET, &ip_header->saddr, ipbuf, sizeof(ipbuf)));
+	//printf("Dest: %s )\n", inet_ntoa(*(struct in_addr *)&ip_header->ip_dest_addr));
 
 	in_addr_t x;
 	char *z; /* well set this equal to the IP string address returned by inet_ntoa */
 	char *y = (char *)&x; /* so that we can address the individual bytes */
 	z = inet_ntoa(*(struct in_addr *)&x); /* cast x as a struct in_addr */
-	printf("inside = %s\n", z);
-
+	printf("inside = %s, %x, %d\n", z, x, x);
+/*
+	char *h;
+	struct addrinfo * _addrinfo;
+	struct addrinfo * _res;
+	char _address[INET6_ADDRSTRLEN];
+	int errcode;
+	errcode = getaddrinfo("127.0.0.1", NULL, NULL, &_addrinfo);
+	if(errcode != 0) {
+	  printf("getaddrinfo: %s\n", gai_strerror(errcode));
+	  //return EXIT_FAILURE;
+	  //exit EXIT_FAILURE;
+	  return 0;
+	}
+	for(_res = _addrinfo; _res != NULL; _res = _res->ai_next) {
+		if(_res->ai_family == AF_INET) {
+			if( NULL == inet_ntop( AF_INET, &((struct sockaddr_in *)_res->ai_addr)->sin_addr, _address, sizeof(_address) )) {
+			    //perror("inet_ntop");
+			    //return EXIT_FAILURE;
+			    exit(EXIT_FAILURE);
+			}
+	        printf("%s\n", _address);
+		}
+	}
+*/
         //if (ip != NULL && ip != "0.0.0.0") 
         if (ip != NULL) {
 	    printf("NOTE: ret [%d] - answer %s - type %d - type %s - size %d \r\n", ret, ip, dns_req->qtype, typeq, request_len);
@@ -738,8 +760,7 @@ void *threadFunc(void *arg)
             //free(ip);
 	}
 	//pthread_exit(ip);
-
-	pthread_setspecific(glob_var_key, NULL);
+	pthread_setspecific(glob_var_key_ip, NULL);
 }
 
 /* *   main */
@@ -890,11 +911,12 @@ int main(int argc, char *argv[])
 	    struct thread_info *tinfo;
 	    int stack_size;
 	    int rc, t, status;
-	    pthread_t pth;			// this is our thread identifier
+	    pthread_t *pth = malloc( NUMT * sizeof(pthread_t) );			// this is our thread identifier
 
 	    /* Initialize and set thread detached attribute */
 	    pthread_t thread[NUM_THREADS];
-	    pthread_t tid[NUMT];
+	    //pthread_t tid[NUMT];
+	    pthread_t *tid = malloc( NUMT * sizeof(pthread_t) );
 	    //pthread_t thread[NUMT];
 	    // struct thread_data data_array[NUM_THREADS];
 	    //pthread_attr_t attr;
@@ -905,7 +927,12 @@ int main(int argc, char *argv[])
 	    request_len = recvfrom(sockfd,request,UDP_DATAGRAM_SIZE,0,(struct sockaddr *)&client,&client_len);
 	    int nnn;
 	    int i = 0;
-
+////
+////	    in_addr_t qq;
+////	    char *gg;			/* well set this equal to the IP string address returned by inet_ntoa */
+////	    char *yyy = (char *)&qq;			/* so that we can address the individual bytes */
+////	    gg = inet_ntoa(*(struct in_addr *)&qq);	/* cast x as a struct in_addr */
+////	    printf("middle = %s\n", gg);
 
         /* Child */
 	if (fork() == 0) {
@@ -948,7 +975,13 @@ int main(int argc, char *argv[])
 	    int xwport = wport;
 	    int xproxy_port = proxy_port;
 	    int xsockfd = sockfd;
-            struct sockaddr_in *xclient;
+            struct sockaddr_in xclient;
+
+	    in_addr_t xx;
+	    char *ff;			/* well set this equal to the IP string address returned by inet_ntoa */
+	    char *yy = (char *)&xx;			/* so that we can address the individual bytes */
+	    ff = inet_ntoa(*(struct in_addr *)&xx);	/* cast x as a struct in_addr */
+	    printf("outside = %s, %x, %d\n", ff, xx, xx);
 
 	    struct readThreadParams *readParams = malloc(sizeof(*readParams));
 	    //    readParams.b = buffer2;
@@ -983,9 +1016,36 @@ int main(int argc, char *argv[])
 	    //ip = lookup_host(dns_req->hostname, proxy_host, proxy_port, proxy_user, proxy_pass, lookup_script, typeq, wport);
 
 	    //$1 = {sin_family = 2, sin_port = 50345, sin_addr = {s_addr = 16777343}, sin_zero = "\000\000\000\000\000\000\000"}
+	    // 192.168.2.84	3232236116	C0A80254	11000000 10101000 00000010 01010100
 
-	    ret = pthread_create(&pth,NULL,threadFunc,readParams);
-	    pthread_getspecific(glob_var_key);
+	    ret = pthread_create(&pth[i],NULL,threadFunc,readParams);
+/*
+	char *h;
+	struct addrinfo * _addrinfo;
+	struct addrinfo * _res;
+	char _address[INET6_ADDRSTRLEN];
+	int errcode;
+	errcode = getaddrinfo("127.0.0.1", NULL, NULL, &_addrinfo);
+	if(errcode != 0) {
+	  printf("getaddrinfo: %s\n", gai_strerror(errcode));
+	  //return EXIT_FAILURE;
+	  //exit EXIT_FAILURE;
+	  return 0;
+	}
+	for(_res = _addrinfo; _res != NULL; _res = _res->ai_next) {
+		if(_res->ai_family == AF_INET) {
+			if( NULL == inet_ntop( AF_INET, &((struct sockaddr_in *)_res->ai_addr)->sin_addr, _address, sizeof(_address) )) {
+			    //perror("inet_ntop");
+			    //return EXIT_FAILURE;
+			    exit(EXIT_FAILURE);
+			}
+	        printf("%s\n", _address);
+		}
+	}
+*/
+
+	    usleep(3000);
+	    pthread_getspecific(glob_var_key_ip);
 	    printf("VARIABLE-OUT: %s\n",ip);
 //////	    //usleep(1);
 //////	    //errore = pthread_join(tid[nnn], NULL);
@@ -997,38 +1057,24 @@ int main(int argc, char *argv[])
             		//pthread_join(pth,NULL);
 	    	}
 	    }
-	    usleep(1000);
+	    //pthread_exit(ip);
+	    pthread_setspecific(glob_var_key_ip, NULL);
 
-	    in_addr_t xx;
-	    char *ff;			/* well set this equal to the IP string address returned by inet_ntoa */
-	    char *yy = (char *)&xx;			/* so that we can address the individual bytes */
-	    ff = inet_ntoa(*(struct in_addr *)&xx);	/* cast x as a struct in_addr */
-	    printf("outside = %s\n", ff);
-
-	    pthread_exit(ip);
-	    pthread_setspecific(glob_var_key, NULL);
-
-            free(dns_req);
-            free(ip);
-            //exit(EXIT_SUCCESS);
+//            free(dns_req);
+//            free(ip);
 	    return ret;
-//	    if (!ret) {
-//	    	pthread_join(pth,NULL);
-//         	free(ip);
-//		//pthread_join(&readParams.b.readThread, NULL);
-//	    }
+            //exit(EXIT_SUCCESS);
 	} else {
             //fprintf(stderr, "Couldn't run child process - error in forking\n");
 	    for(nnn=0; nnn< NUMT; nnn++) {
 		//errore = pthread_join(tid[nnn], NULL);
 		fprintf(stderr, "Thread %d terminated\n", nnn);
 	    }
-	    //pthread_exit(NULL);
+//	    pthread_exit(NULL);
             //exit(EXIT_FAILURE);
-	    if(pthread_join(pth, NULL)) {
-		fprintf(stderr, "Error joining thread\n");
-		//return 2;
-	    }
+////	    if(pthread_join(pth, NULL)) {
+////		fprintf(stderr, "Error joining thread\n");
+////	    }
 	    //pthread_join(pth,NULL);
 	}
     }
