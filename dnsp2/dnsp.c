@@ -56,9 +56,8 @@
 #define DNS_MODE_ERROR      2
 #define DEFAULT_LOCAL_PORT  53
 #define DEFAULT_WEB_PORT    80
-//#define TYPEQ		    2
 #define NUMT	            1
-//define NUM_THREADS	    2
+//#define TYPEQ		    2
 //#define DEBUG		    0
 
 #define handle_error(msg) \
@@ -90,7 +89,6 @@ struct readThreadParams {
     int xrequestlen;
     struct sockaddr_in *xclient;
 //MOD-2015    struct sockaddr_in xclient;
-    in_addr_t *raddr_in; //= xclient;
 };
 
 struct thread_info {    	/* Used as argument to thread_start() */
@@ -562,6 +560,7 @@ void build_dns_reponse(int sd, struct sockaddr_in *client, struct dns_request *d
     /* DNS VOLUME CALCULATION */
     //debug_msg("Dns response sent to client (DEC %d bytes)\n", bytes_sent);
     free(response_ptr);
+    //return 0;
 }
 
 /* * libCurl write data callback */
@@ -685,11 +684,8 @@ void *threadFunc(void *arg)
 	struct dns_request *dns_req;
         //struct sockaddr_in *xclient = malloc(sizeof(struct sockaddr_in));
 	struct sockaddr_in *xclient = (struct sockaddr_in *)params->xclient;
-	//struct sockaddr_in *addr_in = (struct sockaddr_in *)params->xclient;
-	//struct sockaddr_in *addr_in = xclient;
-	in_addr_t *raddr_in; //= xclient;
 	char *str;
-	int test = params->digit;
+	//int test = params->digit;
 	int proxy_port = params->xproxy_port;
 	int wport = params->xwport;
 	char* data = params->input;
@@ -710,27 +706,28 @@ void *threadFunc(void *arg)
 	str=(char*)arg;
 
 	char *s = inet_ntoa(xclient->sin_addr);
-	//char *p = &xclient->sin_addr;
 	//char *p = &xclient->sin_addr.s_addr;
-	//char *p = &serv_addr->sin_addr.s_addr;
-	printf("VARIABLE-IN: %s\n", s);
+	printf("VARIABLE-FROM: %s\n", s);
 
         rip = lookup_host(hostname, proxy_host, proxy_port, proxy_user, proxy_pass, lookup_script, typeq, wport);
 
 	pthread_setspecific(glob_var_key_ip, rip);
-	printf("VARIABLE-IN: %s\n", rip);
+	printf("VARIABLE-HTTP: %s\n", rip);
 	pthread_getspecific(glob_var_key_ip);
-	printf("VARIABLE-IN: %x\n", glob_var_key_ip);
+	printf("VARIABLE-HTTP: %x\n", glob_var_key_ip);
 	//char *p = inet_ntoa(addr_in.sin_addr.s_addr);
 	//printf("build: %s", inet_ntop(AF_INET, &ip_header->saddr, ipbuf, sizeof(ipbuf)));
 	//printf("Dest: %s )\n", inet_ntoa(*(struct in_addr *)&ip_header->ip_dest_addr));
 
-        //struct sockaddr_in x = malloc(sizeof(x));
-	in_addr_t x;
-	char *z; /* well set this equal to the IP string address returned by inet_ntoa */
-	char *y = (char *)&x; /* so that we can address the individual bytes */
-	z = inet_ntoa(*(struct in_addr *)&x); /* cast x as a struct in_addr */
-	printf("inside = %s, %x, %d\n", z, x, x);
+/*
+////    //struct sockaddr_in x = malloc(sizeof(x));
+////	in_addr_t x;
+////	char *z; // well set this equal to the IP string address returned by inet_ntoa //
+////	char *y = (char *)&x; // so that we can address the individual bytes //
+////	z = inet_ntoa(*(struct in_addr *)&x); // cast x as a struct in_addr //
+////	printf("inside = %s, %x, %d\n", z, x, x);
+*/
+
 /*
 	char *h;
 	struct addrinfo * _addrinfo;
@@ -773,7 +770,7 @@ void *threadFunc(void *arg)
             build_dns_reponse(sockfd, xclient, dns_req, rip, DNS_MODE_ERROR);
             //free(ip);
 	}
-	//pthread_exit(ip);
+	pthread_exit(0);
 	//pthread_setspecific(glob_var_key_ip, NULL);
 }
 
@@ -920,9 +917,7 @@ int main(int argc, char *argv[])
 	    unsigned int request_len, client_len;
 	    struct dns_request *dns_req;
 	    struct sockaddr_in client;
-	    in_addr_t *raddr_in; //= xclient;
 	    int NUM_THREADS = 1;
-	    int errore;
 	    int s, tnum, opt;
 	    struct thread_info *tinfo;
 	    int stack_size;
@@ -932,8 +927,6 @@ int main(int argc, char *argv[])
 	    pthread_t *pth = malloc( NUMT * sizeof(pthread_t) );			// this is our thread identifier
 	    pthread_t *tid = malloc( NUMT * sizeof(pthread_t) );
 	    pthread_t thread[NUM_THREADS];
-	    //pthread_t tid[NUMT];
-	    //pthread_t thread[NUMT];
 
 	    // struct thread_data data_array[NUM_THREADS];
 	    //pthread_attr_t attr;
@@ -950,17 +943,11 @@ int main(int argc, char *argv[])
         /* Child */
 	if (fork() == 0) {
 
-	    in_addr_t qq;
-	    char *gg;			/* well set this equal to the IP string address returned by inet_ntoa */
-	    char *yyy = (char *)&qq;			/* so that we can address the individual bytes */
-	    gg = inet_ntoa(*(struct in_addr *)&qq);	/* cast x as a struct in_addr */
-
-	    char *hh;			/* well set this equal to the IP string address returned by inet_ntoa */
-	    char *kkk = (char *)&raddr_in;			/* so that we can address the individual bytes */
-	    hh = inet_ntoa(*(struct in_addr *)&raddr_in);	/* cast x as a struct in_addr */
-
-	    printf("middle = %s\n", gg);
-	    printf("middle = %s\n", hh);
+////	    in_addr_t qq;
+////	    char *hh;			/* well set this equal to the IP string address returned by inet_ntoa */
+////	    char *kkk = (char *)&raddr_in;			/* so that we can address the individual bytes */
+////	    hh = inet_ntoa(*(struct in_addr *)&raddr_in);	/* cast x as a struct in_addr */
+////	    printf("middle = %s\n", hh);
 
             if (dns_req == NULL) {
         	//printf("BL: pid [%d] - name %s - host %s - size %d \r\n", getpid(), dns_req->hostname, ip, request_len);
@@ -994,7 +981,7 @@ int main(int argc, char *argv[])
 	    char* xproxy_host = proxy_host;
 	    char* xlookup_script = lookup_script;
 	    char* xtypeq = typeq;
-	    char* xhostname = dns_req->hostname;
+            char* xhostname = dns_req->hostname;
 	    int xwport = wport;
 	    int xproxy_port = proxy_port;
 	    int xsockfd = sockfd;
@@ -1025,9 +1012,7 @@ int main(int argc, char *argv[])
 	    readParams->xwport = wport;
 	    readParams->xhostname = xhostname;
 	    readParams->xsockfd = sockfd;
-	    //readParams->xclient = (struct sockaddr_in *)&client;
 	    readParams->xclient = (struct sockaddr_in *)&client;
-	    //readParams->xclient = &client;
 	    readParams->input = str;
 	    readParams->digit = test;
 	    readParams->xrequestlen = request_len;
@@ -1038,12 +1023,6 @@ int main(int argc, char *argv[])
 	         handle_error("calloc");
 	
 	    //errore = pthread_create(&tid[i], NULL, threadFunc, &data_array[i]);
-	    //fprintf(stderr, "Thread %d, gets %s\n", i, dns_request);
-	    //ip = lookup_host(dns_req->hostname, proxy_host, proxy_port, proxy_user, proxy_pass, lookup_script, typeq, wport);
-
-	    //$1 = {sin_family = 2, sin_port = 50345, sin_addr = {s_addr = 16777343}, sin_zero = "\000\000\000\000\000\000\000"}
-	    // 192.168.2.84	3232236116	C0A80254	11000000 10101000 00000010 01010100
-
 	    ret = pthread_create(&pth[i],NULL,threadFunc,readParams);
 /*
 	char *h;
@@ -1074,7 +1053,7 @@ int main(int argc, char *argv[])
 	    printf("VARIABLE-OUT: %s\n",ip);
 	    printf("VARIABLE-OUT: %x\n",glob_var_key_ip);
 	    printf("CHECK: pid [%d] - ip %s - hostname %s - size %d \r\n", ret, ip, dns_req->hostname, request_len);
-	    //usleep(3000000);
+	    usleep(3000000);
 	    for(r=0; r< NUMT; r++) {
 	    	if(0 != ret) {
 			fprintf(stderr, "Couldn't run thread number %d, errno %d\n", i, ret);
@@ -1084,7 +1063,7 @@ int main(int argc, char *argv[])
 	    //pthread_exit(ip);
 	    //pthread_setspecific(glob_var_key_ip, NULL);
             char *vvv = pthread_getspecific(glob_var_key_ip);
-            printf("VARIABLE-IN: %s\n", vvv);
+            printf("VARIABLE-IP: %s\n", vvv);
 //          free(dns_req);
 //          free(ip);
 	    //pthread_join(pth[i],NULL);
@@ -1092,7 +1071,6 @@ int main(int argc, char *argv[])
 	} else {
             //fprintf(stderr, "Couldn't run child process - error in forking\n");
 	    for(nnn=0; nnn< NUMT; nnn++) {
-		//errore = pthread_join(tid[nnn], NULL);
 	        if(pthread_join(pth[i], NULL)) {
 	            fprintf(stderr, "Finished joining thread %d, %d\n",i,nnn);
 	        }
