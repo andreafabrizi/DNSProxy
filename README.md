@@ -94,10 +94,12 @@ When You properly implement cache on the webserver, answers will come back in
  few milliseconds, after the firs recursive resolution.
 
 ## Changelog:
-Version 0.99 - April 2015:
-* HTTPS support (even more privacy)
-* Multithreaded
+Version 1.01 - April 2015:
+* HTTPS resolver support (even more privacy)
+* Multithreaded (while forked)
 * Better nginx/polipo setup
+* Stack size option
+* Will add TCP listener/responder soon
 
 Version 0.99 - July 2014:
 * Add HTTP port selection
