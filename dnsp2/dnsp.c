@@ -59,8 +59,8 @@
 #define DNS_MODE_ERROR      2
 #define DEFAULT_LOCAL_PORT  53
 #define DEFAULT_WEB_PORT    80
-#define NUMT	            1
-#define NUM_THREADS         1
+#define NUMT	            2
+#define NUM_THREADS         2
 //#define AF_INET		    2
 //#define TYPEQ		    2
 //#define DEBUG		    0
@@ -1153,18 +1153,16 @@ int main(int argc, char *argv[])
 		        char *vvv = pthread_getspecific(glob_var_key_ip);
 		        printf("GLOBAL-SUCC-IP: %s\n", vvv);
 		}
-		
-	    		//pthread_join(pth[i],NULL);
-		        char *vvv = pthread_getspecific(glob_var_key_ip);
-		        printf("GLOBAL-FAIL-IP: %s\n", vvv);
-	   		printf("OUTSIDE-THREAD-resolved-address: %s\n",ip);
-	   		printf("OUTSIDE-THREAD-resolved-address: %d\n",ret);
-	   		printf("OUTSIDE-THREAD-resolved-address: %d\n",glob_var_key_ip);
-	   		printf("OUTSIDE-THREAD-log: pid [%u] - hostname %s - size %d ip %s\r\n", ret, dns_req->hostname, request_len, ip);
+	    	//pthread_join(pth[i],NULL);
+		char *vvv = pthread_getspecific(glob_var_key_ip);
+		printf("GLOBAL-FAIL-IP: %s\n", vvv);
+	   	printf("OUTSIDE-THREAD-resolved-address: %s\n",ip);
+	   	printf("OUTSIDE-THREAD-resolved-address: %d\n",ret);
+	   	printf("OUTSIDE-THREAD-resolved-address: %d\n",glob_var_key_ip);
+	   	printf("OUTSIDE-THREAD-log: pid [%u] - hostname %s - size %d ip %s\r\n", ret, dns_req->hostname, request_len, ip);
 	        	fprintf(stderr, "Finished joining thread %d, %d, %d \n",r,i,nnn);
 	    }
 	    pthread_join(pth[i],NULL);
-	    usleep(300000);
 	    //pthread_setspecific(glob_var_key_ip, NULL);
             //exit(EXIT_SUCCESS);
 	} else {
@@ -1172,7 +1170,6 @@ int main(int argc, char *argv[])
 ////	        //struct sockaddr_in *xclient = (struct sockaddr_in *)params->xclient;
 ////	    	//pthread_join(tid[i],(void**)&(ptr[i])); //, (void**)&(ptr[i]));
 ////	    	//printf("\n return value from last thread is [%d]\n", *ptr[i]);
-		usleep(300000);
 	        fprintf(stderr, "Finished joining thread %d, %d \n",i,nnn);
 ////	        if(pthread_join(pth[i], NULL)) {
 ////	        fprintf(stderr, "Finished serving client %s on socket %u \n",(client->sin_addr).s_addr,sockfd);

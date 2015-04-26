@@ -10,21 +10,21 @@ header("Connection: keep-alive");
 header("Cache-control: public, max-age=1800, s-maxage=1800");
 $host = rtrim($_GET["host"],'.');
 
-//// FOR HTTP-PROXY ACCELERATED CACHING
+//// USEFUL IF YOU NEED A PREMPTIVE HTTP CACHE
 //header("Location: http://" . $host);
 $lastModified=filemtime(__FILE__);
 $etagFile = md5_file(__FILE__);
-
-//get the HTTP_IF_MODIFIED_SINCE header if set
-$ifModifiedSince=(isset($_SERVER['HTTP_IF_MODIFIED_SINCE']) ? $_SERVER['HTTP_IF_MODIFIED_SINCE'] : false);
-
-//get the HTTP_IF_NONE_MATCH header if set (etag: unique file hash)
-$etagHeader=(isset($_SERVER['HTTP_IF_NONE_MATCH']) ? trim($_SERVER['HTTP_IF_NONE_MATCH']) : false);
 
 //set last-modified header
 header("Last-Modified: ". gmdate("D, d M Y H:i:s", $lastModified) ." GMT");
 //set etag-header
 header("Etag: $etagFile");
+
+//get the HTTP_IF_MODIFIED_SINCE header when set
+$ifModifiedSince=(isset($_SERVER['HTTP_IF_MODIFIED_SINCE']) ? $_SERVER['HTTP_IF_MODIFIED_SINCE'] : false);
+
+//get the HTTP_IF_NONE_MATCH header if set (Etag: unique file hash)
+$etagHeader=(isset($_SERVER['HTTP_IF_NONE_MATCH']) ? trim($_SERVER['HTTP_IF_NONE_MATCH']) : false);
 
 //check if page has changed. If not, send 304 and exit
 if (@strtotime($_SERVER['HTTP_IF_MODIFIED_SINCE'])==$lastModified || $etagHeader==$etagFile )
