@@ -4,7 +4,7 @@ DNS=$1
 PORT=$2
 NUM=$3
 
-if [ -z $1 ] || [ -z $2 ] ; then
+if [ -z $1 ] || [ -z $2 ] || [ -z $3 ]; then
 	echo "parameters missing... ./$(basename $0) 127.0.0.1 53 1000"
 	echo "parameters missing... ./$(basename $0) server port queries"
 	exit 127

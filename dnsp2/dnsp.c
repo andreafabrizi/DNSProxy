@@ -642,7 +642,7 @@ void build_dns_reponse(int sd, struct sockaddr_in *yclient, struct dns_request *
     /* DNS VOLUME CALCULATION */
     debug_msg("Dns response sent to client (DEC %d bytes)\n", bytes_sent);
     printf("SENT %d bytes", (uint32_t)bytes_sent);
-    free(response_ptr);
+    //free(response_ptr);
     free(dns_req);
     //free(ip);
     //return 0;
@@ -878,7 +878,7 @@ void *threadFunc(void *arg)
 	    printf("Generic resolution problem \n");
 	}
 	printf("freeing up...\n");
-        free(rip);
+        //free(rip);
 	//char *s = inet_ntoa(xclient->sin_addr);
 	//pthread_exit(s);
 	//pthread_setspecific(glob_var_key_ip, NULL);
