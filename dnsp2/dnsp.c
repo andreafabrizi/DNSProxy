@@ -11,7 +11,8 @@
  *  
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. Especially, no
+ * "INTERNET PRIVACY" is guaranteed, except within lab testing. See the
  * GNU General Public License for more details.
  *  
  * You should have received a copy of the GNU General Public License
@@ -263,7 +264,6 @@ struct dns_request *parse_dns_request(const char *udp_request, size_t request_le
         }
         udp_request++;
         if (dns_req->hostname_len + len >=  sizeof(dns_req->hostname)) {
-    	    //free(response_ptr);
             free(dns_req);
 	    printf("CORE: size issue in DNS request");
             return NULL;
@@ -888,8 +888,9 @@ void *threadFunc(void *arg)
             build_dns_reponse(xsockfd, yclient, dns_req, rip, DNS_MODE_ERROR, request_len);
 	    printf("Generic resolution problem \n");
 	}
-	printf("freeing up...\n");
+	//printf("\nfreeing up...\n");
         free(rip);
+
 	//char *s = inet_ntoa(xclient->sin_addr);
 	//pthread_exit(s);
 	//pthread_setspecific(glob_var_key_ip, NULL);
@@ -908,6 +909,9 @@ int main(int argc, char *argv[])
     opterr = 0;
     DEBUG = 0;
        
+    ////sem_t mutex;
+    pthread_mutex_t mutex;
+
     int s, tnum, opt, num_threads;
     struct thread_info *tinfo;
     pthread_attr_t attr;
@@ -1037,6 +1041,15 @@ int main(int argc, char *argv[])
     if (bind(sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0) 
        error("Error opening socket (bind)");
 
+    if(pthread_mutex_init(&mutex, NULL))
+    {
+        printf("Unable to initialize a mutex\n");
+        return -1;
+    }
+//	if( sem_init(&mutex,1,1) < 0) {
+//		perror("semaphore initilization"); exit(0);
+//	}
+
     while (1) {
 
 	char request[UDP_DATAGRAM_SIZE + 1], *ip = NULL;
@@ -1060,8 +1073,15 @@ int main(int argc, char *argv[])
 	//pthread_attr_init(&attr);
 	//pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
 
+
+    //sem_wait(&mutex);  /* wrong ... DO NOT USE */
+    wait(NULL);
+
         /* Child */
 	if (fork() == 0) {
+
+	pthread_mutex_lock(&mutex);
+	//sem_wait(&mutex);
 
 	client_len = sizeof(client);
 	request_len = recvfrom(sockfd,request,UDP_DATAGRAM_SIZE,0,(struct sockaddr *)&client,&client_len);
@@ -1153,7 +1173,7 @@ int main(int argc, char *argv[])
 	    //errore = pthread_create(&tid[i], NULL, threadFunc, &data_array[i]);
 	    ret = pthread_create(&pth[i],NULL,threadFunc,readParams);
 
-	    for(r=0; r< NUMT*NUM_THREADS; r++) {
+	    for(r=0; r < NUMT*NUM_THREADS; r++) {
 	    //for(r=0; r<1; r++)
 		nnn++;
 	    	if(0 != ret) {
@@ -1172,18 +1192,26 @@ int main(int argc, char *argv[])
 	        	fprintf(stderr, "Finished joining thread %d, %d, %d \n",r,i,nnn);
 		}
 	    }
-	    pthread_join(pth[i],NULL);
 	    usleep(3000000);
+	    pthread_join(pth[i],NULL);
+	    //sem_post(&mutex);
+	    pthread_mutex_unlock(&mutex);
+
 	    //pthread_setspecific(glob_var_key_ip, NULL);
             //exit(EXIT_SUCCESS);
 	} else {
+		//sem_wait(&mutex); /* DO NOT USE !! */
 ////	    for(nnn=0; nnn< NUMT; nnn++) {
 ////	        //struct sockaddr_in *xclient = (struct sockaddr_in *)params->xclient;
 ////	    	//pthread_join(tid[i],(void**)&(ptr[i])); //, (void**)&(ptr[i]));
 ////	    	//printf("\n return value from last thread is [%d]\n", *ptr[i]);
 	        fprintf(stderr, "Finished joining thread %d, %d \n",i,nnn);
-            	pthread_join(pth[i],NULL);
-	        usleep(3000000);
+            	//pthread_join(pth[i],NULL);
+	    	usleep(3000000);
+                //pthread_mutex_destroy(&mutex);
+
+		//sem_destroy(&mutex);
+		//usleep(30000000);
 
 ////	        if(pthread_join(pth[i], NULL)) {
 ////	        fprintf(stderr, "Finished serving client %s on socket %u \n",(client->sin_addr).s_addr,sockfd);
@@ -1192,7 +1220,9 @@ int main(int argc, char *argv[])
             //free(dns_req);
             //free(ip);
             fprintf(stderr, "All threads terminating\n");
-            exit(EXIT_FAILURE);
+	    //sem_post(&mutex);  /* DO NOT USE */
+
+            //exit(EXIT_FAILURE);
 	    //pthread_join(pth[i],NULL);
 	}
     }
