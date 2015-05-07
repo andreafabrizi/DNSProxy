@@ -15,7 +15,7 @@ fi
 a=0
 for i in $(cat DNS.txt | head -$NUM); do
 	if [ $a -ne 10 ]; then
-		dig -p $PORT $I @$DNS &
+		dig -p $PORT $i @$DNS &
 		let a=a+1
 	else
 		dig -p $PORT $i @$DNS

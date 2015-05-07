@@ -20,10 +20,6 @@
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
 
-// [pid  1664] sendto(3, "\20\224\205\200\0\1\0\1\0\0\0\0\6google\2it\0\0\1\0\1\300\f\0\1\0"..., 43, 0, {sa_family=AF_INET, sin_port=htons(60144), sin_addr=inet_addr("127.0.0.1")}, 16) = 43
-// [pid  1369] sendto(3, "\0|\205\200\0\1\0\1\0\0\0\0\6google\2it\0\0\1\0\1\300\f\0\1\0"..., 43, 0, {sa_family=0x4720 /* AF_??? */, sa_data="\301k\374\177\0\0\1\0\0\0\3\0\0\0"}, 8) = -1 EINVAL (Invalid argument)
-// [pid  2857] sendto(3, "\f\320\205\200\0\1\0\1\0\0\0\0\6google\2it\0\0\1\0\1\300\f\0\1\0"..., 43, 0, {sa_family=0xc940 /* AF_??? */, sa_data="\336w\375\177\0\0\1\0\0\0\3\0\0\0"}, 8) = -1 EINVAL (Invalid argument)
-
 #include <stdio.h>
 #include <pthread.h>
 #include <sys/timeb.h>
@@ -60,7 +56,7 @@
 #define DNS_MODE_ERROR      2
 #define DEFAULT_LOCAL_PORT  53
 #define DEFAULT_WEB_PORT    80
-#define NUMT	            1
+#define NUMT	            2
 #define NUM_THREADS         1
 //#define TYPEQ		    2
 //#define DEBUG		    0
@@ -422,7 +418,7 @@ void build_dns_reponse(int sd, struct sockaddr_in *yclient, struct dns_request *
 
     /* Query */
     strncat(response, dns_req->query, dns_req->hostname_len);
-    printf("BUILD-INSIDE-dns_req->query			: %s\n",(dns_req->query));
+    //printf("BUILD-INSIDE-dns_req->query			: %s\n",(dns_req->query));
     response+=dns_req->hostname_len+1;
     
     /* Type */
@@ -585,7 +581,7 @@ void build_dns_reponse(int sd, struct sockaddr_in *yclient, struct dns_request *
         	else return;
 
 		response+=4;
-        	fprintf(stdout, "DNS_MODE_COMPLETE\n");
+        	//fprintf(stdout, "DNS_MODE_COMPLETE\n");
 		
       	} else {
         	fprintf(stdout, "DNS_MODE_ISSUE\n");
@@ -875,26 +871,28 @@ void *threadFunc(void *arg)
 	    //printf("THREAD-V-xclient->sin_addr.s_addr		: %s\n",(char *)(xclient->sin_family));
             //build_dns_reponse(sockfd, xclient, dns_req, rip, DNS_MODE_ANSWER);
             //build_dns_reponse(xsockfd, xclient, dns_req, rip, DNS_MODE_ANSWER);
-        } else if (strstr(dns_req->hostname, "hamachi.cc") != NULL ) {
-            printf("BALCKLIST: pid [%d] - name %s - host %s - size %d \r\n", getpid(), dns_req->hostname, rip, (uint32_t)request_len);
-	    printf("BLACKLIST: xsockfd %d - hostname %s \r\n", xsockfd, xdns_req->hostname);
-	    printf("BLACKLIST: xsockfd %d - hostname %s \r\n", xsockfd, yhostname);
-            //build_dns_reponse(xsockfd, xclient, dns_req, rip, DNS_MODE_ANSWER);
-            build_dns_reponse(xsockfd, yclient, dns_req, rip, DNS_MODE_ANSWER, request_len);
-        } else {
-       	    printf("ERROR: pid [%d] - name %s - host %s - size %d \r\n", getpid(), dns_req->hostname, rip, (uint32_t)request_len);
-	    printf("ERROR: xsockfd %d - hostname %s \r\n", xsockfd, yhostname);
-            //build_dns_reponse(xsockfd, xclient, dns_req, rip, DNS_MODE_ERROR);
-            build_dns_reponse(xsockfd, yclient, dns_req, rip, DNS_MODE_ERROR, request_len);
-	    printf("Generic resolution problem \n");
+//        } else if (strstr(dns_req->hostname, "hamachi.cc") != NULL ) {
+//            printf("BALCKLIST: pid [%d] - name %s - host %s - size %d \r\n", getpid(), dns_req->hostname, rip, (uint32_t)request_len);
+//	    printf("BLACKLIST: xsockfd %d - hostname %s \r\n", xsockfd, xdns_req->hostname);
+//	    printf("BLACKLIST: xsockfd %d - hostname %s \r\n", xsockfd, yhostname);
+//            //build_dns_reponse(xsockfd, xclient, dns_req, rip, DNS_MODE_ANSWER);
+//            build_dns_reponse(xsockfd, yclient, dns_req, rip, DNS_MODE_ANSWER, request_len);
+//        } else {
+//       	    printf("ERROR: pid [%d] - name %s - host %s - size %d \r\n", getpid(), dns_req->hostname, rip, (uint32_t)request_len);
+//	    printf("ERROR: xsockfd %d - hostname %s \r\n", xsockfd, yhostname);
+//            //build_dns_reponse(xsockfd, xclient, dns_req, rip, DNS_MODE_ERROR);
+//            build_dns_reponse(xsockfd, yclient, dns_req, rip, DNS_MODE_ERROR, request_len);
+//	    printf("Generic resolution problem \n");
 	}
+	//rip = NULL;
+        //free(rip);
 	//printf("\nfreeing up...\n");
-        free(rip);
 
 	//char *s = inet_ntoa(xclient->sin_addr);
 	//pthread_exit(s);
 	//pthread_setspecific(glob_var_key_ip, NULL);
-	pthread_exit(0);
+//	pthread_exit(0);
+	pthread_exit(NULL);
 }
 
 /* *   main */
@@ -1074,18 +1072,19 @@ int main(int argc, char *argv[])
 	//pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
 
 
-    //sem_wait(&mutex);  /* wrong ... DO NOT USE */
-    wait(NULL);
+    	//sem_wait(&mutex);  /* wrong ... DO NOT USE */
+	pthread_mutex_destroy(&mutex);
+    	wait(NULL);
 
         /* Child */
 	if (fork() == 0) {
 
-	pthread_mutex_lock(&mutex);
-	//sem_wait(&mutex);
+	    pthread_mutex_lock(&mutex);
+	    //sem_wait(&mutex);
 
-	client_len = sizeof(client);
-	request_len = recvfrom(sockfd,request,UDP_DATAGRAM_SIZE,0,(struct sockaddr *)&client,&client_len);
-	printf("SIZE OF REQUEST: %d",request_len);
+	    client_len = sizeof(client);
+	    request_len = recvfrom(sockfd,request,UDP_DATAGRAM_SIZE,0,(struct sockaddr *)&client,&client_len);
+	    printf("\nSIZE OF REQUEST: %d",request_len);
 
             dns_req = parse_dns_request(request, request_len);
 ////	    in_addr_t qq;
@@ -1096,10 +1095,11 @@ int main(int argc, char *argv[])
 
             if (dns_req == NULL) {
         	//printf("BL: pid [%d] - name %s - host %s - size %d \r\n", getpid(), dns_req->hostname, ip, request_len);
-            	printf("FAILURE: tid: %x - name %s - size %d \r\n", dns_req->transaction_id, dns_req->hostname, request_len);
+            	printf("\nFAILURE: tid: %x - name %s - size %d \r\n", dns_req->transaction_id, dns_req->hostname, request_len);
                 exit(EXIT_FAILURE);
             }
-            	printf("FORK: tid: %x - name %s - size %d \r\n", dns_req->transaction_id, dns_req->hostname, request_len);
+
+            printf("\nFORK: tid: %x - name %s - size %d \r\n", dns_req->transaction_id, dns_req->hostname, request_len);
 
 	    if (dns_req->qtype == 0x02) {
 		typeq = "NS";
@@ -1114,8 +1114,7 @@ int main(int argc, char *argv[])
 	    } else { //{ dns_req->qtype == 0xff;} 
 		printf("gotcha");}
 	    /* CORE DNS LOOKUP IS MADE ONCE (via HTTP and nslookup.php) THEN CACHED INTO THE NETWORK (polipo, memcache ...)
-	     IMPLEMENTS DOMAIN BLACKLISTING, AUTHENTICATION, SSL. PENDING MULTITHREADING.
-	     MAKE BETTER FILTER */
+	     IMPLEMENTS DOMAIN BLACKLISTING, AUTHENTICATION, SSL. PENDING MULTITHREADING. SOON, MAKE BETTER FILTER .. */
 
 	    int buffsize = 256;
 	    setsockopt(sockfd, SOL_SOCKET, SO_RCVBUF, &buffsize, sizeof(buffsize));
@@ -1176,55 +1175,61 @@ int main(int argc, char *argv[])
 	    for(r=0; r < NUMT*NUM_THREADS; r++) {
 	    //for(r=0; r<1; r++)
 		nnn++;
-	    	if(0 != ret) {
-			fprintf(stderr, "Couldn't run thread number %d, errno %d\n", i, ret);
-		        char *vvv = pthread_getspecific(glob_var_key_ip);
-		        printf("GLOBAL-FAIL-IP: %s\n", vvv);
-	    	} else {
-		        char *vvv = pthread_getspecific(glob_var_key_ip);
-		        printf("GLOBAL-SUCC-IP: %s\n", vvv);
-		}
+//	    	if(0 != ret) {
+//			fprintf(stderr, "Couldn't run thread number %d, errno %d\n", i, ret);
+//		        char *vvv = pthread_getspecific(glob_var_key_ip);
+//		        printf("GLOBAL-FAIL-IP: %s\n", vvv);
+//	    	} else {
+//		        char *vvv = pthread_getspecific(glob_var_key_ip);
+//		        printf("GLOBAL-SUCC-IP: %s\n", vvv);
+//		}
+
 		if (DEBUG) {
 	   		printf("OUTSIDE-THREAD-resolved-address: %s\n",ip);
 	   		printf("OUTSIDE-THREAD-resolved-address: %d\n",ret);
 	   		printf("OUTSIDE-THREAD-resolved-address: %d\n",glob_var_key_ip);
 	   		printf("OUTSIDE-THREAD-log: pid [%u] - hostname %s - size %d ip %s\r\n", ret, dns_req->hostname, request_len, ip);
-	        	fprintf(stderr, "Finished joining thread %d, %d, %d \n",r,i,nnn);
+	        	fprintf(stderr, "Finished joining thread i-> %d, nnn-> %d, r-> %d \n",i,nnn,r);
 		}
 	    }
-	    usleep(3000000);
+	    //usleep(3000000);
 	    pthread_join(pth[i],NULL);
+	    fprintf(stderr, "Finished joining thread i-> %d, nnn-> %d, r-> %d \n",i,nnn,r);
 	    //sem_post(&mutex);
 	    pthread_mutex_unlock(&mutex);
+	    pthread_mutex_destroy(&mutex);
 
 	    //pthread_setspecific(glob_var_key_ip, NULL);
-            //exit(EXIT_SUCCESS);
-	} else {
-		//sem_wait(&mutex); /* DO NOT USE !! */
-////	    for(nnn=0; nnn< NUMT; nnn++) {
-////	        //struct sockaddr_in *xclient = (struct sockaddr_in *)params->xclient;
-////	    	//pthread_join(tid[i],(void**)&(ptr[i])); //, (void**)&(ptr[i]));
-////	    	//printf("\n return value from last thread is [%d]\n", *ptr[i]);
-	        fprintf(stderr, "Finished joining thread %d, %d \n",i,nnn);
-            	//pthread_join(pth[i],NULL);
-	    	usleep(3000000);
-                //pthread_mutex_destroy(&mutex);
-
-		//sem_destroy(&mutex);
-		//usleep(30000000);
-
-////	        if(pthread_join(pth[i], NULL)) {
-////	        fprintf(stderr, "Finished serving client %s on socket %u \n",(client->sin_addr).s_addr,sockfd);
-////		}
-////	    }
-            //free(dns_req);
-            //free(ip);
-            fprintf(stderr, "All threads terminating\n");
-	    //sem_post(&mutex);  /* DO NOT USE */
-
-            //exit(EXIT_FAILURE);
-	    //pthread_join(pth[i],NULL);
-	}
+            exit(EXIT_SUCCESS);
+	} 
+//////else {
+//////	    //pthread_mutex_unlock(&mutex);
+//////	    pthread_mutex_lock(&mutex);
+//////		//sem_wait(&mutex); /* DO NOT USE !! */
+//////////	    for(nnn=0; nnn< NUMT; nnn++) {
+//////////	        //struct sockaddr_in *xclient = (struct sockaddr_in *)params->xclient;
+//////////	    	//pthread_join(tid[i],(void**)&(ptr[i])); //, (void**)&(ptr[i]));
+//////////	    	//printf("\n return value from last thread is [%d]\n", *ptr[i]);
+//////	    fprintf(stderr, "Finished joining thread i-> %d, nnn-> %d \n",i,nnn);
+//////            	//pthread_join(pth[i],NULL);
+//////////	    }
+//////	    usleep(3000000);
+//////            //pthread_mutex_destroy(&mutex);
+//////            //sem_destroy(&mutex);
+//////
+//////////	    if(pthread_join(pth[i], NULL)) {
+//////////	    	fprintf(stderr, "Finished serving client %s on socket %u \n",(client->sin_addr).s_addr,sockfd);
+//////////	    }
+//////
+//////            //free(dns_req);
+//////            //free(ip);
+//////	    pthread_mutex_unlock(&mutex);
+//////            fprintf(stderr, "All threads terminating\n");
+//////	    //sem_post(&mutex);  /* DO NOT USE */
+//////
+//////            //exit(EXIT_FAILURE);
+//////	    //pthread_join(pth[i],NULL);
+//////	}
     }
 }
 
@@ -1294,3 +1299,8 @@ int main(int argc, char *argv[])
 		}
 	}
 */
+// [pid  1664] sendto(3, "\20\224\205\200\0\1\0\1\0\0\0\0\6google\2it\0\0\1\0\1\300\f\0\1\0"..., 43, 0, {sa_family=AF_INET, sin_port=htons(60144), sin_addr=inet_addr("127.0.0.1")}, 16) = 43
+// [pid  1369] sendto(3, "\0|\205\200\0\1\0\1\0\0\0\0\6google\2it\0\0\1\0\1\300\f\0\1\0"..., 43, 0, {sa_family=0x4720 /* AF_??? */, sa_data="\301k\374\177\0\0\1\0\0\0\3\0\0\0"}, 8) = -1 EINVAL (Invalid argument)
+// [pid  2857] sendto(3, "\f\320\205\200\0\1\0\1\0\0\0\0\6google\2it\0\0\1\0\1\300\f\0\1\0"..., 43, 0, {sa_family=0xc940 /* AF_??? */, sa_data="\336w\375\177\0\0\1\0\0\0\3\0\0\0"}, 8) = -1 EINVAL (Invalid argument)
+
+
