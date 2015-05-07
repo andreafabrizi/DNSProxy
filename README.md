@@ -18,7 +18,7 @@ For debian/ubuntu users:
 
 then
 
-`make`
+`gcc dnsp.c -lcurl -g -lpthread -DTLS -o dnsp`
 
 ## Usage 
 
@@ -34,7 +34,7 @@ Instead - host yourself the nslookup.php script, and spread it on a friend's ser
 The more we are, the less DNS becomes a 'trackable' TOR leak.
 
 ```bash
- dnsp 0.99
+ dnsp 1.01
  usage: dnsp -l [local_host] -h [proxy_host] -r [proxy_port] -w [webport] \
 	-s [lookup_script] -t [stack_size]
 
@@ -60,7 +60,7 @@ To test if DNS proxy is working correctly, first run the program as following, b
 filling in Your favorite TOR proxy address:
 
 ```bash
-dnsp -l 127.0.0.1 -h x.x.x.x -r NNN -s http://www.fantuz.net/nslookup.php
+dnsp -l 127.0.0.1 -h 127.0.0.1 -r 8118 -w 443 -s http://www.fantuz.net/nslookup.php
 ```
 
 then, try to resolve an hostname using the **dig** command:
