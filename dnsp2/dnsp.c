@@ -45,8 +45,8 @@
 #   define SIGCLD SIGCHLD
 #endif
 
-#define DELAY		    500
-#define MAXCONN             4096
+#define DELAY		    100
+#define MAXCONN             8192
 #define UDP_DATAGRAM_SIZE   256
 #define DNSREWRITE          256
 #define HTTP_RESPONSE_SIZE  256
@@ -261,7 +261,7 @@ struct dns_request *parse_dns_request(const char *udp_request, size_t request_le
         udp_request++;
         if (dns_req->hostname_len + len >=  sizeof(dns_req->hostname)) {
             free(dns_req);
-	    printf("CORE: size issue in DNS request");
+	    printf("CORE: size issue in DNS request\n");
             return NULL;
         }
         strncat(dns_req->hostname, udp_request, len); /* Append the current label to dns_req->hostname */
@@ -641,8 +641,10 @@ void build_dns_reponse(int sd, struct sockaddr_in *yclient, struct dns_request *
 	close(sd);
     }
     /* DNS VOLUME CALCULATION */
-    debug_msg("Dns response sent to client (DEC %d bytes)\n", bytes_sent);
-    printf("SENT %d bytes", (uint32_t)bytes_sent);
+    //debug_msg("Dns response sent to client (DEC %d bytes)\n", bytes_sent);
+    if (DEBUG) {
+	printf("SENT %d bytes", (uint32_t)bytes_sent);
+    }
     free(response_ptr);
     free(dns_req);
     //free(ip);
@@ -691,13 +693,14 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
     /* try to see.... */
     //curl_easy_setopt(ch, CURLINFO_HEADER_OUT, "" );
     //curl_easy_setopt(ch, CURLOPT_HEADER, 1L);
-    hosting = curl_slist_append(NULL, "example.com:80:127.0.0.1");
     //list = curl_slist_append(list, "Host: fantuz.net");
     //list = curl_slist_append(list, "Shoesize: 10");
     //list = curl_slist_append(list, "Accept:");
-    curl_easy_setopt(ch, CURLOPT_HTTPHEADER, list);
 
-    curl_easy_setopt(ch, CURLOPT_DNS_CACHE_TIMEOUT, 3600);
+    //curl_easy_setopt(ch, CURLOPT_HTTPHEADER, list);
+
+    curl_easy_setopt(ch, CURLOPT_DNS_CACHE_TIMEOUT, 900);
+    curl_easy_setopt(ch, CURLOPT_DNS_USE_GLOBAL_CACHE, 1);	/* DNS CACHE  */
     curl_easy_setopt(ch, CURLOPT_NOPROGRESS, 1L);		/* No progress meter */
     curl_easy_setopt(ch, CURLOPT_WRITEFUNCTION, write_data);	/* Set write function */
     curl_easy_setopt(ch, CURLOPT_WRITEDATA, http_response);
@@ -716,8 +719,8 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
         curl_easy_setopt(ch, CURLOPT_PROXYPASSWORD, proxy_pass);
     }
 
-    curl_easy_setopt(ch, CURLOPT_DNS_USE_GLOBAL_CACHE, 1);	/* DNS CACHE  */
-    curl_easy_setopt(ch, CURLOPT_RESOLVE, hosting);
+    //hosting = curl_slist_append(NULL, "example.com:80:127.0.0.1");
+    //curl_easy_setopt(ch, CURLOPT_RESOLVE, hosting);
     curl_easy_setopt(ch, CURLOPT_MAXCONNECTS, MAXCONN);
     curl_easy_setopt(ch, CURLOPT_FRESH_CONNECT, 0);		/* HOW DOES A NEW TCP INFLUENCE WEB CACHE ?? */
     curl_easy_setopt(ch, CURLOPT_FORBID_REUSE, 0);
@@ -747,7 +750,7 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
     if ((strlen(http_response) > 256) || (strncmp(http_response, "0.0.0.0", 7) == 0)) {
 	/* insert error answers here, as NXDOMAIN, SERVFAIL etc */
         debug_msg ("MALFORMED DNS, or SERVFAIL from origin... investigate !\n");
-	printf("CORE: malformed DNS response");
+	printf("CORE: malformed DNS response\n");
         curl_easy_cleanup(ch);
         free(script_url);
 	curl_slist_free_all(list);
@@ -839,7 +842,6 @@ void *threadFunc(void *arg)
 		printf("VARIABLE-RET-HTTP-GLOBAL: %x\n", glob_var_key_ip);
 		//printf("VARIABLE-HTTP: %x\n", pthread_getspecific(glob_var_key_ip));
 		//printf("build: %s", inet_ntop(AF_INET, &ip_header->saddr, ipbuf, sizeof(ipbuf)));
-		printf("HTTP 1.1 200 OK\n");
 	}
 
 	//if (ip != NULL && ip != "0.0.0.0") 
@@ -1050,15 +1052,17 @@ int main(int argc, char *argv[])
 
     while (1) {
 
-	char request[UDP_DATAGRAM_SIZE + 1], *ip = NULL;
-	unsigned int request_len, client_len;
-	struct dns_request *dns_req;
-	struct sockaddr client;
 	int nnn = 0, i = 0;
 	int s, tnum, opt;
-	struct thread_info *tinfo;
 	int stack_size;
 	int rc, t, status;
+	unsigned int request_len, client_len;
+
+	char request[UDP_DATAGRAM_SIZE + 1], *ip = NULL;
+
+	struct dns_request *dns_req;
+	struct sockaddr client;
+	struct thread_info *tinfo;
 	//int NUM_THREADS = 4;
 
 	/* Initialize and set thread detached attribute */
@@ -1073,8 +1077,8 @@ int main(int argc, char *argv[])
 
 
     	//sem_wait(&mutex);  /* wrong ... DO NOT USE */
-	pthread_mutex_destroy(&mutex);
-    	wait(NULL);
+	//pthread_mutex_destroy(&mutex);
+    	//wait(NULL);
 
         /* Child */
 	if (fork() == 0) {
@@ -1084,7 +1088,6 @@ int main(int argc, char *argv[])
 
 	    client_len = sizeof(client);
 	    request_len = recvfrom(sockfd,request,UDP_DATAGRAM_SIZE,0,(struct sockaddr *)&client,&client_len);
-	    printf("\nSIZE OF REQUEST: %d",request_len);
 
             dns_req = parse_dns_request(request, request_len);
 ////	    in_addr_t qq;
@@ -1093,13 +1096,17 @@ int main(int argc, char *argv[])
 ////	    hh = inet_ntoa(*(struct in_addr *)&raddr_in);	/* cast x as a struct in_addr */
 ////	    printf("middle = %s\n", hh);
 
+	    if (DEBUG) {
+		    printf("\nSIZE OF REQUEST: %d", request_len);
+	            printf("\nFORK: tid: %x - name %s - size %d \r\n", dns_req->transaction_id, dns_req->hostname, request_len);
+	    }
+
             if (dns_req == NULL) {
         	//printf("BL: pid [%d] - name %s - host %s - size %d \r\n", getpid(), dns_req->hostname, ip, request_len);
             	printf("\nFAILURE: tid: %x - name %s - size %d \r\n", dns_req->transaction_id, dns_req->hostname, request_len);
                 exit(EXIT_FAILURE);
             }
 
-            printf("\nFORK: tid: %x - name %s - size %d \r\n", dns_req->transaction_id, dns_req->hostname, request_len);
 
 	    if (dns_req->qtype == 0x02) {
 		typeq = "NS";
@@ -1170,7 +1177,9 @@ int main(int argc, char *argv[])
 	    if (tinfo == NULL) handle_error("calloc");
 	
 	    //errore = pthread_create(&tid[i], NULL, threadFunc, &data_array[i]);
-	    ret = pthread_create(&pth[i],NULL,threadFunc,readParams);
+	    //if (i=sizeof(pth)) { i = 0 ;}
+
+            ret = pthread_create(&pth[i],NULL,threadFunc,readParams);
 
 	    for(r=0; r < NUMT*NUM_THREADS; r++) {
 	    //for(r=0; r<1; r++)
@@ -1184,23 +1193,24 @@ int main(int argc, char *argv[])
 //		        printf("GLOBAL-SUCC-IP: %s\n", vvv);
 //		}
 
-		if (DEBUG) {
+		    pthread_join(pth[i],NULL);
+		    fprintf(stderr, "Finished joining thread i-> %d, nnn-> %d, r-> %d \n",i,nnn,r);
+
+		    if (DEBUG) {
 	   		printf("OUTSIDE-THREAD-resolved-address: %s\n",ip);
 	   		printf("OUTSIDE-THREAD-resolved-address: %d\n",ret);
 	   		printf("OUTSIDE-THREAD-resolved-address: %d\n",glob_var_key_ip);
 	   		printf("OUTSIDE-THREAD-log: pid [%u] - hostname %s - size %d ip %s\r\n", ret, dns_req->hostname, request_len, ip);
 	        	fprintf(stderr, "Finished joining thread i-> %d, nnn-> %d, r-> %d \n",i,nnn,r);
-		}
+		    }
 	    }
-	    //usleep(3000000);
-	    pthread_join(pth[i],NULL);
-	    fprintf(stderr, "Finished joining thread i-> %d, nnn-> %d, r-> %d \n",i,nnn,r);
 	    //sem_post(&mutex);
 	    pthread_mutex_unlock(&mutex);
-	    pthread_mutex_destroy(&mutex);
+	    //exit(EXIT_SUCCESS);
+	    //pthread_mutex_destroy(&mutex);
 
 	    //pthread_setspecific(glob_var_key_ip, NULL);
-            exit(EXIT_SUCCESS);
+//            if (nnn = 10) { exit(EXIT_SUCCESS);} 
 	} 
 //////else {
 //////	    //pthread_mutex_unlock(&mutex);

@@ -1,0 +1,99 @@
+pidFile = "/var/run/polipo.pid"
+logFile = "/var/tmp/polipo-access.log"
+proxyAddress = 127.0.0.1
+proxyPort = 8118
+dnsNameServer = 192.168.2.1
+allowedClients = 127.0.0.1, 192.168.2.0/24
+allowedPorts = 1-65535
+# Uncomment this if you want your Polipo to identify itself by # something else than the host name:
+# Uncomment this if there's only one user using this instance of Polipo:
+cacheIsShared = true
+#parentProxy = "squid.example.org:3128"
+#socksParentProxy = "localhost:1080"
+#socksProxyType = socks5 #socksProxyType = socks4a
+
+#objectHashTableSize integer 32768 Size of the object hash table (0 = auto).
+#objectHighMark integer 2048 High object count mark.
+objectHighMark=32768
+objectHashTableSize=65536
+publicObjectLowMark=8192
+
+diskCacheRoot = "/tmp/polipo/"
+#localDocumentRoot = "/usr/share/polipo/www/doc/"
+daemonise = false
+disableIndexing = false
+disableServersList = false
+disableLocalInterface = false
+disableConfiguration = false
+dnsQueryIPv6 = no
+
+maxDiskCacheEntrySize=512
+diskCacheUnlinkTime=7200
+dontCacheRedirects=true
+#dontCacheRedirects=false
+dontCacheCookies=false
+replyUnpipelineTime=8
+
+maxDiskEntries=65536
+maxNoModifiedAge=600
+maxAge=7200
+maxExpiresAge=14400
+idleTime=900
+maxPipelineTrain=128
+replyUnpipelineSize=4194304
+serverExpireTime=900
+bigBufferSize=65536
+#dnsUseGethostbyname = reluctantly
+dnsUseGethostbyname = false
+dnsNegativeTtl=600
+dnsGethostbynameTtl=900
+disableVia = true
+proxyName="dnsproxy.fantuz.mooo.com"
+# censoredHeaders = from, accept-language
+# censorReferer = maybe
+censoredHeaders = from,accept-language,x-pad,link
+# Uncomment this if you're paranoid.  This will break a lot of sites, # though:
+# censoredHeaders = set-cookie, cookie, cookie2, from, accept-language
+# Uncomment this if you want to use Poor Man's Multiplexing; increase
+# the sizes if you're on a fast line.  They should each amount to a few
+# seconds' worth of transfer; if pmmSize is small, you'll want
+# pmmFirstSize to be larger.
+# Note that PMM is somewhat unreliable.
+# pmmFirstSize = 16384
+# pmmSize = 8192
+# Uncomment this if your user-agent does something reasonable with
+# Warning headers (most don't):
+# relaxTransparency = maybe
+# Uncomment this if you never want to revalidate instances for which
+# data is available (this is not a good idea):
+relaxTransparency = maybe
+# Uncomment this if you have no network:
+proxyOffline = no
+# Uncomment this if you want to avoid revalidating instances with a # Vary header (this is not a good idea):
+# mindlesslyCacheVary = true
+
+chunkHighMark=768M
+chunkLowMark=128M
+chunkCriticalMark=64M
+logLevel = 0x07
+logFacility = user
+logSyslog = false
+# Suggestions from Incognito configuration
+maxConnectionAge = 20s
+maxConnectionRequests=16384
+pipelineAdditionalRequests=yes
+serverSlots=256
+serverMaxSlots=1024
+dontTrustVaryETag=maybe
+tunnelAllowedPorts=1-65535
+serverIdleTimeout=10s
+serverTimeout=3s
+clientTimeout=4s
+dnsMaxTimeout=3s
+#smallRequestTime 30s
+#diskCacheTruncateSize integer 1048576 Size to which on-disk objects are truncated.
+diskCacheTruncateTime=2h #Time after which on-disk objects are truncated.
+diskCacheUnlinkTime=6h #Time after which on-disk objects are removed.
+#diskCacheWriteoutOnClose integer 65536 Number of bytes to write out eagerly.
+#diskCacheDirectoryPermissions=0700
+#diskCacheFilePermissions=0600
