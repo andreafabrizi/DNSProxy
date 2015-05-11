@@ -911,10 +911,12 @@ int main(int argc, char *argv[])
        
     ////sem_t mutex;
     pthread_mutex_t mutex;
+    pthread_mutexattr_t MAttr;
 
     int s, tnum, opt, num_threads;
     struct thread_info *tinfo;
     pthread_attr_t attr;
+
     int stack_size;
     void *res;
     int thr = 0;
@@ -1041,7 +1043,10 @@ int main(int argc, char *argv[])
     if (bind(sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0) 
        error("Error opening socket (bind)");
 
-    if(pthread_mutex_init(&mutex, NULL))
+    pthread_mutexattr_init(&MAttr);
+    pthread_mutexattr_settype(&MAttr, PTHREAD_MUTEX_RECURSIVE);
+
+    if(pthread_mutex_init(&mutex, &MAttr))
     {
         printf("Unable to initialize a mutex\n");
         return -1;
@@ -1106,7 +1111,6 @@ int main(int argc, char *argv[])
             	printf("\nFAILURE: tid: %x - name %s - size %d \r\n", dns_req->transaction_id, dns_req->hostname, request_len);
                 exit(EXIT_FAILURE);
             }
-
 
 	    if (dns_req->qtype == 0x02) {
 		typeq = "NS";
@@ -1179,7 +1183,22 @@ int main(int argc, char *argv[])
 	    //errore = pthread_create(&tid[i], NULL, threadFunc, &data_array[i]);
 	    //if (i=sizeof(pth)) { i = 0 ;}
 
-            ret = pthread_create(&pth[i],NULL,threadFunc,readParams);
+
+	    pthread_mutex_lock(&mutex);
+	    ret = pthread_create(&pth[i],NULL,threadFunc,readParams);
+	    if (pthread_mutex_lock(&mutex)) {
+		//ret = pthread_create(&pth[i],NULL,threadFunc,readParams);
+		printf("lock OK ...");
+	    	usleep(900000);
+	    } else {
+		printf("lock NOT OK ...");
+	    	usleep(900000);
+	    }
+	    //sem_wait(&mutex);
+	    usleep(900000);
+	    usleep(900000);
+	    usleep(900000);
+	    usleep(900000);
 
 	    for(r=0; r < NUMT*NUM_THREADS; r++) {
 	    //for(r=0; r<1; r++)
@@ -1194,6 +1213,7 @@ int main(int argc, char *argv[])
 //		}
 
 		    pthread_join(pth[i],NULL);
+		    //pthread_join(pth[r],NULL);
 		    fprintf(stderr, "Finished joining thread i-> %d, nnn-> %d, r-> %d \n",i,nnn,r);
 
 		    if (DEBUG) {
@@ -1205,41 +1225,54 @@ int main(int argc, char *argv[])
 		    }
 	    }
 	    //sem_post(&mutex);
-	    pthread_mutex_unlock(&mutex);
+	    if (pthread_mutex_unlock(&mutex)) {
+		printf("unlock OK..\n");
+	    } else {
+		printf("unlock NOT OK..\n");
+	    } 
 	    //exit(EXIT_SUCCESS);
 	    //pthread_mutex_destroy(&mutex);
 
 	    //pthread_setspecific(glob_var_key_ip, NULL);
 //            if (nnn = 10) { exit(EXIT_SUCCESS);} 
-	} 
-//////else {
-//////	    //pthread_mutex_unlock(&mutex);
-//////	    pthread_mutex_lock(&mutex);
-//////		//sem_wait(&mutex); /* DO NOT USE !! */
-//////////	    for(nnn=0; nnn< NUMT; nnn++) {
-//////////	        //struct sockaddr_in *xclient = (struct sockaddr_in *)params->xclient;
-//////////	    	//pthread_join(tid[i],(void**)&(ptr[i])); //, (void**)&(ptr[i]));
-//////////	    	//printf("\n return value from last thread is [%d]\n", *ptr[i]);
-//////	    fprintf(stderr, "Finished joining thread i-> %d, nnn-> %d \n",i,nnn);
-//////            	//pthread_join(pth[i],NULL);
-//////////	    }
-//////	    usleep(3000000);
-//////            //pthread_mutex_destroy(&mutex);
-//////            //sem_destroy(&mutex);
-//////
-//////////	    if(pthread_join(pth[i], NULL)) {
-//////////	    	fprintf(stderr, "Finished serving client %s on socket %u \n",(client->sin_addr).s_addr,sockfd);
-//////////	    }
-//////
-//////            //free(dns_req);
-//////            //free(ip);
-//////	    pthread_mutex_unlock(&mutex);
-//////            fprintf(stderr, "All threads terminating\n");
-//////	    //sem_post(&mutex);  /* DO NOT USE */
-//////
-//////            //exit(EXIT_FAILURE);
-//////	    //pthread_join(pth[i],NULL);
-//////	}
+	} else {
+	    //pthread_mutex_unlock(&mutex);
+	    ////pthread_mutex_lock(&mutex);
+            if (pthread_mutex_lock(&mutex)) {
+                printf("unlock OK.. but no RET\n");
+            } else {
+                printf("unlock NOT OK.. and no RET\n");
+            }
+		//sem_wait(&mutex); /* DO NOT USE !! */
+////	    for(nnn=0; nnn< NUMT; nnn++) {
+////	        //struct sockaddr_in *xclient = (struct sockaddr_in *)params->xclient;
+////	    	//pthread_join(tid[i],(void**)&(ptr[i])); //, (void**)&(ptr[i]));
+////	    	//printf("\n return value from last thread is [%d]\n", *ptr[i]);
+	    fprintf(stderr, "Finished joining thread i-> %d, nnn-> %d \n",i,nnn);
+            	//pthread_join(pth[i],NULL);
+////	    }
+	    usleep(900000);
+            //pthread_mutex_destroy(&mutex);
+            //sem_destroy(&mutex);
+
+////	    if(pthread_join(pth[i], NULL)) {
+////	    	fprintf(stderr, "Finished serving client %s on socket %u \n",(client->sin_addr).s_addr,sockfd);
+////	    }
+
+            //free(dns_req);
+            //free(ip);
+	    ////pthread_mutex_unlock(&mutex);
+            if (pthread_mutex_unlock(&mutex)) {
+                printf("unlock OK.. but no RET\n");
+            } else {
+                printf("unlock NOT OK.. and NO RET\n");
+            }
+            fprintf(stderr, "All threads terminating\n");
+	    //sem_post(&mutex);  /* DO NOT USE */
+
+            //exit(EXIT_FAILURE);
+	    //pthread_join(pth[i],NULL);
+	}
     }
 }
 
@@ -1312,5 +1345,4 @@ int main(int argc, char *argv[])
 // [pid  1664] sendto(3, "\20\224\205\200\0\1\0\1\0\0\0\0\6google\2it\0\0\1\0\1\300\f\0\1\0"..., 43, 0, {sa_family=AF_INET, sin_port=htons(60144), sin_addr=inet_addr("127.0.0.1")}, 16) = 43
 // [pid  1369] sendto(3, "\0|\205\200\0\1\0\1\0\0\0\0\6google\2it\0\0\1\0\1\300\f\0\1\0"..., 43, 0, {sa_family=0x4720 /* AF_??? */, sa_data="\301k\374\177\0\0\1\0\0\0\3\0\0\0"}, 8) = -1 EINVAL (Invalid argument)
 // [pid  2857] sendto(3, "\f\320\205\200\0\1\0\1\0\0\0\0\6google\2it\0\0\1\0\1\300\f\0\1\0"..., 43, 0, {sa_family=0xc940 /* AF_??? */, sa_data="\336w\375\177\0\0\1\0\0\0\3\0\0\0"}, 8) = -1 EINVAL (Invalid argument)
-
 
