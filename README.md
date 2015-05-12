@@ -39,19 +39,19 @@ The more we are, the less DNS becomes a 'trackable' TOR leak.
 	-s [lookup_script] -t [stack_size]
 
  OPTIONS:
-      -l		 Local server host
+      -l		 Local server address
       -p		 Local server port
-      -h		 Remote proxy host
+      -h		 Remote proxy address
       -r		 Remote proxy port
       -u		 Proxy username (optional)
       -k		 Proxy password (optional)
       -s		 Lookup script URL
       -w		 Webserver port (optional, default 80)
       -t		 Stack size in format 0x1000000 (MB)
-      -v		 Enable DEBUG logging
+      -v		 Enable juicy DEBUG logging
 
  Example: dnsp -p 53 -l 127.0.0.1 -h 127.0.0.1 -r 8118 -w 80 \
-	-s https://www.fantuz.net/nslookup.php
+	-s https://www.fantuz.net/nslookup.php -t 0x1000000
 
 ```
 ## Testing
@@ -91,15 +91,16 @@ www.google.com.		3600	IN	A	173.194.64.106
 ```
 
 When You properly implement cache on the webserver, answers will come back in
- few milliseconds, after the firs recursive resolution.
+ few milliseconds, after the first recursive resolution.
 
 ## Changelog:
 Version 1.01 - April 2015:
 * HTTPS resolver support (even more privacy)
-* Multithreaded (while forked)
+* Multithreading listener/responder
 * Better nginx/polipo setup
 * Stack size option
 * Will add TCP listener/responder soon
+* Some issue to set the proper ETag on polipo
 
 Version 0.99 - July 2014:
 * Add HTTP port selection

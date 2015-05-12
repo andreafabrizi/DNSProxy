@@ -56,7 +56,7 @@
 #define DNS_MODE_ERROR      2
 #define DEFAULT_LOCAL_PORT  53
 #define DEFAULT_WEB_PORT    80
-#define NUMT	            2
+#define NUMT	            4
 #define NUM_THREADS         1
 //#define TYPEQ		    2
 //#define DEBUG		    0
@@ -66,6 +66,12 @@
 
 pthread_key_t glob_var_key_ip;
 pthread_key_t glob_var_key_client;
+
+
+//pthread_mutex_t mutex = PTHREAD_ERRORCHECK_MUTEX_INITIALIZER_NP;
+pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+//pthread_mutex_t mutex = PTHREAD_ERRORCHECK_MUTEX_INITIALIZER_NP;
+pthread_mutexattr_t MAttr;
 
 /*
 #ifdef TLS
@@ -170,18 +176,18 @@ void usage(void)
     fprintf(stderr, "\n dnsp %s\n"
                        " usage: dnsp -l [local_host] -h [proxy_host] -r [proxy_port] -w [webport] -s [lookup_script]\n\n"
                        " OPTIONS:\n"
-                       "      -l\t\t Local server host\n"
+                       "      -l\t\t Local server address\n"
                        "      -p\t\t Local server port\n"
-                       "      -h\t\t Remote proxy host\n"
+                       "      -h\t\t Remote proxy address\n"
                        "      -r\t\t Remote proxy port\n"
                        "      -u\t\t Proxy username (optional)\n"
                        "      -k\t\t Proxy password (optional)\n"
                        "      -s\t\t Lookup script URL\n"
                        "      -w\t\t Webserver port (optional, default 80)\n"
                        "      -t\t\t Stack size in format 0x1000000 (MB)\n"
-                       "      -v\t\t Enable DEBUG logging\n"
+                       "      -v\t\t Enable juicy DEBUG logging\n"
                        "\n"
-                       " Example: dnsp -p 53 -l 127.0.0.1 -h 127.0.0.1 -r 8118 -w 80 -s https://www.fantuz.net/nslookup.php\n\n"
+                       " Example: dnsp -p 53 -l 127.0.0.1 -h 127.0.0.1 -r 8118 -w 80 -s https://www.fantuz.net/nslookup.php -t 0x1000000\n\n"
     ,VERSION);
     exit(EXIT_FAILURE);
 }
@@ -770,6 +776,7 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
 /* This is our thread function.  It is like main(), but for a thread*/
 void *threadFunc(void *arg)
 {
+
 	//    BoundedBuffer *buffer = params->b;
 	struct readThreadParams *params = (struct readThreadParams*)arg;
 
@@ -813,8 +820,14 @@ void *threadFunc(void *arg)
 	char *ip = NULL;
 	pthread_key_t key_i;
         pthread_key_create(&key_i, NULL);
-
 	//str=(char*)arg;
+
+	//if (pthread_mutex_trylock(&mutex)) {
+	if (pthread_mutex_lock(&mutex)) {
+	    printf("init lock OK ... \n");
+	} else {
+	    printf("init lock NOT OK ... \n");
+	}
 
     	if (DEBUG) {
 		
@@ -832,6 +845,7 @@ void *threadFunc(void *arg)
 	}
 	
         rip = lookup_host(yhostname, proxy_host, proxy_port, proxy_user, proxy_pass, lookup_script, typeq, wport);
+
 	pthread_setspecific(glob_var_key_ip, rip);
 
 	if (DEBUG) {	
@@ -894,6 +908,16 @@ void *threadFunc(void *arg)
 	//pthread_exit(s);
 	//pthread_setspecific(glob_var_key_ip, NULL);
 //	pthread_exit(0);
+	if (pthread_mutex_unlock(&mutex)) {
+	    printf("unlock OK..\n");
+	} else {
+	    printf("unlock NOT OK..\n");
+	} 
+
+	pthread_mutex_destroy(&mutex);
+	printf("destroy OK..\n");
+
+
 	pthread_exit(NULL);
 }
 
@@ -910,9 +934,6 @@ int main(int argc, char *argv[])
     DEBUG = 0;
        
     ////sem_t mutex;
-    pthread_mutex_t mutex;
-    pthread_mutexattr_t MAttr;
-
     int s, tnum, opt, num_threads;
     struct thread_info *tinfo;
     pthread_attr_t attr;
@@ -1043,19 +1064,22 @@ int main(int argc, char *argv[])
     if (bind(sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0) 
        error("Error opening socket (bind)");
 
+//	if( sem_init(&mutex,1,1) < 0) {
+//		perror("semaphore initilization"); exit(0);
+//	}
+    
+    while (1) {
+
     pthread_mutexattr_init(&MAttr);
-    pthread_mutexattr_settype(&MAttr, PTHREAD_MUTEX_RECURSIVE);
+    pthread_mutexattr_settype(&MAttr, PTHREAD_MUTEX_ERRORCHECK);
+    //pthread_mutexattr_settype(&MAttr, PTHREAD_MUTEX_RECURSIVE);
 
     if(pthread_mutex_init(&mutex, &MAttr))
     {
         printf("Unable to initialize a mutex\n");
         return -1;
     }
-//	if( sem_init(&mutex,1,1) < 0) {
-//		perror("semaphore initilization"); exit(0);
-//	}
 
-    while (1) {
 
 	int nnn = 0, i = 0;
 	int s, tnum, opt;
@@ -1082,13 +1106,12 @@ int main(int argc, char *argv[])
 
 
     	//sem_wait(&mutex);  /* wrong ... DO NOT USE */
-	//pthread_mutex_destroy(&mutex);
+	//pthread_mutex_trylock(&mutex);
+	pthread_mutex_destroy(&mutex);
     	//wait(NULL);
 
         /* Child */
 	if (fork() == 0) {
-
-	    pthread_mutex_lock(&mutex);
 	    //sem_wait(&mutex);
 
 	    client_len = sizeof(client);
@@ -1183,22 +1206,19 @@ int main(int argc, char *argv[])
 	    //errore = pthread_create(&tid[i], NULL, threadFunc, &data_array[i]);
 	    //if (i=sizeof(pth)) { i = 0 ;}
 
-
-	    pthread_mutex_lock(&mutex);
-	    ret = pthread_create(&pth[i],NULL,threadFunc,readParams);
-	    if (pthread_mutex_lock(&mutex)) {
+	    //pthread_mutex_lock(&mutex);
+	    if (pthread_mutex_trylock(&mutex)) {
 		//ret = pthread_create(&pth[i],NULL,threadFunc,readParams);
-		printf("lock OK ...");
-	    	usleep(900000);
+		printf("lock OK ...\n");
 	    } else {
-		printf("lock NOT OK ...");
-	    	usleep(900000);
+		printf("lock NOT OK ...\n");
 	    }
+
+	    ret = pthread_create(&pth[i],NULL,threadFunc,readParams);
+
 	    //sem_wait(&mutex);
-	    usleep(900000);
-	    usleep(900000);
-	    usleep(900000);
-	    usleep(900000);
+	    //usleep(900000);
+	    //usleep(900000);
 
 	    for(r=0; r < NUMT*NUM_THREADS; r++) {
 	    //for(r=0; r<1; r++)
@@ -1215,6 +1235,10 @@ int main(int argc, char *argv[])
 		    pthread_join(pth[i],NULL);
 		    //pthread_join(pth[r],NULL);
 		    fprintf(stderr, "Finished joining thread i-> %d, nnn-> %d, r-> %d \n",i,nnn,r);
+	            fprintf(stderr, "pth - %d \n",(uint16_t)pth[i]);
+	            fprintf(stderr, "pth - %d \n",(uint16_t)pth[i]);
+	            fprintf(stderr, "tid - %d \n",(uint16_t)tid[i]);
+	            fprintf(stderr, "tid - %d \n",(uint16_t)tid[i]);
 
 		    if (DEBUG) {
 	   		printf("OUTSIDE-THREAD-resolved-address: %s\n",ip);
@@ -1225,33 +1249,34 @@ int main(int argc, char *argv[])
 		    }
 	    }
 	    //sem_post(&mutex);
-	    if (pthread_mutex_unlock(&mutex)) {
-		printf("unlock OK..\n");
-	    } else {
-		printf("unlock NOT OK..\n");
-	    } 
-	    //exit(EXIT_SUCCESS);
+
 	    //pthread_mutex_destroy(&mutex);
+	    exit(EXIT_SUCCESS);
 
 	    //pthread_setspecific(glob_var_key_ip, NULL);
 //            if (nnn = 10) { exit(EXIT_SUCCESS);} 
 	} else {
-	    //pthread_mutex_unlock(&mutex);
-	    ////pthread_mutex_lock(&mutex);
-            if (pthread_mutex_lock(&mutex)) {
-                printf("unlock OK.. but no RET\n");
-            } else {
-                printf("unlock NOT OK.. and no RET\n");
-            }
+
+	    pthread_mutex_lock(&mutex);
+////            if (pthread_mutex_lock(&mutex)) {
+////                printf("lock OK.. but no RET\n");
+////            } else {
+////                printf("lock NOT OK.. and no RET\n");
+////            }
 		//sem_wait(&mutex); /* DO NOT USE !! */
 ////	    for(nnn=0; nnn< NUMT; nnn++) {
 ////	        //struct sockaddr_in *xclient = (struct sockaddr_in *)params->xclient;
 ////	    	//pthread_join(tid[i],(void**)&(ptr[i])); //, (void**)&(ptr[i]));
 ////	    	//printf("\n return value from last thread is [%d]\n", *ptr[i]);
-	    fprintf(stderr, "Finished joining thread i-> %d, nnn-> %d \n",i,nnn);
+	    if (DEBUG) {fprintf(stderr, "Finished joining thread i-> %d, nnn-> %d \n",i,nnn);}
             	//pthread_join(pth[i],NULL);
 ////	    }
-	    usleep(900000);
+	//    usleep(900000);
+	    if (pthread_mutex_unlock(&mutex)) {
+	        printf("unlock OK.. but no RET\n");
+	    } else {
+	        printf("unlock NOT OK.. and no RET\n");
+	    } 
             //pthread_mutex_destroy(&mutex);
             //sem_destroy(&mutex);
 
@@ -1261,17 +1286,21 @@ int main(int argc, char *argv[])
 
             //free(dns_req);
             //free(ip);
-	    ////pthread_mutex_unlock(&mutex);
-            if (pthread_mutex_unlock(&mutex)) {
-                printf("unlock OK.. but no RET\n");
-            } else {
-                printf("unlock NOT OK.. and NO RET\n");
-            }
-            fprintf(stderr, "All threads terminating\n");
+////            if (pthread_mutex_unlock(&mutex)) {
+////                printf("unlock OK.. but no RET\n");
+////            } else {
+////                printf("unlock NOT OK.. and no RET\n");
+////            }
+////
+	    pthread_mutex_destroy(&mutex);
+
+	    if ( nnn = NUMT*NUM_THREADS) {wait(NULL);}
+            if (DEBUG) { fprintf(stderr, "All threads terminating\n");}
 	    //sem_post(&mutex);  /* DO NOT USE */
 
             //exit(EXIT_FAILURE);
 	    //pthread_join(pth[i],NULL);
+	    //pthread_exit(NULL);
 	}
     }
 }
