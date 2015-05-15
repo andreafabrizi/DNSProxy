@@ -20,6 +20,7 @@
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
 
+#define _GNU_SOURCE
 #include <stdio.h>
 #include <pthread.h>
 #include <sys/timeb.h>
@@ -58,6 +59,8 @@
 #define DEFAULT_WEB_PORT    80
 #define NUMT	            1
 #define NUM_THREADS         1
+#define NUM_HANDLER_THREADS 1
+
 //#define TYPEQ		    2
 //#define DEBUG		    0
 
@@ -68,8 +71,8 @@ pthread_key_t glob_var_key_ip;
 pthread_key_t glob_var_key_client;
 
 
-//pthread_mutex_t mutex = PTHREAD_ERRORCHECK_MUTEX_INITIALIZER_NP;
-pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+//static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t mutex = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
 //pthread_mutex_t mutex = PTHREAD_ERRORCHECK_MUTEX_INITIALIZER_NP;
 pthread_mutexattr_t MAttr;
 
@@ -769,19 +772,18 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
     /* Can't resolve host */
     if ((strlen(http_response) > 256) || (strncmp(http_response, "0.0.0.0", 7) == 0)) {
 	/* insert error answers here, as NXDOMAIN, SERVFAIL etc */
-        printf("MALFORMED DNS or SERVFAIL from origin... investigate !\n");
-	printf("CORE: malformed DNS response\n");
+        printf("CORE: MALFORMED DNS, possible SERVFAIL from origin... investigate !\n");
         curl_easy_cleanup(ch);
         free(script_url);
 	curl_slist_free_all(list);
 	curl_slist_free_all(hosting);
-    	printf("inside-curl (MALF) .... %s",http_response);
-        return http_response;
+    	printf("inside curl (MALF) .... %s",http_response);
+        //return http_response;
         //free(http_response);
-        //return NULL;
+        return NULL;
     }
    
-    printf("inside-curl .... %s",http_response);
+    printf("inside curl .... %s",http_response);
     curl_easy_cleanup(ch);
     free(script_url);
     curl_slist_free_all(list);
@@ -1106,7 +1108,6 @@ int main(int argc, char *argv[])
 	struct dns_request *dns_req;
 	struct sockaddr client;
 	struct thread_info *tinfo;
-	//int NUM_THREADS = 4;
 
 	/* Initialize and set thread detached attribute */
 	pthread_t *pth = malloc( NUMT * sizeof(pthread_t) );			// this is our thread identifier
@@ -1117,7 +1118,6 @@ int main(int argc, char *argv[])
 	//pthread_attr_t attr;
 	//pthread_attr_init(&attr);
 	//pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
-
 
     	//sem_wait(&mutex);  /* wrong ... DO NOT USE */
 	//pthread_mutex_trylock(&mutex);
@@ -1261,28 +1261,27 @@ int main(int argc, char *argv[])
 	    }
 	    //sem_post(&mutex);
 
-	    pthread_mutex_destroy(&mutex);
+	    //pthread_mutex_destroy(&mutex);
 	    exit(EXIT_SUCCESS);
 
 	    //pthread_setspecific(glob_var_key_ip, NULL);
 //            if (nnn = 10) { exit(EXIT_SUCCESS);} 
 	} else {
 
-	    pthread_mutex_lock(&mutex);
 ////	    for(nnn=0; nnn< NUMT; nnn++) {
 ////	        //struct sockaddr_in *xclient = (struct sockaddr_in *)params->xclient;
 ////	    	//pthread_join(tid[i],(void**)&(ptr[i])); //, (void**)&(ptr[i]));
 ////	    	//printf("\n return value from last thread is [%d]\n", *ptr[i]);
-	    if (DEBUG) {fprintf(stderr, "Finished joining thread i-> %d, nnn-> %d \n",i,nnn);}
             	//pthread_join(pth[i],NULL);
 ////	    }
-	    if (( nnn = NUMT*NUM_THREADS*2) || ( nnn > 32)) {wait(NULL);}
-	    if (pthread_mutex_unlock(&mutex)) {
-	        //printf("unlock OK.. but no RET\n");
-		continue;
-	    } else {
-	        printf("unlock NOT OK.. and no RET\n");
-	    } 
+	    if (( nnn = NUMT*NUM_THREADS*4) || ( nnn > 32)) {wait(NULL);}
+////	    pthread_mutex_lock(&mutex);
+////	    if (pthread_mutex_unlock(&mutex)) {
+////	        //printf("unlock OK.. but no RET\n");
+////		continue;
+////	    } else {
+////	        printf("unlock NOT OK.. and no RET\n");
+////	    } 
             //sem_destroy(&mutex);
 
 //	    if(pthread_join(pth[i], NULL)) {
@@ -1295,6 +1294,7 @@ int main(int argc, char *argv[])
             //exit(EXIT_FAILURE);
 	    //pthread_join(pth[i],NULL);
 	    //pthread_exit(NULL);
+	    if (DEBUG) {fprintf(stderr, "Finished joining thread i-> %d, nnn-> %d \n",i,nnn);}
 	}
     }
 }
