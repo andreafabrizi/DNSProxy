@@ -18,7 +18,7 @@ For debian/ubuntu users:
 
 then
 
-`gcc dnsp.c -lcurl -g -lpthread -DTLS -o dnsp`
+`gcc dnsp.c -lcurl -g -lpthread -DTLS -o dnsp -rdynamic`
 
 ## Usage 
 
