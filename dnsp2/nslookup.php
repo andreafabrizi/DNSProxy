@@ -5,9 +5,9 @@
 //Vary: Accept-Encoding, User-Agent
 // --- SET HEADERS AND DETECT CACHE CONTROL PRESENCE/EXPIRATION.
 session_cache_limiter('public');					//This stop php’s default no-cache
-session_cache_expire(1800);						// Optional expiry time in minutes
+session_cache_expire(14400);						// Optional expiry time in minutes
 header("Connection: keep-alive");
-header("Cache-control: public, max-age=1800, s-maxage=1800");
+header("Cache-control: public, max-age=14400, s-maxage=14400");
 $host = rtrim($_GET["host"],'.');
 
 //// USEFUL IF YOU NEED A PREMPTIVE HTTP CACHE
@@ -16,7 +16,9 @@ $lastModified=filemtime(__FILE__);
 $etagFile = md5_file(__FILE__);
 
 //set last-modified header
-header("Last-Modified: ". gmdate("D, d M Y H:i:s", $lastModified) ." GMT");
+//header("Last-Modified: ". gmdate("D, d M Y H:i:s", $lastModified) ." GMT");
+header("Last-Modified: ". gmdate("D, d M Y H:i:s", time()) ." GMT");
+//echo "This page was last modified: ".date("d.m.Y H:i:s",time())."</br>\n";
 //set etag-header
 header("Etag: $etagFile");
 
