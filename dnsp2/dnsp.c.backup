@@ -38,7 +38,7 @@
 #include <curl/curl.h>
 #include <curl/easy.h>
 #include <signal.h>
-//#include <semaphore.h>
+#include <semaphore.h>
 //#include <omp.h>
 
 
@@ -59,7 +59,7 @@
 #define DEFAULT_WEB_PORT    80
 #define NUMT	            1
 #define NUM_THREADS         1
-#define NUM_HANDLER_THREADS 2
+#define NUM_HANDLER_THREADS 1
 
 //#define TYPEQ		    2
 //#define DEBUG		    0
@@ -70,12 +70,11 @@
 pthread_key_t glob_var_key_ip;
 pthread_key_t glob_var_key_client;
 
-/*
+
 //static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 static pthread_mutex_t mutex = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
 //pthread_mutex_t mutex = PTHREAD_ERRORCHECK_MUTEX_INITIALIZER_NP;
 pthread_mutexattr_t MAttr;
-*/
 
 /*
 #ifdef TLS
@@ -653,7 +652,7 @@ void build_dns_reponse(int sd, struct sockaddr_in *yclient, struct dns_request *
     /* DNS VOLUME CALCULATION */
     //debug_msg("Dns response sent to client (DEC %d bytes)\n", bytes_sent);
     if (DEBUG) {
-	printf("SENT %d bytes\n", (uint32_t)bytes_sent);
+	printf("SENT %d bytes", (uint32_t)bytes_sent);
     }
     free(response_ptr);
     free(dns_req);
@@ -686,7 +685,7 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
     http_response = malloc(HTTP_RESPONSE_SIZE);
     bzero(script_url, URL_SIZE);
     
-	// OPTION --> add resolver & CURL headers
+	// OPTIONS --> add resolver & CURL headers
 
 	/*
 	CALLBACK TO PHP, BEHIND WHICH SITS THE "REAL" RESOLVER
@@ -838,20 +837,16 @@ void *threadFunc(void *arg)
 	int ret;
 	char *rip = malloc(256 * sizeof(char));
 	char *ip = NULL;
-
-	//pthread_key_t key_i;
-        //pthread_key_create(&key_i, NULL);
-
+	pthread_key_t key_i;
+        pthread_key_create(&key_i, NULL);
 	//str=(char*)arg;
 
-/*
 	//if (pthread_mutex_trylock(&mutex)) {
 	if (pthread_mutex_lock(&mutex)) {
 	    printf("init lock OK ... \n");
 	} else {
 	    printf("init lock NOT OK ... \n");
 	}
-*/
 
     	if (DEBUG) {
 		
@@ -870,8 +865,7 @@ void *threadFunc(void *arg)
 	
         rip = lookup_host(yhostname, proxy_host, proxy_port, proxy_user, proxy_pass, lookup_script, typeq, wport);
 
-	/* PTHREAD SET SPECIFIC GLOBAL VARIABLE ... */
-	////pthread_setspecific(glob_var_key_ip, rip);
+	pthread_setspecific(glob_var_key_ip, rip);
 
 	if (DEBUG) {	
 		printf("VARIABLE-RET-HTTP: %d", ret);
@@ -883,6 +877,8 @@ void *threadFunc(void *arg)
 		//printf("build: %s", inet_ntop(AF_INET, &ip_header->saddr, ipbuf, sizeof(ipbuf)));
 	}
 
+        //if (rip != NULL) {
+	//if ((rip != NULL) && (rip != "0.0.0.0")) 
 	if ((rip != NULL) && (strncmp(rip, "0.0.0.0", 7) != 0)) {
 	    if (DEBUG) {
 		    printf("THREAD-V-ret				: [%d]\n",ret);
@@ -931,9 +927,7 @@ void *threadFunc(void *arg)
 	//char *s = inet_ntoa(xclient->sin_addr);
 	//pthread_exit(s);
 	//pthread_setspecific(glob_var_key_ip, NULL);
-	//pthread_exit(0);
-
-/*
+//	pthread_exit(0);
 	if (pthread_mutex_unlock(&mutex)) {
 	    printf("unlock OK..\n");
 	} else {
@@ -942,10 +936,7 @@ void *threadFunc(void *arg)
 
 	pthread_mutex_destroy(&mutex);
 	printf("destroy OK..\n");
-*/
-   	printf("Thread/process ID : %d\n", getpid());
-   	printf("Main parent's ID: %d\n", getppid());
-        //exit(EXIT_SUCCESS);
+
 	pthread_exit(NULL);
 }
 
@@ -1096,21 +1087,17 @@ int main(int argc, char *argv[])
 //		perror("semaphore initilization"); exit(0);
 //	}
     
-/*
     if(pthread_mutex_init(&mutex, &MAttr))
     {
         printf("Unable to initialize a mutex\n");
         return -1;
     }
-*/
 
     while (1) {
 
-/*
     pthread_mutexattr_init(&MAttr);
     //pthread_mutexattr_settype(&MAttr, PTHREAD_MUTEX_ERRORCHECK);
     pthread_mutexattr_settype(&MAttr, PTHREAD_MUTEX_RECURSIVE);
-*/
 
 	int nnn = 0, i = 0;
 	int s, tnum, opt;
@@ -1137,11 +1124,8 @@ int main(int argc, char *argv[])
     	//sem_wait(&mutex);  /* wrong ... DO NOT USE */
 	//pthread_mutex_trylock(&mutex);
 
-/*
 	pthread_mutex_destroy(&mutex);
-    	wait(NULL);
-*/
-    	wait(NULL);
+    	//wait(NULL);
 
         /* Child */
 	if (fork() == 0) {
@@ -1178,8 +1162,8 @@ int main(int argc, char *argv[])
 	     IMPLEMENTS DOMAIN BLACKLISTING, AUTHENTICATION, SSL. PENDING MULTITHREADING. SOON, MAKE BETTER FILTER .. */
 
 	    /* OPTION --> BUFFER SIZE */
-	    //int buffsize = 128;
-	    //setsockopt(sockfd, SOL_SOCKET, SO_RCVBUF, &buffsize, sizeof(buffsize));
+	    int buffsize = 256;
+	    setsockopt(sockfd, SOL_SOCKET, SO_RCVBUF, &buffsize, sizeof(buffsize));
 
 	    int ret;
 	    int test = 42;
@@ -1235,21 +1219,17 @@ int main(int argc, char *argv[])
 	    //errore = pthread_create(&tid[i], NULL, threadFunc, &data_array[i]);
 	    //if (i=sizeof(pth)) { i = 0 ;}
 
-/*
 	    if (pthread_mutex_trylock(&mutex)) {
 		//ret = pthread_create(&pth[i],NULL,threadFunc,readParams);
 		printf("lock OK ...\n");
 	    } else {
 		printf("lock NOT OK ...\n");
 	    }
-*/
 
 	    ret = pthread_create(&pth[i],NULL,threadFunc,readParams);
 	    nnn++;
-	    i++;
 
 	    //sem_wait(&mutex);
-	    //sem_post(&mutex);
 
 	    for(r=0; r < NUMT*NUM_THREADS; r++) {
 //	    	if(0 != ret) {
@@ -1264,47 +1244,36 @@ int main(int argc, char *argv[])
 	        pthread_join(pth[i],NULL);
 		//pthread_join(pth[r],NULL);
 	        fprintf(stderr, "pth i - %d \n",(uint16_t)pth[i]);
-	        fprintf(stderr, "pth r - %d \n",(uint16_t)pth[r]);
 	        fprintf(stderr, "tid i - %d \n",(uint16_t)tid[i]);
+		
+	        fprintf(stderr, "pth r - %d \n",(uint16_t)pth[r]);
 	        fprintf(stderr, "tid r - %d \n",(uint16_t)tid[r]);
 
+		fprintf(stderr, "Finished joining thread i-> %d, nnn-> %d, r-> %d \n",i,nnn,r);
 		if (DEBUG) {
-	   	    //printf("OUTSIDE-THREAD-resolved-address: %s\n",ip);
-	   	    //printf("OUTSIDE-THREAD-resolved-address: %d\n",ret);
-	   	    //printf("OUTSIDE-THREAD-resolved-address: %d\n",glob_var_key_ip);
-	   	    //printf("OUTSIDE-THREAD-log: pid [%u] - hostname %s - size %d ip %s\r\n", ret, dns_req->hostname, request_len, ip);
-		    printf("OUTSIDE-THREAD-log: size %d\n",request_len);
+	   	    printf("OUTSIDE-THREAD-resolved-address: %s\n",ip);
+	   	    printf("OUTSIDE-THREAD-resolved-address: %d\n",ret);
+	   	    printf("OUTSIDE-THREAD-resolved-address: %d\n",glob_var_key_ip);
+	   	    printf("OUTSIDE-THREAD-log: pid [%u] - hostname %s - size %d ip %s\r\n", ret, dns_req->hostname, request_len, ip);
 		    fprintf(stderr, "Finished joining thread i-> %d, nnn-> %d, r-> %d \n",i,nnn,r);
 		}
 	    }
+	    //sem_post(&mutex);
 
-   	    printf("OUT: Thread/process ID : %d\n", getpid());
-   	    printf("OUT: Main parent's ID: %d\n", getppid());
-//	    if (i != 0) { i=0;}
 	    //pthread_mutex_destroy(&mutex);
-
-	    wait(NULL);
-	    continue;
-	    //exit(EXIT_SUCCESS);
+	    exit(EXIT_SUCCESS);
 
 	    //pthread_setspecific(glob_var_key_ip, NULL);
+//            if (nnn = 10) { exit(EXIT_SUCCESS);} 
 	} else {
 
-	    /* RECOVERY FROM THREAD BOMB */
-	    //if (nnn > NUMT*NUM_THREADS*4) {wait(NULL);}
-	    //if (nnn > 32) {wait(NULL);}
-   	    printf("ELSE: Thread/process ID : %d\n", getpid());
-   	    printf("ELSE: Main parent's ID: %d\n", getppid());
-	    //exit(EXIT_FAILURE);
-	    continue;
 ////	    for(nnn=0; nnn< NUMT; nnn++) {
 ////	        //struct sockaddr_in *xclient = (struct sockaddr_in *)params->xclient;
 ////	    	//pthread_join(tid[i],(void**)&(ptr[i])); //, (void**)&(ptr[i]));
 ////	    	//printf("\n return value from last thread is [%d]\n", *ptr[i]);
             	//pthread_join(pth[i],NULL);
 ////	    }
-
-/* LOCKS AND MUTEXES */
+	    if (( nnn = NUMT*NUM_THREADS*4) || ( nnn > 32)) {wait(NULL);}
 ////	    pthread_mutex_lock(&mutex);
 ////	    if (pthread_mutex_unlock(&mutex)) {
 ////	        //printf("unlock OK.. but no RET\n");
@@ -1314,21 +1283,17 @@ int main(int argc, char *argv[])
 ////	    } 
             //sem_destroy(&mutex);
 
-/* JOIN THREADS */
 //	    if(pthread_join(pth[i], NULL)) {
 //	    	//fprintf(stderr, "Finished serving client %s on socket %u \n",(struct sockaddr_in *)&client->sin_addr.s_addr,sockfd);
 //	    }
 
-/* LOCKS AND MUTEXES */
 	    //pthread_mutex_destroy(&mutex);
 	    //sem_post(&mutex);  /* DO NOT USE */
 
             //exit(EXIT_FAILURE);
 	    //pthread_join(pth[i],NULL);
 	    //pthread_exit(NULL);
-
-/* NONSENSE CAUSE NO THREAD ANYMORE */
-//	    if (DEBUG) {fprintf(stderr, "Finished joining thread i-> %d, nnn-> %d \n",i,nnn);}
+	    if (DEBUG) {fprintf(stderr, "Finished joining thread i-> %d, nnn-> %d \n",i,nnn);}
 	}
     }
 }
