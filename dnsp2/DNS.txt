@@ -25,7 +25,6 @@ adfeed.pagefair.net
 adlev.neodatagroup.com
 admin.brightcove.com
 admpodcast.rai.it
-ads.osdn.com
 ads.reddit.com
 ads.rubiconproject.com
 ads.servebom.com
@@ -143,10 +142,6 @@ avvisi.ilsecoloxix.it
 avvisidiservizio.it
 ax-d.pixfuture.net
 az.urbandictionary.com
-b._dns-sd._udp.128.128.141.128.in-addr.arpa
-b._dns-sd._udp.6.212.121.10.in-addr.arpa
-b._dns-sd._udp.cern.ch
-b.global-ssl.fastly.net
 b.googlemail.l.google.com
 b.scorecardresearch.com
 b.scorecardresearch.com.edgesuite.net

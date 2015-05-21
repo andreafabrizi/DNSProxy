@@ -59,7 +59,7 @@
 #define DEFAULT_WEB_PORT    80
 #define NUMT	            1
 #define NUM_THREADS         1
-#define NUM_HANDLER_THREADS 2
+#define NUM_HANDLER_THREADS 1
 
 //#define TYPEQ		    2
 //#define DEBUG		    0
@@ -1296,7 +1296,9 @@ int main(int argc, char *argv[])
    	    printf("ELSE: Thread/process ID : %d\n", getpid());
    	    printf("ELSE: Main parent's ID: %d\n", getppid());
 	    //exit(EXIT_FAILURE);
-	    continue;
+	    //break;
+	    //continue;
+	    wait(NULL);
 ////	    for(nnn=0; nnn< NUMT; nnn++) {
 ////	        //struct sockaddr_in *xclient = (struct sockaddr_in *)params->xclient;
 ////	    	//pthread_join(tid[i],(void**)&(ptr[i])); //, (void**)&(ptr[i]));
