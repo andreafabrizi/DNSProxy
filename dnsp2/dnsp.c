@@ -47,7 +47,7 @@
 #endif
 
 #define DELAY		    5
-#define MAXCONN             4096
+#define MAXCONN             2048
 #define UDP_DATAGRAM_SIZE   256
 #define DNSREWRITE          256
 #define HTTP_RESPONSE_SIZE  256
@@ -57,8 +57,8 @@
 #define DNS_MODE_ERROR      2
 #define DEFAULT_LOCAL_PORT  53
 #define DEFAULT_WEB_PORT    80
-#define NUMT	            1
-#define NUM_THREADS         1
+#define NUMT	            2
+#define NUM_THREADS         2
 #define NUM_HANDLER_THREADS 1
 
 //#define TYPEQ		    2
@@ -67,8 +67,8 @@
 #define handle_error(msg) \
         do { perror(msg); exit(EXIT_FAILURE); } while (0)
 
-pthread_key_t glob_var_key_ip;
-pthread_key_t glob_var_key_client;
+//pthread_key_t glob_var_key_ip;
+//pthread_key_t glob_var_key_client;
 
 /*
 //static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -87,20 +87,19 @@ __thread int i;
 */
 
 struct readThreadParams {
-//    struct BoundedBuffer b;
-    //char* input;
+    size_t xrequestlen;
     char* xproxy_user;
     char* xproxy_pass;
     char* xproxy_host;
     char* xlookup_script;
     char* xtypeq;
-    //int digit;
     int xproxy_port;
     int xwport;
     int sockfd;
     int xsockfd;
-    size_t xrequestlen;
     //char* xhostname;
+    //int digit;
+    //char* input;
     struct dns_request *xhostname;
     struct sockaddr_in *xclient;
     struct sockaddr_in *yclient;
@@ -114,35 +113,35 @@ struct readThreadParams {
 //    char     *argv_string;      /* From command-line argument */
 //};
 
-////void start_thread(pthread_t *mt)
-////{
-////    mystruct local_data = {};
-////    mystruct *data = malloc(sizeof(*data));
-////    *data = local_data;
-////    pthread_create(mt, NULL, threadFunc,readParams);
-////    //pthread_create(mt, NULL, threadFunc,data);
-////    //ret = pthread_create(&pth[i],NULL,threadFunc,readParams);
-////    //pthread_create(&pth[i],NULL,threadFunc,readParams);
-////}
+//void start_thread(pthread_t *mt)
+//{
+//    mystruct local_data = {};
+//    mystruct *data = malloc(sizeof(*data));
+//    *data = local_data;
+//    pthread_create(mt, NULL, threadFunc,readParams);
+//    //pthread_create(mt, NULL, threadFunc,data);
+//    //ret = pthread_create(&pth[i],NULL,threadFunc,readParams);
+//    //pthread_create(&pth[i],NULL,threadFunc,readParams);
+//}
 
-////static void *
-////thread_start(void *arg)
-////{
-////    struct thread_info *tinfo = arg;
-////    char *uargv, *p;
-////
-////   printf("Thread %d: top of stack near %p; argv_string=%s\n",
-////            tinfo->thread_num, &p, tinfo->argv_string);
-////
-////   uargv = strdup(tinfo->argv_string);
-////    if (uargv == NULL)
-////        handle_error("strdup");
-////
-////   for (p = uargv; *p != '\0'; p++)
-////        *p = toupper(*p);
-////
-////   return uargv;
-////}
+//static void *
+//thread_start(void *arg)
+//{
+//    struct thread_info *tinfo = arg;
+//    char *uargv, *p;
+//
+//   printf("Thread %d: top of stack near %p; argv_string=%s\n",
+//            tinfo->thread_num, &p, tinfo->argv_string);
+//
+//   uargv = strdup(tinfo->argv_string);
+//    if (uargv == NULL)
+//        handle_error("strdup");
+//
+//   for (p = uargv; *p != '\0'; p++)
+//        *p = toupper(*p);
+//
+//   return uargv;
+//}
 
 //struct thread_data{
 //	int threads;
@@ -295,8 +294,6 @@ struct dns_request *parse_dns_request(const char *udp_request, size_t request_le
 }
 
 /*  * Builds and sends the dns response datagram */
-//void uild_dns_reponse(int sd, struct sockaddr_in *client, struct dns_request *xhostname, const char *ip, int mode, struct sockaddr_in *xclient)
-//void build_dns_reponse(int sd, struct sockaddr_in *client, struct dns_request *dns_req, const char *ip, int mode, struct sockaddr *yclient)
 void build_dns_reponse(int sd, struct sockaddr_in *yclient, struct dns_request *dns_req, const char *ip, int mode, size_t xrequestlen)
 {
     char *rip = malloc(256 * sizeof(char));
@@ -309,16 +306,15 @@ void build_dns_reponse(int sd, struct sockaddr_in *yclient, struct dns_request *
     
     int sockfd; // = params->xsockfd;
     int xsockfd; // = params->xsockfd;
-
+    //struct dns_request *xhostname = (struct dns_request *)xhostname->hostname;
     char *response,
-    	 //struct dns_request *xhostname = (struct dns_request *)xhostname->hostname;
 	 *qhostname, // = dns_req->hostname,
          *token,
          *pch,
 	 *maxim,
+         *response_ptr;
 	 //*ppch,
 	 //*typeq,
-         *response_ptr;
     int i, ppch;
     ssize_t bytes_sent;
 
@@ -339,9 +335,9 @@ void build_dns_reponse(int sd, struct sockaddr_in *yclient, struct dns_request *
 	    //printf("BUILD-hostname				: %s\n", qhostname);
 	    //printf("build-qry =%s\n",(xdns_req->query));
 	    printf("BUILD-hostname				: %s\n", dns_req->hostname);
-	////    printf("build-host=%s\n",(char *)(xdns_req->hostname));
-	////    printf("build-answ=%s\n", rip);
-	////    printf("build-anmd=%d\n", DNS_MODE_ANSWER);
+    	    ////printf("build-host=%s\n",(char *)(xdns_req->hostname));
+    	    ////printf("build-answ=%s\n", rip);
+    	    ////printf("build-anmd=%d\n", DNS_MODE_ANSWER);
     }
 
     response = malloc (UDP_DATAGRAM_SIZE);
@@ -375,7 +371,6 @@ void build_dns_reponse(int sd, struct sockaddr_in *yclient, struct dns_request *
         response[1] = 0x01;
         response+=2;
     } else if (mode == DNS_MODE_ERROR) {
-    //} else {
        /* DNS_MODE_ERROR should truncate message instead of building it up ...  */
 
         /* Server failure (0x8182), but what if we want NXDOMAIN (0x....) ???*/
@@ -610,7 +605,6 @@ void build_dns_reponse(int sd, struct sockaddr_in *yclient, struct dns_request *
 	//(3, "z\271\205\200\0\1\0\1\0\0\0\0\6google\2hr\0\0\2\0\1\300\f\0\2\0"..., 41, 0, {sa_family=0x1a70 /* AF_??? */, sa_data="s\334\376\177\0\0\20D\1\270\223\177\0\0"}, 8)
 	
 	//(struct sockaddr *)xclient->sin_family = AF_INET;
-	//printf("finishing .. , %d\n",inet_aton("192.168.2.84", &(yclient->sin_addr)));
 	int yclient_len = sizeof(yclient);
         yclient->sin_family = AF_INET;
 	//yclient->sin_addr.s_addr = inet_addr("192.168.2.84"); 
@@ -638,30 +632,24 @@ void build_dns_reponse(int sd, struct sockaddr_in *yclient, struct dns_request *
 	//bytes_sent = sendto(sd, response_ptr, response - response_ptr, 0, (struct sockaddr *)(&yclient), sizeof(yclient));
         bytes_sent = sendto(sd, response_ptr, response - response_ptr, 0, (struct sockaddr *)yclient, 16);
 	//bytes_sent = sendto(3, "\270\204\205\200\0\1\0\1\0\0\0\0\6google\2jp\0\0\1\0\1\300\f\0\1\0"..., 43, 0, {sa_family=0x0002 /* AF_??? */, sa_data="\365\366\374\177\0\0\1\0\0\0\3\0\0\0"}, 16)
-        //fdatasync(sd);
-        close(sd);
 
     } else if (mode == DNS_MODE_ERROR) {
     /* Are we into "No such name" ?... just an NXDOMAIN ?? */ 
         fprintf(stdout, "DNS_MODE_ERROR\n");
         bytes_sent = sendto(sd, response_ptr, response - response_ptr, 0, (struct sockaddr *)yclient, 16);
-        //fdatasync(sd);
-	close(sd);
     } else {
         fprintf(stdout, "DNS_MODE_UNKNOWN\n");
         bytes_sent = sendto(sd, response_ptr, response - response_ptr, 0, (struct sockaddr *)yclient, 16);
-        //fdatasync(sd);
-	close(sd);
     }
     /* DNS VOLUME CALCULATION */
-    //debug_msg("Dns response sent to client (DEC %d bytes)\n", bytes_sent);
     if (DEBUG) {
 	printf("SENT %d bytes\n", (uint32_t)bytes_sent);
     }
+    //fdatasync(sd);
+    close(sd);
     free(response_ptr);
     free(dns_req);
     //free(ip);
-    //return 0;
 }
 
 /* * libCurl write data callback */
@@ -689,19 +677,10 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
     http_response = malloc(HTTP_RESPONSE_SIZE);
     bzero(script_url, URL_SIZE);
     
-	// OPTION --> add resolver & CURL headers
-
-	/*
-	CALLBACK TO PHP, BEHIND WHICH SITS THE "REAL" RESOLVER
-	CAN BE HIDDEN BY MANUAL RESOLVE OVERRIDE, I.E.
-	--resolve my.site.com:80:1.2.3.4, -H "Host: my.site.com"
-	*/
-
     snprintf(script_url, URL_SIZE-1, "%s?host=%s&type=%s", lookup_script, host, typeq);
     
     /* curl setup */
     ch = curl_easy_init();
-    curlsh = curl_share_init();
     curl_easy_setopt(ch, CURLOPT_URL, script_url);
     curl_easy_setopt(ch, CURLOPT_PORT, wport); //80
 
@@ -711,7 +690,7 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
 
     curl_easy_setopt(ch, CURLOPT_PROXY, proxy_host);
     curl_easy_setopt(ch, CURLOPT_PROXYPORT, proxy_port);	/* 8118 */
-    curl_easy_setopt(ch, CURLOPT_PROXYTYPE,  CURLPROXY_HTTP);
+    curl_easy_setopt(ch, CURLOPT_PROXYTYPE, CURLPROXY_HTTP);
     curl_easy_setopt(ch, CURLOPT_VERBOSE,  0);			/* Verbose OFF */
 
     //curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0)
@@ -729,36 +708,44 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
     /* try to see.... */
     //curl_easy_setopt(ch, CURLINFO_HEADER_OUT, "" );
     //curl_easy_setopt(ch, CURLOPT_HEADER, 1L);
-    //list = curl_slist_append(list, "Shoesize: 10");
-    //list = curl_slist_append(list, "Accept:");
+
+    /*
+    // OPTION --> add resolver & CURL headers
+    CALLBACK TO PHP, BEHIND WHICH SITS THE "REAL" RESOLVER
+    CAN BE HIDDEN BY MANUAL RESOLVE OVERRIDE, I.E.
+    --resolve my.site.com:80:1.2.3.4, -H "Host: my.site.com"
+    */
 
     //// OPTION --> HEADERS
-//    list = curl_slist_append(list, "Host: www.fantuz.net");
-//    list = curl_slist_append(list, "Remote Address: 217.114.216.51:80");
-//    list = curl_slist_append(list, "Request URL: http://www.fantuz.net/nslookup.php");
-//    list = curl_slist_append(list, "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_6_8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36");
-//    curl_easy_setopt(ch, CURLOPT_HTTPHEADER, list);
+    //    list = curl_slist_append(list, "Host: www.fantuz.net");
+    //    list = curl_slist_append(list, "Remote Address: 217.114.216.51:80");
+    //    list = curl_slist_append(list, "Request URL: http://www.fantuz.net/nslookup.php");
+    //    list = curl_slist_append(list, "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_6_8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36");
+    //    curl_easy_setopt(ch, CURLOPT_HTTPHEADER, list);
 
     //hosting = curl_slist_append(hosting, "www.fantuz.net:80:217.114.216.51");
     //curl_easy_setopt(ch, CURLOPT_RESOLVE, hosting);
 
+    /* HOW DOES A NEW TCP INFLUENCE WEB CACHE ?? */
     curl_easy_setopt(ch, CURLOPT_MAXCONNECTS, MAXCONN);
-    curl_easy_setopt(ch, CURLOPT_FRESH_CONNECT, 0);		/* HOW DOES A NEW TCP INFLUENCE WEB CACHE ?? */
+    curl_easy_setopt(ch, CURLOPT_FRESH_CONNECT, 0);
     curl_easy_setopt(ch, CURLOPT_FORBID_REUSE, 0);
     //curl_setopt ($curl, CURLOPT_AUTOREFERER, 1);
 
     //// OPTION --> FOLLOW-LOCATION
     //curl_setopt ($curl, CURLOPT_FOLLOWLOCATION, 1);
 
-    //CURL_LOCK_DATA_SHARE
-    //curl_share_setopt(curlsh, CURLSHOPT_SHARE, CURL_LOCK_DATA_COOKIE);
-
     /* Problem in performing the http request ?? */
-    curl_share_setopt(curlsh, CURLSHOPT_SHARE, CURL_LOCK_DATA_DNS); 
-    curl_easy_setopt(ch, CURLOPT_SHARE, curlsh);
     curl_easy_setopt(ch, CURLOPT_WRITEFUNCTION, write_data);	/* Set write function */
     curl_easy_setopt(ch, CURLOPT_WRITEDATA, http_response);
-    ret = curl_easy_perform(ch);    
+
+    //CURL_LOCK_DATA_SHARE
+    curlsh = curl_share_init();
+    curl_easy_setopt(ch, CURLOPT_SHARE, curlsh);
+    curl_share_setopt(curlsh, CURLSHOPT_SHARE, CURL_LOCK_DATA_COOKIE);
+    curl_share_setopt(curlsh, CURLSHOPT_SHARE, CURL_LOCK_DATA_DNS); 
+
+    ret = curl_easy_perform(ch);
 
     //if ((ret < 0) || (ret > 0)) {
     if (ret < 0) {
@@ -769,7 +756,6 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
         free(script_url);
 	curl_slist_free_all(list);
 	curl_slist_free_all(hosting);
-        //free(http_response);
         return NULL;
     }
    
@@ -782,13 +768,12 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
 	curl_slist_free_all(list);
 	curl_slist_free_all(hosting);
     	printf("inside curl (MALF) .... %s",http_response);
-        //return http_response;
-        //free(http_response);
         http_response = "0.0.0.0\r\n";
         return NULL;
+        //return http_response;
     }
    
-    printf("inside curl .... %s",http_response);
+    //printf("inside curl .... %s",http_response);
     curl_easy_cleanup(ch);
     free(script_url);
     curl_slist_free_all(list);
@@ -799,36 +784,19 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
 /* This is our thread function.  It is like main(), but for a thread*/
 void *threadFunc(void *arg)
 {
-
-	//    BoundedBuffer *buffer = params->b;
 	struct readThreadParams *params = (struct readThreadParams*)arg;
 
-	//struct dns_request *xdns_req  = malloc(sizeof(struct dns_request));
-	//struct dns_request *xdns_req = (struct dns_request *)dns_request;
 	struct dns_request *xdns_req = (struct dns_request *)params->xhostname;
-
-        //struct sockaddr_in *yclient = malloc(sizeof(struct sockaddr_in));
 	struct sockaddr_in *yclient = (struct sockaddr_in *)params->yclient;
 	//struct sockaddr_in *xclient = (struct sockaddr_in *)params->xclient;
         struct dns_request *dns_req = malloc(sizeof(struct dns_request));
 	struct dns_request *xhostname = (struct dns_request *)params->xhostname;
-	//struct dns_request *xhostname = (struct dns_request *)params->xhostname->hostname;
-	//struct dns_request *xhostname = malloc(sizeof(struct dns_request));
-	//char* xhostname = params->xhostname;
-
-	char *yhostname = (char *)params->xhostname->hostname;
-
-	//struct sockaddr_in *yclient = (struct sockaddr_in *)params->xclient;
-        //struct sockaddr_in *xdns_req = malloc(sizeof(struct dns_request));
-	//struct dns_req *dns_req ; //= (struct dns_request *)params->xhostname;
-	//struct dns_request *dns_req = (struct dns_request *)params->xhostname;
-	//struct dns_request *dns_req;
-
+	size_t request_len = params->xrequestlen;
 	//char *str;
 	//int test = params->digit;
+	//char* data = params->input;
 	int proxy_port = params->xproxy_port;
 	int wport = params->xwport;
-	//char* data = params->input;
 	char* proxy_user = params->xproxy_user;
 	char* proxy_pass = params->xproxy_pass;
 	char* proxy_host = params->xproxy_host;
@@ -836,15 +804,13 @@ void *threadFunc(void *arg)
 	char* typeq = params->xtypeq;
 	int xsockfd = params->xsockfd;
 	int sockfd = params->sockfd;
-	size_t request_len = params->xrequestlen;
-	//int request_len = params->xrequestlen;
 	int ret;
 	char *rip = malloc(256 * sizeof(char));
 	char *ip = NULL;
+	char *yhostname = (char *)params->xhostname->hostname;
 
 	//pthread_key_t key_i;
         //pthread_key_create(&key_i, NULL);
-
 	//str=(char*)arg;
 
 /*
@@ -866,9 +832,7 @@ void *threadFunc(void *arg)
 		printf("VARIABLE-RECV: %d\n", (uint32_t)(yclient->sin_addr).s_addr);
 		printf("VARIABLE-RECV: %s\n", s);
 		printf("VARIABLE-RECV: %s\n", lookup_script);
-		//printf("VARIABLE-RECV: %s\n", dns_req->hostname);
 		printf("VARIABLE-RECV: %s\n", yhostname);
-		//printf("VARIABLE-RECV: %d\n", (size_t)xhostname->hostname_len);
 	}
 	
         rip = lookup_host(yhostname, proxy_host, proxy_port, proxy_user, proxy_pass, lookup_script, typeq, wport);
@@ -881,7 +845,7 @@ void *threadFunc(void *arg)
 		printf("VARIABLE-RET-HTTP: %s", rip);
 		//pthread_setspecific(glob_var_key_ip, rip);
 		//pthread_getspecific(glob_var_key_ip);
-		printf("VARIABLE-RET-HTTP-GLOBAL: %x\n", glob_var_key_ip);
+// MOD 2015	printf("VARIABLE-RET-HTTP-GLOBAL: %x\n", glob_var_key_ip);
 		//printf("VARIABLE-HTTP: %x\n", pthread_getspecific(glob_var_key_ip));
 		//printf("build: %s", inet_ntop(AF_INET, &ip_header->saddr, ipbuf, sizeof(ipbuf)));
 	}
@@ -912,29 +876,20 @@ void *threadFunc(void *arg)
             build_dns_reponse(sockfd, yclient, xhostname, rip, DNS_MODE_ANSWER, request_len);
 
 	    //printf("THREAD-V-xclient->sin_addr.s_addr		: %s\n",(char *)(xclient->sin_family));
-            //build_dns_reponse(sockfd, xclient, dns_req, rip, DNS_MODE_ANSWER);
-            //build_dns_reponse(xsockfd, xclient, dns_req, rip, DNS_MODE_ANSWER);
         } else if ( strstr(dns_req->hostname, "hamachi.cc") != NULL ) {
             printf("BALCKLIST: pid [%d] - name %s - host %s - size %d \r\n", getpid(), dns_req->hostname, rip, (uint32_t)request_len);
 	    printf("BLACKLIST: xsockfd %d - hostname %s \r\n", xsockfd, xdns_req->hostname);
 	    printf("BLACKLIST: xsockfd %d - hostname %s \r\n", xsockfd, yhostname);
-            //build_dns_reponse(xsockfd, xclient, dns_req, rip, DNS_MODE_ANSWER);
             build_dns_reponse(xsockfd, yclient, xhostname, rip, DNS_MODE_ANSWER, request_len);
         } else if ( rip == "0.0.0.0" ) {
        	    printf("ERROR: pid [%d] - name %s - host %s - size %d \r\n", getpid(), dns_req->hostname, rip, (uint32_t)request_len);
 	    printf("ERROR: xsockfd %d - hostname %s \r\n", xsockfd, yhostname);
 	    printf("Generic resolution problem \n");
-            //build_dns_reponse(xsockfd, xclient, dns_req, rip, DNS_MODE_ERROR);
             build_dns_reponse(xsockfd, yclient, xhostname, rip, DNS_MODE_ERROR, request_len);
 	}
-	//rip = NULL;
-        //free(rip);
-	//printf("\nfreeing up...\n");
 
 	//char *s = inet_ntoa(xclient->sin_addr);
-	//pthread_exit(s);
 	//pthread_setspecific(glob_var_key_ip, NULL);
-	//pthread_exit(0);
 
 /*
 	if (pthread_mutex_unlock(&mutex)) {
@@ -949,7 +904,6 @@ void *threadFunc(void *arg)
    	printf("Thread/process ID : %d\n", getpid());
    	printf("Main parent's ID: %d\n", getppid());
 	pthread_exit(NULL);
-        //exit(EXIT_SUCCESS);
 }
 
 /* *   main */
@@ -966,15 +920,13 @@ int main(int argc, char *argv[])
        
     ////sem_t mutex;
     int s, tnum, opt, num_threads;
-    struct thread_info *tinfo;
+    //struct thread_info *tinfo;
     //pthread_attr_t attr;
 
     int stack_size;
     void *res;
     int thr = 0;
-    //int *ptr[2];
     int *ptr[2];
-    //struct sockaddr_in *ptr[2];
 
     /* The "-s" option specifies a stack size for our threads */
     stack_size = -1;
@@ -1107,7 +1059,6 @@ int main(int argc, char *argv[])
     }
 */
 
-
     while (1) {
 
 /*
@@ -1126,7 +1077,7 @@ int main(int argc, char *argv[])
 
 	struct dns_request *dns_req;
 	struct sockaddr client;
-	struct thread_info *tinfo;
+	//struct thread_info *tinfo;
 
 	/* Initialize and set thread detached attribute */
 	//pthread_id_np_t   tid;
@@ -1148,19 +1099,17 @@ int main(int argc, char *argv[])
 
 /*
 	pthread_mutex_destroy(&mutex);
-    	wait(NULL);
 */
-    	wait(NULL);
-	//if (nnn > 4) {wait(NULL);}
-
+    	//wait(NULL);
    	client_len = sizeof(client);
    	request_len = recvfrom(sockfd,request,UDP_DATAGRAM_SIZE,0,(struct sockaddr *)&client,&client_len);
+
 
         /* Child */
 	if (fork() == 0) {
 	    //sem_wait(&mutex);
-
    	    dns_req = parse_dns_request(request, request_len);
+
 	    if (DEBUG) {
 		    printf("\nSIZE OF REQUEST: %d", request_len);
 	            printf("\nINFO: transaction %x - name %s - size %d \r\n", dns_req->transaction_id, dns_req->hostname, request_len);
@@ -1188,7 +1137,7 @@ int main(int argc, char *argv[])
 	     IMPLEMENTS DOMAIN BLACKLISTING, AUTHENTICATION, SSL. PENDING MULTITHREADING. SOON, MAKE BETTER FILTER .. */
 
 	    /* OPTION --> BUFFER SIZE */
-	    //int buffsize = 128;
+	    //int buffsize = 256;
 	    //setsockopt(sockfd, SOL_SOCKET, SO_RCVBUF, &buffsize, sizeof(buffsize));
 
 	    int ret;
@@ -1202,18 +1151,11 @@ int main(int argc, char *argv[])
 	    char* xproxy_host = proxy_host;
 	    char* xlookup_script = lookup_script;
 	    char* xtypeq = typeq;
-            //char* xhostname = dns_req->hostname;
+
             struct dns_request *xhostname;
-	    // = (struct dns_req *)&dns_request;
-            //struct dns_req *xhostname;
             struct sockaddr_in *xclient;
             struct sockaddr_in *yclient;
-
 	    struct readThreadParams *readParams = malloc(sizeof(*readParams));
-	    //    readParams.b = buffer2;
-	    //	  readParams->threads = NUMT-1;
-	    //	  readParams->thread_id = t;
-	    //	  readParams->exec = 10;
 	    //	  readParams->max_req_client = 10;
 	    //	  readParams->random = 0;
 	    //	  readParams->ssl = 0;
@@ -1225,16 +1167,12 @@ int main(int argc, char *argv[])
 	    readParams->xlookup_script = lookup_script;
 	    readParams->xtypeq = typeq;
 	    readParams->xwport = wport;
-	    //readParams->xhostname = &xhostname;
 	    readParams->xhostname = (struct dns_request *)dns_req;
-	    //readParams->xhostname = (struct dns_request *)dns_req->hostname;
 	    readParams->xdns_req = (struct dns_request *)&dns_req;
-	    //readParams->xhostname = xhostname; //->hostname;
 	    readParams->xsockfd = xsockfd;
 	    readParams->sockfd = sockfd;
 	    readParams->xclient = (struct sockaddr_in *)&client;
 	    readParams->yclient = (struct sockaddr_in *)&client;
-	    //readParams->xclient = (struct dns_request *)&xhostname;
 	    //readParams->input = str;
 	    //readParams->digit = test;
 	    readParams->xrequestlen = request_len;
@@ -1255,12 +1193,12 @@ int main(int argc, char *argv[])
 	    }
 */
 
-	    //ret = pthread_create(&pth[i],NULL,threadFunc,readParams);
 	    ret = pthread_create(&pth[i],&attr,threadFunc,readParams);
 
 	    //sem_wait(&mutex);
 	    //sem_post(&mutex);
 
+/*
 	    for(r=0; r < NUMT*NUM_THREADS; r++) {
 //	    	if(0 != ret) {
 //			fprintf(stderr, "Couldn't run thread number %d, errno %d\n", i, ret);
@@ -1274,14 +1212,11 @@ int main(int argc, char *argv[])
 	        pthread_join(pth[i],NULL);
 		//pthread_join(pth[r],NULL);
 	        //tidd = pthread_self();
-	        //fprintf(stderr, "self r - %d \n",pthread_self[pth]);
 	        //fprintf(stderr, "self r - %d \n",pthread_self(pth[i]));
 
 		if (DEBUG) {
 	            fprintf(stderr, "pth i - %d \n",(uint16_t)pth[i]);
 	            fprintf(stderr, "pth r - %d \n",(uint16_t)pth[r]);
-//	            fprintf(stderr, "tid i - %d \n",(uint16_t)tid[i]);
-//	            fprintf(stderr, "tid r - %d \n",(uint16_t)tid[r]);
 	   	    //printf("OUTSIDE-THREAD-resolved-address: %s\n",ip);
 	   	    //printf("OUTSIDE-THREAD-resolved-address: %d\n",ret);
 	   	    //printf("OUTSIDE-THREAD-resolved-address: %d\n",glob_var_key_ip);
@@ -1289,10 +1224,12 @@ int main(int argc, char *argv[])
 		    printf("OUTSIDE-THREAD-log: size %d\n",request_len);
 		    fprintf(stderr, "Finished joining thread i-> %d, nnn-> %d, r-> %d \n",i,nnn,r);
 		}
+
 	        i++;
 	        nnn++;
 	    }
 
+*/
 
 	    //if (nnn > NUMT*NUM_THREADS*4) {wait(NULL);}
    	    printf("IF: Thread/process ID : %d\n", getpid());
@@ -1300,8 +1237,9 @@ int main(int argc, char *argv[])
 //	    if (i != 0) { i=0;}
 	    //pthread_mutex_destroy(&mutex);
 
+	    pthread_join(pth[i],NULL);
 	    exit(EXIT_SUCCESS);
-
+	    //continue;
 	    //pthread_setspecific(glob_var_key_ip, NULL);
 	} else {
 
@@ -1309,10 +1247,8 @@ int main(int argc, char *argv[])
 	    /* RECOVERY FROM THREAD BOMB */
    	    printf("ELSE: Thread/process ID : %d\n", getpid());
    	    printf("ELSE: Main parent's ID: %d\n", getppid());
-	    //break;
-	    if (nnn > 4) {wait(NULL);}
+	    if (nnn > 32) {wait(NULL);}
 	    continue;
-	    //wait(NULL);
 	    //break;
 
 ////	    for(nnn=0; nnn< NUMT; nnn++) {
