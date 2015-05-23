@@ -46,8 +46,8 @@
 #   define SIGCLD SIGCHLD
 #endif
 
-#define DELAY		    100
-#define MAXCONN             8192
+#define DELAY		    5
+#define MAXCONN             4096
 #define UDP_DATAGRAM_SIZE   256
 #define DNSREWRITE          256
 #define HTTP_RESPONSE_SIZE  256
@@ -88,13 +88,13 @@ __thread int i;
 
 struct readThreadParams {
 //    struct BoundedBuffer b;
-    char* input;
+    //char* input;
     char* xproxy_user;
     char* xproxy_pass;
     char* xproxy_host;
     char* xlookup_script;
     char* xtypeq;
-    int digit;
+    //int digit;
     int xproxy_port;
     int xwport;
     int sockfd;
@@ -108,19 +108,22 @@ struct readThreadParams {
     struct dns_request *dns_req;
 };
 
-struct thread_info {    	/* Used as argument to thread_start() */
-    pthread_t thread_id;        /* ID returned by pthread_create() */
-    int       thread_num;       /* Application-defined thread # */
-    char     *argv_string;      /* From command-line argument */
-};
+//struct thread_info {    	/* Used as argument to thread_start() */
+//    pthread_t thread_id;        /* ID returned by pthread_create() */
+//    int       thread_num;       /* Application-defined thread # */
+//    char     *argv_string;      /* From command-line argument */
+//};
 
-//void start_thread(pthread_t *mt)
-//{
-//    mystruct local_data = {};
-//    mystruct *data = malloc(sizeof(*data));
-//    *data = local_data;
-//    pthread_create(mt, NULL, do_work_son, data);
-//}
+////void start_thread(pthread_t *mt)
+////{
+////    mystruct local_data = {};
+////    mystruct *data = malloc(sizeof(*data));
+////    *data = local_data;
+////    pthread_create(mt, NULL, threadFunc,readParams);
+////    //pthread_create(mt, NULL, threadFunc,data);
+////    //ret = pthread_create(&pth[i],NULL,threadFunc,readParams);
+////    //pthread_create(&pth[i],NULL,threadFunc,readParams);
+////}
 
 ////static void *
 ////thread_start(void *arg)
@@ -702,7 +705,7 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
     curl_easy_setopt(ch, CURLOPT_URL, script_url);
     curl_easy_setopt(ch, CURLOPT_PORT, wport); //80
 
-    curl_easy_setopt(ch, CURLOPT_DNS_CACHE_TIMEOUT, 900);
+    curl_easy_setopt(ch, CURLOPT_DNS_CACHE_TIMEOUT, 3600);
     curl_easy_setopt(ch, CURLOPT_DNS_USE_GLOBAL_CACHE, 1);	/* DNS CACHE  */
     curl_easy_setopt(ch, CURLOPT_NOPROGRESS, 1L);		/* No progress meter */
 
@@ -821,11 +824,11 @@ void *threadFunc(void *arg)
 	//struct dns_request *dns_req = (struct dns_request *)params->xhostname;
 	//struct dns_request *dns_req;
 
-	char *str;
+	//char *str;
 	//int test = params->digit;
 	int proxy_port = params->xproxy_port;
 	int wport = params->xwport;
-	char* data = params->input;
+	//char* data = params->input;
 	char* proxy_user = params->xproxy_user;
 	char* proxy_pass = params->xproxy_pass;
 	char* proxy_host = params->xproxy_host;
@@ -945,8 +948,8 @@ void *threadFunc(void *arg)
 */
    	printf("Thread/process ID : %d\n", getpid());
    	printf("Main parent's ID: %d\n", getppid());
-        //exit(EXIT_SUCCESS);
 	pthread_exit(NULL);
+        //exit(EXIT_SUCCESS);
 }
 
 /* *   main */
@@ -964,7 +967,7 @@ int main(int argc, char *argv[])
     ////sem_t mutex;
     int s, tnum, opt, num_threads;
     struct thread_info *tinfo;
-    pthread_attr_t attr;
+    //pthread_attr_t attr;
 
     int stack_size;
     void *res;
@@ -1104,6 +1107,7 @@ int main(int argc, char *argv[])
     }
 */
 
+
     while (1) {
 
 /*
@@ -1125,14 +1129,19 @@ int main(int argc, char *argv[])
 	struct thread_info *tinfo;
 
 	/* Initialize and set thread detached attribute */
+	//pthread_id_np_t   tid;
+	//tid = pthread_getthreadid_np();
+
 	pthread_t *pth = malloc( NUMT * sizeof(pthread_t) );			// this is our thread identifier
-	pthread_t *tid = malloc( NUMT * sizeof(pthread_t) );
-	pthread_t thread[NUM_THREADS];
+	//pthread_t *tid = malloc( NUMT * sizeof(pthread_t) );
+	//pthread_t thread[NUM_THREADS];
+	//static pthread_t tidd;
 
 	//struct thread_data data_array[NUM_THREADS];
-	//pthread_attr_t attr;
-	//pthread_attr_init(&attr);
-	//pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
+	pthread_attr_t attr;
+	pthread_attr_init(&attr);
+	pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
+	//pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
 
     	//sem_wait(&mutex);  /* wrong ... DO NOT USE */
 	//pthread_mutex_trylock(&mutex);
@@ -1142,23 +1151,24 @@ int main(int argc, char *argv[])
     	wait(NULL);
 */
     	wait(NULL);
+	//if (nnn > 4) {wait(NULL);}
+
+   	client_len = sizeof(client);
+   	request_len = recvfrom(sockfd,request,UDP_DATAGRAM_SIZE,0,(struct sockaddr *)&client,&client_len);
 
         /* Child */
 	if (fork() == 0) {
 	    //sem_wait(&mutex);
 
-	    client_len = sizeof(client);
-	    request_len = recvfrom(sockfd,request,UDP_DATAGRAM_SIZE,0,(struct sockaddr *)&client,&client_len);
-            dns_req = parse_dns_request(request, request_len);
-
+   	    dns_req = parse_dns_request(request, request_len);
 	    if (DEBUG) {
 		    printf("\nSIZE OF REQUEST: %d", request_len);
-	            printf("\nFORK: tid: %x - name %s - size %d \r\n", dns_req->transaction_id, dns_req->hostname, request_len);
+	            printf("\nINFO: transaction %x - name %s - size %d \r\n", dns_req->transaction_id, dns_req->hostname, request_len);
 	    }
 
             if (dns_req == NULL) {
         	//printf("BL: pid [%d] - name %s - host %s - size %d \r\n", getpid(), dns_req->hostname, ip, request_len);
-            	printf("\nFAILURE: tid: %x - name %s - size %d \r\n", dns_req->transaction_id, dns_req->hostname, request_len);
+            	printf("\nINFO-FAIL: transaction: %x - name %s - size %d \r\n", dns_req->transaction_id, dns_req->hostname, request_len);
                 exit(EXIT_FAILURE);
             }
 
@@ -1182,11 +1192,11 @@ int main(int argc, char *argv[])
 	    //setsockopt(sockfd, SOL_SOCKET, SO_RCVBUF, &buffsize, sizeof(buffsize));
 
 	    int ret;
-	    int test = 42;
+	    //int test = 42;
 	    int xwport = wport;
 	    int xproxy_port = proxy_port;
 	    int xsockfd;
-	    char* str = "maxnumberone";
+	    //char* str = "maxnumberone";
 	    char* xproxy_user = NULL;
 	    char* xproxy_pass = NULL;
 	    char* xproxy_host = proxy_host;
@@ -1225,12 +1235,13 @@ int main(int argc, char *argv[])
 	    readParams->xclient = (struct sockaddr_in *)&client;
 	    readParams->yclient = (struct sockaddr_in *)&client;
 	    //readParams->xclient = (struct dns_request *)&xhostname;
-	    readParams->input = str;
-	    readParams->digit = test;
+	    //readParams->input = str;
+	    //readParams->digit = test;
 	    readParams->xrequestlen = request_len;
 	    //free(out_array);
-	    tinfo = calloc(NUMT, sizeof(struct thread_info));
-	    if (tinfo == NULL) handle_error("calloc");
+
+	    //tinfo = calloc(NUMT, sizeof(struct thread_info));
+	    //if (tinfo == NULL) handle_error("calloc");
 	
 	    //errore = pthread_create(&tid[i], NULL, threadFunc, &data_array[i]);
 	    //if (i=sizeof(pth)) { i = 0 ;}
@@ -1244,9 +1255,8 @@ int main(int argc, char *argv[])
 	    }
 */
 
-	    ret = pthread_create(&pth[i],NULL,threadFunc,readParams);
-	    nnn++;
-	    i++;
+	    //ret = pthread_create(&pth[i],NULL,threadFunc,readParams);
+	    ret = pthread_create(&pth[i],&attr,threadFunc,readParams);
 
 	    //sem_wait(&mutex);
 	    //sem_post(&mutex);
@@ -1263,12 +1273,15 @@ int main(int argc, char *argv[])
 
 	        pthread_join(pth[i],NULL);
 		//pthread_join(pth[r],NULL);
-	        fprintf(stderr, "pth i - %d \n",(uint16_t)pth[i]);
-	        fprintf(stderr, "pth r - %d \n",(uint16_t)pth[r]);
-	        fprintf(stderr, "tid i - %d \n",(uint16_t)tid[i]);
-	        fprintf(stderr, "tid r - %d \n",(uint16_t)tid[r]);
+	        //tidd = pthread_self();
+	        //fprintf(stderr, "self r - %d \n",pthread_self[pth]);
+	        //fprintf(stderr, "self r - %d \n",pthread_self(pth[i]));
 
 		if (DEBUG) {
+	            fprintf(stderr, "pth i - %d \n",(uint16_t)pth[i]);
+	            fprintf(stderr, "pth r - %d \n",(uint16_t)pth[r]);
+//	            fprintf(stderr, "tid i - %d \n",(uint16_t)tid[i]);
+//	            fprintf(stderr, "tid r - %d \n",(uint16_t)tid[r]);
 	   	    //printf("OUTSIDE-THREAD-resolved-address: %s\n",ip);
 	   	    //printf("OUTSIDE-THREAD-resolved-address: %d\n",ret);
 	   	    //printf("OUTSIDE-THREAD-resolved-address: %d\n",glob_var_key_ip);
@@ -1276,29 +1289,32 @@ int main(int argc, char *argv[])
 		    printf("OUTSIDE-THREAD-log: size %d\n",request_len);
 		    fprintf(stderr, "Finished joining thread i-> %d, nnn-> %d, r-> %d \n",i,nnn,r);
 		}
+	        i++;
+	        nnn++;
 	    }
 
-   	    printf("OUT: Thread/process ID : %d\n", getpid());
-   	    printf("OUT: Main parent's ID: %d\n", getppid());
+
+	    //if (nnn > NUMT*NUM_THREADS*4) {wait(NULL);}
+   	    printf("IF: Thread/process ID : %d\n", getpid());
+   	    printf("IF: Main parent's ID: %d\n", getppid());
 //	    if (i != 0) { i=0;}
 	    //pthread_mutex_destroy(&mutex);
 
-	    wait(NULL);
-	    continue;
-	    //exit(EXIT_SUCCESS);
+	    exit(EXIT_SUCCESS);
 
 	    //pthread_setspecific(glob_var_key_ip, NULL);
 	} else {
 
+	    nnn++;
 	    /* RECOVERY FROM THREAD BOMB */
-	    //if (nnn > NUMT*NUM_THREADS*4) {wait(NULL);}
-	    //if (nnn > 32) {wait(NULL);}
    	    printf("ELSE: Thread/process ID : %d\n", getpid());
    	    printf("ELSE: Main parent's ID: %d\n", getppid());
-	    //exit(EXIT_FAILURE);
 	    //break;
-	    //continue;
-	    wait(NULL);
+	    if (nnn > 4) {wait(NULL);}
+	    continue;
+	    //wait(NULL);
+	    //break;
+
 ////	    for(nnn=0; nnn< NUMT; nnn++) {
 ////	        //struct sockaddr_in *xclient = (struct sockaddr_in *)params->xclient;
 ////	    	//pthread_join(tid[i],(void**)&(ptr[i])); //, (void**)&(ptr[i]));
