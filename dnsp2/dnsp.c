@@ -46,8 +46,8 @@
 #   define SIGCLD SIGCHLD
 #endif
 
-#define DELAY		    5
-#define MAXCONN             2048
+#define DELAY		    0
+#define MAXCONN             512
 #define UDP_DATAGRAM_SIZE   256
 #define DNSREWRITE          256
 #define HTTP_RESPONSE_SIZE  256
@@ -57,8 +57,8 @@
 #define DNS_MODE_ERROR      2
 #define DEFAULT_LOCAL_PORT  53
 #define DEFAULT_WEB_PORT    80
-#define NUMT	            2
-#define NUM_THREADS         2
+#define NUMT	            1
+#define NUM_THREADS         1
 #define NUM_HANDLER_THREADS 1
 
 //#define TYPEQ		    2
@@ -773,7 +773,7 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
         //return http_response;
     }
    
-    //printf("inside curl .... %s",http_response);
+    printf("inside curl .... %s",http_response);
     curl_easy_cleanup(ch);
     free(script_url);
     curl_slist_free_all(list);
@@ -901,9 +901,9 @@ void *threadFunc(void *arg)
 	pthread_mutex_destroy(&mutex);
 	printf("destroy OK..\n");
 */
-   	printf("Thread/process ID : %d\n", getpid());
-   	printf("Main parent's ID: %d\n", getppid());
-	pthread_exit(NULL);
+   	//printf("Thread/process ID : %d\n", getpid());
+	//pthread_exit(NULL);
+	exit(EXIT_SUCCESS);
 }
 
 /* *   main */
@@ -1137,7 +1137,7 @@ int main(int argc, char *argv[])
 	     IMPLEMENTS DOMAIN BLACKLISTING, AUTHENTICATION, SSL. PENDING MULTITHREADING. SOON, MAKE BETTER FILTER .. */
 
 	    /* OPTION --> BUFFER SIZE */
-	    //int buffsize = 256;
+	    //int buffsize = 512;
 	    //setsockopt(sockfd, SOL_SOCKET, SO_RCVBUF, &buffsize, sizeof(buffsize));
 
 	    int ret;
@@ -1193,7 +1193,9 @@ int main(int argc, char *argv[])
 	    }
 */
 
-	    ret = pthread_create(&pth[i],&attr,threadFunc,readParams);
+	    threadFunc(readParams);
+	    //exit(EXIT_SUCCESS);
+	    //ret = pthread_create(&pth[i],&attr,threadFunc,readParams);
 
 	    //sem_wait(&mutex);
 	    //sem_post(&mutex);
@@ -1232,22 +1234,20 @@ int main(int argc, char *argv[])
 */
 
 	    //if (nnn > NUMT*NUM_THREADS*4) {wait(NULL);}
-   	    printf("IF: Thread/process ID : %d\n", getpid());
-   	    printf("IF: Main parent's ID: %d\n", getppid());
+   	    //printf("IF: Thread/process ID : %d\n", getpid());
 //	    if (i != 0) { i=0;}
 	    //pthread_mutex_destroy(&mutex);
 
-	    pthread_join(pth[i],NULL);
-	    exit(EXIT_SUCCESS);
+	    //pthread_join(pth[i],NULL);
 	    //continue;
 	    //pthread_setspecific(glob_var_key_ip, NULL);
-	} else {
+	}
+	/*else {
 
 	    nnn++;
-	    /* RECOVERY FROM THREAD BOMB */
-   	    printf("ELSE: Thread/process ID : %d\n", getpid());
-   	    printf("ELSE: Main parent's ID: %d\n", getppid());
-	    if (nnn > 32) {wait(NULL);}
+	    / * RECOVERY FROM THREAD BOMB * /
+   	    //printf("ELSE: Thread/process ID : %d\n", getpid());
+	    //if (nnn > 32) {wait(NULL);}
 	    continue;
 	    //break;
 
@@ -1258,7 +1258,7 @@ int main(int argc, char *argv[])
             	//pthread_join(pth[i],NULL);
 ////	    }
 
-/* LOCKS AND MUTEXES */
+/ * LOCKS AND MUTEXES * /
 ////	    pthread_mutex_lock(&mutex);
 ////	    if (pthread_mutex_unlock(&mutex)) {
 ////	        //printf("unlock OK.. but no RET\n");
@@ -1268,99 +1268,23 @@ int main(int argc, char *argv[])
 ////	    } 
             //sem_destroy(&mutex);
 
-/* JOIN THREADS */
+/ * JOIN THREADS * /
 //	    if(pthread_join(pth[i], NULL)) {
 //	    	//fprintf(stderr, "Finished serving client %s on socket %u \n",(struct sockaddr_in *)&client->sin_addr.s_addr,sockfd);
 //	    }
 
-/* LOCKS AND MUTEXES */
+/ * LOCKS AND MUTEXES * /
 	    //pthread_mutex_destroy(&mutex);
-	    //sem_post(&mutex);  /* DO NOT USE */
+	    / * DO NOT USE * /
+	    //sem_post(&mutex);
 
             //exit(EXIT_FAILURE);
 	    //pthread_join(pth[i],NULL);
 	    //pthread_exit(NULL);
 
-/* NONSENSE CAUSE NO THREAD ANYMORE */
+	    / * NONSENSE CAUSE NO THREAD ANYMORE * /
 //	    if (DEBUG) {fprintf(stderr, "Finished joining thread i-> %d, nnn-> %d \n",i,nnn);}
-	}
+	} */
     }
 }
-
-/*
-	char *h;
-	struct addrinfo * _addrinfo;
-	struct addrinfo * _res;
-	char _address[INET6_ADDRSTRLEN];
-	int errcode;
-	errcode = getaddrinfo("127.0.0.1", NULL, NULL, &_addrinfo);
-	if(errcode != 0) {
-	  printf("getaddrinfo: %s\n", gai_strerror(errcode));
-	  //return EXIT_FAILURE;
-	  //exit EXIT_FAILURE;
-	  return 0;
-	}
-	for(_res = _addrinfo; _res != NULL; _res = _res->ai_next) {
-		if(_res->ai_family == AF_INET) {
-			if( NULL == inet_ntop( AF_INET, &((struct sockaddr_in *)_res->ai_addr)->sin_addr, _address, sizeof(_address) )) {
-			    //perror("inet_ntop");
-			    //return EXIT_FAILURE;
-			    exit(EXIT_FAILURE);
-			}
-	        printf("%s\n", _address);
-		}
-	}
-*/
-
-/*	    
-	    in_addr_t xx;
-	    char *ff;			well set this equal to the IP string address returned by inet_ntoa 
-	    char *yy = (char *)&xx;		so that we can address the individual bytes 
-	    ff = inet_ntoa(*(struct in_addr *)&xx);	cast x as a struct in_addr 
-	    printf("outside = %s, %x, %d\n", ff, xx, xx);
-*/
-
-/*
-////    //struct sockaddr_in x = malloc(sizeof(x));
-////	in_addr_t x;
-////	char *z; // well set this equal to the IP string address returned by inet_ntoa //
-////	char *y = (char *)&x; // so that we can address the individual bytes //
-////	z = inet_ntoa(*(struct in_addr *)&x); // cast x as a struct in_addr //
-////	printf("inside = %s, %x, %d\n", z, x, x);
-*/
-
-/*
-	char *h;
-	struct addrinfo * _addrinfo;
-	struct addrinfo * _res;
-	char _address[INET6_ADDRSTRLEN];
-	int errcode;
-	errcode = getaddrinfo("127.0.0.1", NULL, NULL, &_addrinfo);
-	if(errcode != 0) {
-	  printf("getaddrinfo: %s\n", gai_strerror(errcode));
-	  //return EXIT_FAILURE;
-	  //exit EXIT_FAILURE;
-	  return 0;
-	}
-	for(_res = _addrinfo; _res != NULL; _res = _res->ai_next) {
-		if(_res->ai_family == AF_INET) {
-			if( NULL == inet_ntop( AF_INET, &((struct sockaddr_in *)_res->ai_addr)->sin_addr, _address, sizeof(_address) )) {
-			    //perror("inet_ntop");
-			    //return EXIT_FAILURE;
-			    exit(EXIT_FAILURE);
-			}
-	        printf("%s\n", _address);
-		}
-	}
-*/
-
-////	    in_addr_t qq;
-////	    char *hh;			/* well set this equal to the IP string address returned by inet_ntoa */
-////	    char *kkk = (char *)&raddr_in;			/* so that we can address the individual bytes */
-////	    hh = inet_ntoa(*(struct in_addr *)&raddr_in);	/* cast x as a struct in_addr */
-////	    printf("middle = %s\n", hh);
-
-// [pid  1664] sendto(3, "\20\224\205\200\0\1\0\1\0\0\0\0\6google\2it\0\0\1\0\1\300\f\0\1\0"..., 43, 0, {sa_family=AF_INET, sin_port=htons(60144), sin_addr=inet_addr("127.0.0.1")}, 16) = 43
-// [pid  1369] sendto(3, "\0|\205\200\0\1\0\1\0\0\0\0\6google\2it\0\0\1\0\1\300\f\0\1\0"..., 43, 0, {sa_family=0x4720 /* AF_??? */, sa_data="\301k\374\177\0\0\1\0\0\0\3\0\0\0"}, 8) = -1 EINVAL (Invalid argument)
-// [pid  2857] sendto(3, "\f\320\205\200\0\1\0\1\0\0\0\0\6google\2it\0\0\1\0\1\300\f\0\1\0"..., 43, 0, {sa_family=0xc940 /* AF_??? */, sa_data="\336w\375\177\0\0\1\0\0\0\3\0\0\0"}, 8) = -1 EINVAL (Invalid argument)
 
