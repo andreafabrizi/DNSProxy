@@ -47,7 +47,7 @@
 #endif
 
 #define DELAY		    0
-#define MAXCONN             512
+#define MAXCONN             8
 #define UDP_DATAGRAM_SIZE   256
 #define DNSREWRITE          256
 #define HTTP_RESPONSE_SIZE  256
@@ -57,7 +57,7 @@
 #define DNS_MODE_ERROR      2
 #define DEFAULT_LOCAL_PORT  53
 #define DEFAULT_WEB_PORT    80
-#define NUMT	            1
+#define NUMT	            2
 #define NUM_THREADS         1
 #define NUM_HANDLER_THREADS 1
 
@@ -91,9 +91,9 @@ struct readThreadParams {
     char* xproxy_user;
     char* xproxy_pass;
     char* xproxy_host;
+    int xproxy_port;
     char* xlookup_script;
     char* xtypeq;
-    int xproxy_port;
     int xwport;
     int sockfd;
     int xsockfd;
@@ -688,20 +688,23 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
     curl_easy_setopt(ch, CURLOPT_DNS_USE_GLOBAL_CACHE, 1);	/* DNS CACHE  */
     curl_easy_setopt(ch, CURLOPT_NOPROGRESS, 1L);		/* No progress meter */
 
-    curl_easy_setopt(ch, CURLOPT_PROXY, proxy_host);
-    curl_easy_setopt(ch, CURLOPT_PROXYPORT, proxy_port);	/* 8118 */
-    curl_easy_setopt(ch, CURLOPT_PROXYTYPE, CURLPROXY_HTTP);
+    if ((proxy_host != NULL) && (proxy_port > 0)) {
+    	curl_easy_setopt(ch, CURLOPT_PROXY, proxy_host);
+    	curl_easy_setopt(ch, CURLOPT_PROXYPORT, proxy_port);	/* 8118 */
+    	curl_easy_setopt(ch, CURLOPT_PROXYTYPE, CURLPROXY_HTTP);
+    	/* optional proxy username and password */
+    	if ((proxy_user != NULL) && (proxy_pass != NULL)) {
+    	    curl_easy_setopt(ch, CURLOPT_PROXYUSERNAME, proxy_user);
+    	    curl_easy_setopt(ch, CURLOPT_PROXYPASSWORD, proxy_pass);
+    	}
+    }
+
     curl_easy_setopt(ch, CURLOPT_VERBOSE,  0);			/* Verbose OFF */
 
     //curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0)
     curl_easy_setopt(ch, CURLOPT_SSL_VERIFYPEER, 0L);
     curl_easy_setopt(ch, CURLOPT_SSL_VERIFYHOST, 0L);;
 
-    /* option proxy username and password */
-    if ((proxy_user != NULL) && (proxy_pass != NULL)) {
-        curl_easy_setopt(ch, CURLOPT_PROXYUSERNAME, proxy_user);
-        curl_easy_setopt(ch, CURLOPT_PROXYPASSWORD, proxy_pass);
-    }
 
 // curl -H "Host: www.fantuz.net" -H "Remote Address:217.114.216.51:80" -H "Request URL:http://www.fantuz.net/nslookup.php" -H "Host:www.fantuz.net" -H "User-Agent:Mozilla/5.0 (Macintosh; Intel Mac OS X 10_6_8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36" http://www.fantuz.net/nslookup.php?host=fantuz.net
 
@@ -728,8 +731,8 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
 
     /* HOW DOES A NEW TCP INFLUENCE WEB CACHE ?? */
     curl_easy_setopt(ch, CURLOPT_MAXCONNECTS, MAXCONN);
-    curl_easy_setopt(ch, CURLOPT_FRESH_CONNECT, 0);
-    curl_easy_setopt(ch, CURLOPT_FORBID_REUSE, 0);
+    curl_easy_setopt(ch, CURLOPT_FRESH_CONNECT, 1);
+    curl_easy_setopt(ch, CURLOPT_FORBID_REUSE, 1);
     //curl_setopt ($curl, CURLOPT_AUTOREFERER, 1);
 
     //// OPTION --> FOLLOW-LOCATION
@@ -795,8 +798,8 @@ void *threadFunc(void *arg)
 	//char *str;
 	//int test = params->digit;
 	//char* data = params->input;
-	int proxy_port = params->xproxy_port;
 	int wport = params->xwport;
+	int proxy_port = params->xproxy_port;
 	char* proxy_user = params->xproxy_user;
 	char* proxy_pass = params->xproxy_pass;
 	char* proxy_host = params->xproxy_host;
@@ -1083,15 +1086,15 @@ int main(int argc, char *argv[])
 	//pthread_id_np_t   tid;
 	//tid = pthread_getthreadid_np();
 
-	pthread_t *pth = malloc( NUMT * sizeof(pthread_t) );			// this is our thread identifier
+//	pthread_t *pth = malloc( NUMT * sizeof(pthread_t) );			// this is our thread identifier
 	//pthread_t *tid = malloc( NUMT * sizeof(pthread_t) );
 	//pthread_t thread[NUM_THREADS];
 	//static pthread_t tidd;
 
 	//struct thread_data data_array[NUM_THREADS];
-	pthread_attr_t attr;
-	pthread_attr_init(&attr);
-	pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
+//	pthread_attr_t attr;
+//	pthread_attr_init(&attr);
+//	pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
 	//pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
 
     	//sem_wait(&mutex);  /* wrong ... DO NOT USE */
@@ -1100,11 +1103,10 @@ int main(int argc, char *argv[])
 /*
 	pthread_mutex_destroy(&mutex);
 */
-    	//wait(NULL);
    	client_len = sizeof(client);
    	request_len = recvfrom(sockfd,request,UDP_DATAGRAM_SIZE,0,(struct sockaddr *)&client,&client_len);
 
-
+    	//wait(NULL);
         /* Child */
 	if (fork() == 0) {
 	    //sem_wait(&mutex);
@@ -1137,15 +1139,20 @@ int main(int argc, char *argv[])
 	     IMPLEMENTS DOMAIN BLACKLISTING, AUTHENTICATION, SSL. PENDING MULTITHREADING. SOON, MAKE BETTER FILTER .. */
 
 	    /* OPTION --> BUFFER SIZE */
-	    //int buffsize = 512;
+	    int sndbuf = 512;
+	    int rcvbuf = 512;
+	    int yes = 1;
 	    //setsockopt(sockfd, SOL_SOCKET, SO_RCVBUF, &buffsize, sizeof(buffsize));
+	    setsockopt(sockfd, SOL_SOCKET, SO_RCVBUF, &rcvbuf, sizeof(sndbuf));
+	    setsockopt(sockfd, SOL_SOCKET, SO_SNDBUF, &sndbuf, sizeof(rcvbuf));
+	    setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int));
 
 	    int ret;
 	    //int test = 42;
 	    int xwport = wport;
-	    int xproxy_port = proxy_port;
 	    int xsockfd;
 	    //char* str = "maxnumberone";
+	    int xproxy_port = proxy_port;
 	    char* xproxy_user = NULL;
 	    char* xproxy_pass = NULL;
 	    char* xproxy_host = proxy_host;
