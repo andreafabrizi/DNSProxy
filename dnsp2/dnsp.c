@@ -47,7 +47,7 @@
 #endif
 
 #define DELAY		    0
-#define MAXCONN             8
+#define MAXCONN             128
 #define UDP_DATAGRAM_SIZE   256
 #define DNSREWRITE          256
 #define HTTP_RESPONSE_SIZE  256
@@ -57,7 +57,7 @@
 #define DNS_MODE_ERROR      2
 #define DEFAULT_LOCAL_PORT  53
 #define DEFAULT_WEB_PORT    80
-#define NUMT	            2
+#define NUMT	            1
 #define NUM_THREADS         1
 #define NUM_HANDLER_THREADS 1
 
@@ -670,7 +670,7 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
     char *http_response,
          *script_url;
     int ret;
-    struct curl_slist *hosting = NULL;
+//    struct curl_slist *hosting = NULL;
     struct curl_slist *list = NULL;
 
     script_url = malloc(URL_SIZE);
@@ -758,7 +758,7 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
 	//curl_share_cleanup(curlsh);
         free(script_url);
 	curl_slist_free_all(list);
-	curl_slist_free_all(hosting);
+//	//curl_slist_free_all(hosting);
         return NULL;
     }
    
@@ -769,7 +769,7 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
         curl_easy_cleanup(ch);
         free(script_url);
 	curl_slist_free_all(list);
-	curl_slist_free_all(hosting);
+//	curl_slist_free_all(hosting);
     	printf("inside curl (MALF) .... %s",http_response);
         http_response = "0.0.0.0\r\n";
         return NULL;
@@ -780,7 +780,7 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
     curl_easy_cleanup(ch);
     free(script_url);
     curl_slist_free_all(list);
-    curl_slist_free_all(hosting);
+//    curl_slist_free_all(hosting);
     return http_response;
 }
 
@@ -1070,6 +1070,7 @@ int main(int argc, char *argv[])
     pthread_mutexattr_settype(&MAttr, PTHREAD_MUTEX_RECURSIVE);
 */
 
+	wait(NULL);
 	int nnn = 0, i = 0;
 	int s, tnum, opt;
 	int stack_size;
@@ -1103,13 +1104,13 @@ int main(int argc, char *argv[])
 /*
 	pthread_mutex_destroy(&mutex);
 */
-   	client_len = sizeof(client);
-   	request_len = recvfrom(sockfd,request,UDP_DATAGRAM_SIZE,0,(struct sockaddr *)&client,&client_len);
 
     	//wait(NULL);
         /* Child */
 	if (fork() == 0) {
 	    //sem_wait(&mutex);
+   	    client_len = sizeof(client);
+   	    request_len = recvfrom(sockfd,request,UDP_DATAGRAM_SIZE,0,(struct sockaddr *)&client,&client_len);
    	    dns_req = parse_dns_request(request, request_len);
 
 	    if (DEBUG) {
