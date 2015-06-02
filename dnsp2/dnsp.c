@@ -47,7 +47,7 @@
 #endif
 
 #define DELAY		    0
-#define MAXCONN             128
+#define MAXCONN             1
 #define UDP_DATAGRAM_SIZE   256
 #define DNSREWRITE          256
 #define HTTP_RESPONSE_SIZE  256
@@ -731,8 +731,8 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
 
     /* HOW DOES A NEW TCP INFLUENCE WEB CACHE ?? */
     curl_easy_setopt(ch, CURLOPT_MAXCONNECTS, MAXCONN);
-    curl_easy_setopt(ch, CURLOPT_FRESH_CONNECT, 1);
-    curl_easy_setopt(ch, CURLOPT_FORBID_REUSE, 1);
+    curl_easy_setopt(ch, CURLOPT_FRESH_CONNECT, 0);
+    curl_easy_setopt(ch, CURLOPT_FORBID_REUSE, 0);
     //curl_setopt ($curl, CURLOPT_AUTOREFERER, 1);
 
     //// OPTION --> FOLLOW-LOCATION
@@ -1070,7 +1070,7 @@ int main(int argc, char *argv[])
     pthread_mutexattr_settype(&MAttr, PTHREAD_MUTEX_RECURSIVE);
 */
 
-	wait(NULL);
+	//wait(NULL);
 	int nnn = 0, i = 0;
 	int s, tnum, opt;
 	int stack_size;
@@ -1104,13 +1104,13 @@ int main(int argc, char *argv[])
 /*
 	pthread_mutex_destroy(&mutex);
 */
+   	client_len = sizeof(client);
+   	request_len = recvfrom(sockfd,request,UDP_DATAGRAM_SIZE,0,(struct sockaddr *)&client,&client_len);
 
     	//wait(NULL);
         /* Child */
 	if (fork() == 0) {
 	    //sem_wait(&mutex);
-   	    client_len = sizeof(client);
-   	    request_len = recvfrom(sockfd,request,UDP_DATAGRAM_SIZE,0,(struct sockaddr *)&client,&client_len);
    	    dns_req = parse_dns_request(request, request_len);
 
 	    if (DEBUG) {
@@ -1140,13 +1140,13 @@ int main(int argc, char *argv[])
 	     IMPLEMENTS DOMAIN BLACKLISTING, AUTHENTICATION, SSL. PENDING MULTITHREADING. SOON, MAKE BETTER FILTER .. */
 
 	    /* OPTION --> BUFFER SIZE */
-	    int sndbuf = 512;
-	    int rcvbuf = 512;
-	    int yes = 1;
-	    //setsockopt(sockfd, SOL_SOCKET, SO_RCVBUF, &buffsize, sizeof(buffsize));
-	    setsockopt(sockfd, SOL_SOCKET, SO_RCVBUF, &rcvbuf, sizeof(sndbuf));
-	    setsockopt(sockfd, SOL_SOCKET, SO_SNDBUF, &sndbuf, sizeof(rcvbuf));
-	    setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int));
+	   // int sndbuf = 512;
+	   // int rcvbuf = 512;
+	   // int yes = 1;
+	   // //setsockopt(sockfd, SOL_SOCKET, SO_RCVBUF, &buffsize, sizeof(buffsize));
+	   // setsockopt(sockfd, SOL_SOCKET, SO_RCVBUF, &rcvbuf, sizeof(sndbuf));
+	   // setsockopt(sockfd, SOL_SOCKET, SO_SNDBUF, &sndbuf, sizeof(rcvbuf));
+	   // setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int));
 
 	    int ret;
 	    //int test = 42;
@@ -1202,7 +1202,7 @@ int main(int argc, char *argv[])
 */
 
 	    threadFunc(readParams);
-	    //exit(EXIT_SUCCESS);
+	    exit(EXIT_SUCCESS);
 	    //ret = pthread_create(&pth[i],&attr,threadFunc,readParams);
 
 	    //sem_wait(&mutex);
