@@ -705,6 +705,11 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
     curl_easy_setopt(ch, CURLOPT_SSL_VERIFYPEER, 0L);
     curl_easy_setopt(ch, CURLOPT_SSL_VERIFYHOST, 0L);;
 
+    list = curl_slist_append(list, "Host: www.fantuz.net");
+    //list = curl_slist_append(list, "Remote Address: 217.114.216.51:80");
+    list = curl_slist_append(list, "Request URL: http://www.fantuz.net/ns.php");
+    list = curl_slist_append(list, "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_6_8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36");
+    curl_easy_setopt(ch, CURLOPT_HTTPHEADER, list);
 
 // curl -H "Host: www.fantuz.net" -H "Remote Address:217.114.216.51:80" -H "Request URL:http://www.fantuz.net/nslookup.php" -H "Host:www.fantuz.net" -H "User-Agent:Mozilla/5.0 (Macintosh; Intel Mac OS X 10_6_8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36" http://www.fantuz.net/nslookup.php?host=fantuz.net
 
@@ -766,6 +771,8 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
     if ((strlen(http_response) > 256) || (strncmp(http_response, "0.0.0.0", 7) == 0)) {
 	/* insert error answers here, as NXDOMAIN, SERVFAIL etc */
         printf("CORE: MALFORMED DNS, possible SERVFAIL from origin... investigate !\n");
+	printf("from %s",script_url);
+	//printf("inside curl (MALF) .... %s",http_response);
         curl_easy_cleanup(ch);
         free(script_url);
 	curl_slist_free_all(list);
@@ -776,7 +783,7 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
         //return http_response;
     }
    
-    printf("inside curl .... %s",http_response);
+    //printf("inside curl .... %s",http_response);
     curl_easy_cleanup(ch);
     free(script_url);
     curl_slist_free_all(list);
