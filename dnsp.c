@@ -38,7 +38,7 @@
 #include <curl/curl.h>
 #include <curl/easy.h>
 #include <signal.h>
-//#include <semaphore.h>
+#include <semaphore.h>
 //#include <omp.h>
 
 
@@ -57,8 +57,8 @@
 #define DNS_MODE_ERROR      2
 #define DEFAULT_LOCAL_PORT  53
 #define DEFAULT_WEB_PORT    80
-#define NUMT	            1
-#define NUM_THREADS         1
+#define NUMT	            2
+#define NUM_THREADS         2
 #define NUM_HANDLER_THREADS 1
 
 //#define TYPEQ		    2
@@ -67,24 +67,20 @@
 #define handle_error(msg) \
         do { perror(msg); exit(EXIT_FAILURE); } while (0)
 
-//pthread_key_t glob_var_key_ip;
-//pthread_key_t glob_var_key_client;
+pthread_key_t glob_var_key_ip;
+pthread_key_t glob_var_key_client;
 
-/*
-//static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
-static pthread_mutex_t mutex = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
+static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+//static pthread_mutex_t mutex = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
 //pthread_mutex_t mutex = PTHREAD_ERRORCHECK_MUTEX_INITIALIZER_NP;
 pthread_mutexattr_t MAttr;
-*/
 
-/*
 #ifdef TLS
 __thread int i;
 #else
  pthread_key_t key_i;
 #endif
  pthread_t *tid;
-*/
 
 struct readThreadParams {
     size_t xrequestlen;
@@ -107,11 +103,11 @@ struct readThreadParams {
     struct dns_request *dns_req;
 };
 
-//struct thread_info {    	/* Used as argument to thread_start() */
-//    pthread_t thread_id;        /* ID returned by pthread_create() */
-//    int       thread_num;       /* Application-defined thread # */
-//    char     *argv_string;      /* From command-line argument */
-//};
+struct thread_info {    	/* Used as argument to thread_start() */
+    pthread_t thread_id;        /* ID returned by pthread_create() */
+    int       thread_num;       /* Application-defined thread # */
+    char     *argv_string;      /* From command-line argument */
+};
 
 //void start_thread(pthread_t *mt)
 //{
@@ -124,37 +120,37 @@ struct readThreadParams {
 //    //pthread_create(&pth[i],NULL,threadFunc,readParams);
 //}
 
-//static void *
-//thread_start(void *arg)
-//{
-//    struct thread_info *tinfo = arg;
-//    char *uargv, *p;
-//
-//   printf("Thread %d: top of stack near %p; argv_string=%s\n",
-//            tinfo->thread_num, &p, tinfo->argv_string);
-//
-//   uargv = strdup(tinfo->argv_string);
-//    if (uargv == NULL)
-//        handle_error("strdup");
-//
-//   for (p = uargv; *p != '\0'; p++)
-//        *p = toupper(*p);
-//
-//   return uargv;
-//}
+static void *
+thread_start(void *arg)
+{
+    struct thread_info *tinfo = arg;
+    char *uargv, *p;
 
-//struct thread_data{
-//	int threads;
-//	int thread_id;
-//	int exec; //total number of executions 
-//	int max_req_client;
-//	int random; //1=yes 0=no whether requests are the max or randomdouble
-//	int ssl; //1=yes 0=no
-//	int uselogin; //1=yes 0=no
-//	char domain[256];
-//	char login[256];
-//	char password[256];
-//};
+   printf("Thread %d: top of stack near %p; argv_string=%s\n",
+            tinfo->thread_num, &p, tinfo->argv_string);
+
+   uargv = strdup(tinfo->argv_string);
+    if (uargv == NULL)
+        handle_error("strdup");
+
+   for (p = uargv; *p != '\0'; p++)
+        *p = toupper(*p);
+
+   return uargv;
+}
+
+struct thread_data{
+	int threads;
+	int thread_id;
+	int exec; //total number of executions 
+	int max_req_client;
+	int random; //1=yes 0=no whether requests are the max or randomdouble
+	int ssl; //1=yes 0=no
+	int uselogin; //1=yes 0=no
+	char domain[256];
+	char login[256];
+	char password[256];
+};
 
 int DEBUG;
 
@@ -193,7 +189,8 @@ void usage(void)
                        "      -t\t\t Stack size in format 0x1000000 (MB)\n"
                        "      -v\t\t Enable juicy DEBUG logging\n"
                        "\n"
-                       " Example: dnsp -p 53 -l 127.0.0.1 -h 127.0.0.1 -r 8118 -w 80 -s https://www.fantuz.net/nslookup.php -t 0x1000000\n\n"
+                       " Example HTTP:   sudo ./dnsp -p 53 -l 127.0.0.1 -r 8118 -h 127.0.0.1 -w 80 -s http://www.fantuz.net/nslookup.php -t 0x1000000\n\n"
+		       " Example HTTPS:  sudo ./dnsp -p 53 -l 127.0.0.1 -r 8888 -h 127.0.0.1 -w 443 -s https://www.fantuz.net/nslookup.php\n\n"
     ,VERSION);
     exit(EXIT_FAILURE);
 }
@@ -678,7 +675,12 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
     bzero(script_url, URL_SIZE);
     
     snprintf(script_url, URL_SIZE-1, "%s?host=%s&type=%s", lookup_script, host, typeq);
+    //printf(http_response);
     
+    static const char *pCertFile = "testcert.pem";
+    static const char *pCACertFile="fantuznet.pem";
+    static const char *pHeaderFile = "dumpit";
+
     /* curl setup */
     ch = curl_easy_init();
     curl_easy_setopt(ch, CURLOPT_URL, script_url);
@@ -701,24 +703,19 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
 
     curl_easy_setopt(ch, CURLOPT_VERBOSE,  0);			/* Verbose OFF */
 
-    //curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0)
     curl_easy_setopt(ch, CURLOPT_SSL_VERIFYPEER, 0L);
     curl_easy_setopt(ch, CURLOPT_SSL_VERIFYHOST, 0L);;
-
-    list = curl_slist_append(list, "Host: www.fantuz.net");
-    //list = curl_slist_append(list, "Remote Address: 217.114.216.51:80");
-    list = curl_slist_append(list, "Request URL: http://www.fantuz.net/ns.php");
-    list = curl_slist_append(list, "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_6_8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36");
-    curl_easy_setopt(ch, CURLOPT_HTTPHEADER, list);
-
-// curl -H "Host: www.fantuz.net" -H "Remote Address:217.114.216.51:80" -H "Request URL:http://www.fantuz.net/nslookup.php" -H "Host:www.fantuz.net" -H "User-Agent:Mozilla/5.0 (Macintosh; Intel Mac OS X 10_6_8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36" http://www.fantuz.net/nslookup.php?host=fantuz.net
+    curl_easy_setopt(ch, CURLOPT_SSL_VERIFYSTATUS, 0L);
+    //curl_easy_setopt(ch, CURLOPT_SSLVERSION, CURL_SSLVERSION_DEFAULT);
+    //CURL_SSLVERSION_TLSv1);
+    //curl_easy_setopt(ch, CURLOPT_CAINFO, pCACertFile);
 
     /* try to see.... */
     //curl_easy_setopt(ch, CURLINFO_HEADER_OUT, "" );
     //curl_easy_setopt(ch, CURLOPT_HEADER, 1L);
 
     /*
-    // OPTION --> add resolver & CURL headers
+    OPTION --> add resolver & CURL headers
     CALLBACK TO PHP, BEHIND WHICH SITS THE "REAL" RESOLVER
     CAN BE HIDDEN BY MANUAL RESOLVE OVERRIDE, I.E.
     --resolve my.site.com:80:1.2.3.4, -H "Host: my.site.com"
@@ -733,6 +730,32 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
 
     //hosting = curl_slist_append(hosting, "www.fantuz.net:80:217.114.216.51");
     //curl_easy_setopt(ch, CURLOPT_RESOLVE, hosting);
+
+    //list = curl_slist_append(list, "Request URL:https://www.fantuz.net/nslookup.php?host=news.google.fr.&type=A");
+    //list = curl_slist_append(list, "Request Method:GET");
+    //list = curl_slist_append(list, "Remote Address: 217.114.216.51:443");
+    //list = curl_slist_append(list, "Request URL: https://www.fantuz.net/nslookup.php");
+    list = curl_slist_append(list, "User-Agent:Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/50.0.2661.94 Safari/537.36");
+    list = curl_slist_append(list, "Host: www.fantuz.net");
+    //list = curl_slist_append(list, "Accept:text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8");
+//    list = curl_slist_append(list, "Accept-Encoding:gzip, deflate, sdch");
+//    list = curl_slist_append(list, "Accept-Language:en-US,en;q=0.8,fr;q=0.6,it;q=0.4");
+    list = curl_slist_append(list, "Connection:keep-alive");
+    list = curl_slist_append(list, "Upgrade-Insecure-Requests:1");
+    //list = curl_slist_append(list, "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_6_8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36");
+
+    curl_easy_setopt(ch, CURLOPT_HTTPHEADER, list);
+
+	//Accept:text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8
+	//Accept-Encoding:gzip, deflate, sdch
+	//Accept-Language:en-US,en;q=0.8,fr;q=0.6,it;q=0.4
+	//Connection:keep-alive
+	//Host:www.fantuz.net
+	//Upgrade-Insecure-Requests:1
+	//User-Agent:Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/50.0.2661.94 Safari/537.36
+
+// curl -H "Host: www.fantuz.net" -H "Remote Address:217.114.216.51:80" -H "Request URL:http://www.fantuz.net/nslookup.php" -H "Host:www.fantuz.net" -H "User-Agent:Mozilla/5.0 (Macintosh; Intel Mac OS X 10_6_8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36" http://www.fantuz.net/nslookup.php?host=fantuz.net
+
 
     /* HOW DOES A NEW TCP INFLUENCE WEB CACHE ?? */
     curl_easy_setopt(ch, CURLOPT_MAXCONNECTS, MAXCONN);
@@ -754,6 +777,7 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
     curl_share_setopt(curlsh, CURLSHOPT_SHARE, CURL_LOCK_DATA_DNS); 
 
     ret = curl_easy_perform(ch);
+    //printf("%s",ret);
 
     //if ((ret < 0) || (ret > 0)) {
     if (ret < 0) {
@@ -763,35 +787,34 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
 	//curl_share_cleanup(curlsh);
         free(script_url);
 	curl_slist_free_all(list);
-//	//curl_slist_free_all(hosting);
+	//curl_slist_free_all(hosting);
         return NULL;
     }
    
     /* Can't resolve host */
     if ((strlen(http_response) > 256) || (strncmp(http_response, "0.0.0.0", 7) == 0)) {
 	/* insert error answers here, as NXDOMAIN, SERVFAIL etc */
-        printf("CORE: MALFORMED DNS, possible SERVFAIL from origin... investigate !\n");
+        printf("CORE: MALFORMED DNS, possible SERVFAIL from origin... \n");
 	printf("from %s",script_url);
-	//printf("inside curl (MALF) .... %s",http_response);
         curl_easy_cleanup(ch);
         free(script_url);
 	curl_slist_free_all(list);
-//	curl_slist_free_all(hosting);
-    	printf("inside curl (MALF) .... %s",http_response);
+	//curl_slist_free_all(hosting);
+    	printf("inside curl (MALF) .... %s\n",http_response);
         http_response = "0.0.0.0\r\n";
         return NULL;
         //return http_response;
     }
    
-    //printf("inside curl .... %s",http_response);
+    printf("inside curl (GOOD) .... %s\n",http_response);
     curl_easy_cleanup(ch);
     free(script_url);
     curl_slist_free_all(list);
-//    curl_slist_free_all(hosting);
+    //curl_slist_free_all(hosting);
     return http_response;
 }
 
-/* This is our thread function.  It is like main(), but for a thread*/
+/* This is our thread function.  It is like main(), but for a thread */
 void *threadFunc(void *arg)
 {
 	struct readThreadParams *params = (struct readThreadParams*)arg;
@@ -819,18 +842,16 @@ void *threadFunc(void *arg)
 	char *ip = NULL;
 	char *yhostname = (char *)params->xhostname->hostname;
 
-	//pthread_key_t key_i;
-        //pthread_key_create(&key_i, NULL);
+	pthread_key_t key_i;
+        pthread_key_create(&key_i, NULL);
 	//str=(char*)arg;
 
-/*
-	//if (pthread_mutex_trylock(&mutex)) {
-	if (pthread_mutex_lock(&mutex)) {
+	if (pthread_mutex_trylock(&mutex)) {
+	//if (pthread_mutex_lock(&mutex)) {
 	    printf("init lock OK ... \n");
 	} else {
 	    printf("init lock NOT OK ... \n");
 	}
-*/
 
     	if (DEBUG) {
 		
@@ -848,15 +869,15 @@ void *threadFunc(void *arg)
         rip = lookup_host(yhostname, proxy_host, proxy_port, proxy_user, proxy_pass, lookup_script, typeq, wport);
 
 	/* PTHREAD SET SPECIFIC GLOBAL VARIABLE ... */
-	////pthread_setspecific(glob_var_key_ip, rip);
+	pthread_setspecific(glob_var_key_ip, rip);
 
 	if (DEBUG) {	
 		printf("VARIABLE-RET-HTTP: %d", ret);
 		printf("VARIABLE-RET-HTTP: %s", rip);
 		//pthread_setspecific(glob_var_key_ip, rip);
 		//pthread_getspecific(glob_var_key_ip);
-// MOD 2015	printf("VARIABLE-RET-HTTP-GLOBAL: %x\n", glob_var_key_ip);
-		//printf("VARIABLE-HTTP: %x\n", pthread_getspecific(glob_var_key_ip));
+// MOD 2016	printf("VARIABLE-RET-HTTP-GLOBAL: %x\n", glob_var_key_ip);
+		printf("VARIABLE-HTTP: %x\n", pthread_getspecific(glob_var_key_ip));
 		//printf("build: %s", inet_ntop(AF_INET, &ip_header->saddr, ipbuf, sizeof(ipbuf)));
 	}
 
@@ -928,10 +949,11 @@ int main(int argc, char *argv[])
     opterr = 0;
     DEBUG = 0;
        
-    ////sem_t mutex;
+    //sem_t mutex;
+    sem_t *mutex;
     int s, tnum, opt, num_threads;
-    //struct thread_info *tinfo;
-    //pthread_attr_t attr;
+    struct thread_info *tinfo;
+    pthread_attr_t attr;
 
     int stack_size;
     void *res;
@@ -1025,7 +1047,8 @@ int main(int argc, char *argv[])
         abort ();
     }
 
-    if ((port == 0) || (proxy_port == 0) || (bind_address == NULL) || (proxy_host == NULL) || (lookup_script == NULL))
+    //if ((port == 0) || (proxy_port == 0) || (bind_address == NULL) || (proxy_host == NULL) || (lookup_script == NULL))
+    if ((bind_address == NULL) || (lookup_script == NULL))
         usage();
 
     /* Prevent child process from becoming zombie process */
@@ -1057,27 +1080,30 @@ int main(int argc, char *argv[])
     if (bind(sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0) 
        error("Error opening socket (bind)");
 
-//	if( sem_init(&mutex,1,1) < 0) {
-//		perror("semaphore initilization"); exit(0);
-//	}
-    
-/*
-    if(pthread_mutex_init(&mutex, &MAttr))
-    {
-        printf("Unable to initialize a mutex\n");
-        return -1;
+//    //if(sem_init(*sem_t,1,1) < 0) {
+//    if(sem_init(&mutex,1,1) < 0) {
+//       perror("semaphore initilization");
+//       exit(2);
+//    }
+
+    if ((mutex = sem_open("/tmp/semaphore", O_CREAT, 0644, 1)) == SEM_FAILED ) {
+        perror("sem_open");
+        exit(EXIT_FAILURE);
     }
-*/
+    
+//    if(pthread_mutex_init(&mutex, &MAttr))
+//    {
+//        printf("Unable to initialize a mutex\n");
+//        return -1;
+//    }
 
     while (1) {
 
-/*
     pthread_mutexattr_init(&MAttr);
     //pthread_mutexattr_settype(&MAttr, PTHREAD_MUTEX_ERRORCHECK);
     pthread_mutexattr_settype(&MAttr, PTHREAD_MUTEX_RECURSIVE);
-*/
 
-	//wait(NULL);
+	wait(NULL);
 	int nnn = 0, i = 0;
 	int s, tnum, opt;
 	int stack_size;
@@ -1106,11 +1132,8 @@ int main(int argc, char *argv[])
 	//pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
 
     	//sem_wait(&mutex);  /* wrong ... DO NOT USE */
-	//pthread_mutex_trylock(&mutex);
-
-/*
-	pthread_mutex_destroy(&mutex);
-*/
+	pthread_mutex_trylock(&mutex);
+	//pthread_mutex_destroy(&mutex);
    	client_len = sizeof(client);
    	request_len = recvfrom(sockfd,request,UDP_DATAGRAM_SIZE,0,(struct sockaddr *)&client,&client_len);
 
@@ -1142,7 +1165,8 @@ int main(int argc, char *argv[])
 	    } else if (dns_req->qtype == 0x0f) {
 		typeq = "MX";
 	    } else { //{ dns_req->qtype == 0xff;} 
-		printf("gotcha\n");}
+		printf("gotcha\n");} //PTR ?
+
 	    /* CORE DNS LOOKUP IS MADE ONCE (via HTTP and nslookup.php) THEN CACHED INTO THE NETWORK (polipo, memcache ...)
 	     IMPLEMENTS DOMAIN BLACKLISTING, AUTHENTICATION, SSL. PENDING MULTITHREADING. SOON, MAKE BETTER FILTER .. */
 
@@ -1199,41 +1223,37 @@ int main(int argc, char *argv[])
 	    //errore = pthread_create(&tid[i], NULL, threadFunc, &data_array[i]);
 	    //if (i=sizeof(pth)) { i = 0 ;}
 
-/*
 	    if (pthread_mutex_trylock(&mutex)) {
 		//ret = pthread_create(&pth[i],NULL,threadFunc,readParams);
 		printf("lock OK ...\n");
 	    } else {
 		printf("lock NOT OK ...\n");
 	    }
-*/
 
 	    threadFunc(readParams);
-	    exit(EXIT_SUCCESS);
 	    //ret = pthread_create(&pth[i],&attr,threadFunc,readParams);
 
-	    //sem_wait(&mutex);
-	    //sem_post(&mutex);
+	    sem_wait(&mutex);
+	    sem_post(&mutex);
 
-/*
 	    for(r=0; r < NUMT*NUM_THREADS; r++) {
-//	    	if(0 != ret) {
-//			fprintf(stderr, "Couldn't run thread number %d, errno %d\n", i, ret);
-//		        char *vvv = pthread_getspecific(glob_var_key_ip);
-//		        printf("GLOBAL-FAIL-IP: %s\n", vvv);
-//	    	} else {
-//		        char *vvv = pthread_getspecific(glob_var_key_ip);
-//		        printf("GLOBAL-SUCC-IP: %s\n", vvv);
-//		}
+	    	if(0 != ret) {
+			fprintf(stderr, "Couldn't run thread number %d, errno %d\n", i, ret);
+		        char *vvv = pthread_getspecific(glob_var_key_ip);
+		        printf("GLOBAL-FAIL-IP: %s\n", vvv);
+	    	} else {
+		        char *vvv = pthread_getspecific(glob_var_key_ip);
+		        printf("GLOBAL-SUCC-IP: %s\n", vvv);
+		}
 
-	        pthread_join(pth[i],NULL);
+	        //pthread_join(pth[i],NULL);
 		//pthread_join(pth[r],NULL);
 	        //tidd = pthread_self();
 	        //fprintf(stderr, "self r - %d \n",pthread_self(pth[i]));
 
 		if (DEBUG) {
-	            fprintf(stderr, "pth i - %d \n",(uint16_t)pth[i]);
-	            fprintf(stderr, "pth r - %d \n",(uint16_t)pth[r]);
+	            //fprintf(stderr, "pth i - %d \n",(uint16_t)pth[i]);
+	            //fprintf(stderr, "pth r - %d \n",(uint16_t)pth[r]);
 	   	    //printf("OUTSIDE-THREAD-resolved-address: %s\n",ip);
 	   	    //printf("OUTSIDE-THREAD-resolved-address: %d\n",ret);
 	   	    //printf("OUTSIDE-THREAD-resolved-address: %d\n",glob_var_key_ip);
@@ -1246,21 +1266,20 @@ int main(int argc, char *argv[])
 	        nnn++;
 	    }
 
-*/
-
-	    //if (nnn > NUMT*NUM_THREADS*4) {wait(NULL);}
-   	    //printf("IF: Thread/process ID : %d\n", getpid());
+	    if (nnn > NUMT*NUM_THREADS*4) {wait(NULL);}
+   	    printf("IF: Thread/process ID : %d\n", getpid());
 //	    if (i != 0) { i=0;}
-	    //pthread_mutex_destroy(&mutex);
+	    pthread_mutex_destroy(&mutex);
 
 	    //pthread_join(pth[i],NULL);
-	    //continue;
-	    //pthread_setspecific(glob_var_key_ip, NULL);
+	    continue;
+	    pthread_setspecific(glob_var_key_ip, NULL);
 	}
-	/*else {
+	    //exit(EXIT_SUCCESS);
+	else {
 
 	    nnn++;
-	    / * RECOVERY FROM THREAD BOMB * /
+	    // RECOVERY FROM THREAD BOMB
    	    //printf("ELSE: Thread/process ID : %d\n", getpid());
 	    //if (nnn > 32) {wait(NULL);}
 	    continue;
@@ -1273,7 +1292,7 @@ int main(int argc, char *argv[])
             	//pthread_join(pth[i],NULL);
 ////	    }
 
-/ * LOCKS AND MUTEXES * /
+// LOCKS AND MUTEXES
 ////	    pthread_mutex_lock(&mutex);
 ////	    if (pthread_mutex_unlock(&mutex)) {
 ////	        //printf("unlock OK.. but no RET\n");
@@ -1283,23 +1302,23 @@ int main(int argc, char *argv[])
 ////	    } 
             //sem_destroy(&mutex);
 
-/ * JOIN THREADS * /
+// JOIN THREADS
 //	    if(pthread_join(pth[i], NULL)) {
 //	    	//fprintf(stderr, "Finished serving client %s on socket %u \n",(struct sockaddr_in *)&client->sin_addr.s_addr,sockfd);
 //	    }
 
-/ * LOCKS AND MUTEXES * /
+// LOCKS AND MUTEXES
 	    //pthread_mutex_destroy(&mutex);
-	    / * DO NOT USE * /
+	    // DO NOT USE
 	    //sem_post(&mutex);
 
             //exit(EXIT_FAILURE);
 	    //pthread_join(pth[i],NULL);
 	    //pthread_exit(NULL);
 
-	    / * NONSENSE CAUSE NO THREAD ANYMORE * /
-//	    if (DEBUG) {fprintf(stderr, "Finished joining thread i-> %d, nnn-> %d \n",i,nnn);}
-	} */
+	    // NONSENSE CAUSE NO THREAD ANYMORE
+	    //if (DEBUG) {fprintf(stderr, "Finished joining thread i-> %d, nnn-> %d \n",i,nnn);}
+	}
     }
 }
 

@@ -1,0 +1,3 @@
+echo "GET /nslookup.php HTTP/1.1" | openssl s_client -connect fantuz.net:443 
+openssl x509 -inform PEM -in fantuznet.cer -text -out certdata
+
