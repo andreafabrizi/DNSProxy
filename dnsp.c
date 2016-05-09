@@ -52,13 +52,13 @@
 #define DNSREWRITE          256
 #define HTTP_RESPONSE_SIZE  256
 #define URL_SIZE            256
-#define VERSION             "1.01"
+#define VERSION             "1.1"
 #define DNS_MODE_ANSWER     1
 #define DNS_MODE_ERROR      2
 #define DEFAULT_LOCAL_PORT  53
 #define DEFAULT_WEB_PORT    80
-#define NUMT	            2
-#define NUM_THREADS         2
+#define NUMT	            4
+#define NUM_THREADS         4
 #define NUM_HANDLER_THREADS 1
 
 //#define TYPEQ		    2
@@ -172,25 +172,27 @@ struct dns_reponse
     char *payload;
 };
 
-/* * usage */
+/* usage */
 void usage(void)
 {
     fprintf(stderr, "\n dnsp %s\n"
-                       " usage: dnsp -l [local_host] -h [proxy_host] -r [proxy_port] -w [webport] -s [lookup_script]\n\n"
+                       " usage: dnsp -l [local_host] -p [local_port] -h [proxy_host] -r [proxy_port] -w [lookup_port] -s [lookup_script] -\n\n"
                        " OPTIONS:\n"
                        "      -l\t\t Local server address\n"
-                       "      -p\t\t Local server port\n"
-                       "      -h\t\t Remote proxy address\n"
-                       "      -r\t\t Remote proxy port\n"
-                       "      -u\t\t Proxy username (optional)\n"
-                       "      -k\t\t Proxy password (optional)\n"
+                       "      -p\t\t Local server port 	  (optional, defaults to 53)\n"
+                       "      -h\t\t Remote proxy address (optional)\n"
+                       "      -r\t\t Remote proxy port    (optional)\n"
+                       "      -u\t\t Proxy username       (optional)\n"
+                       "      -k\t\t Proxy password       (optional)\n"
                        "      -s\t\t Lookup script URL\n"
-                       "      -w\t\t Webserver port (optional, default 80)\n"
+                       "      -w\t\t Lookup port          (optional, defaults to 80/443 for HTTP/HTTPS)\n"
                        "      -t\t\t Stack size in format 0x1000000 (MB)\n"
                        "      -v\t\t Enable juicy DEBUG logging\n"
+                       "      -S\t\t Enable HTTPS\n"
                        "\n"
-                       " Example HTTP:   sudo ./dnsp -p 53 -l 127.0.0.1 -r 8118 -h 127.0.0.1 -w 80 -s http://www.fantuz.net/nslookup.php -t 0x1000000\n\n"
-		       " Example HTTPS:  sudo ./dnsp -p 53 -l 127.0.0.1 -r 8888 -h 127.0.0.1 -w 443 -s https://www.fantuz.net/nslookup.php\n\n"
+                       " Example HTTP:   sudo ./dnsp -p 53 -l 127.0.0.1 -r 8118 -H 127.0.0.1 -w 80 -s http://www.fantuz.net/nslookup.php -t 0x1000000\n"
+		       " Example HTTPS:  sudo ./dnsp -p 53 -l 127.0.0.1 -r 8888 -H 127.0.0.1 -w 443 -s https://www.fantuz.net/nslookup.php\n\n"
+		       " Example HTTPS:  sudo ./dnsp -l 192.168.0.5 -w 80 -s http://www.fantuz.net/nslookup.php\n\n"
     ,VERSION);
     exit(EXIT_FAILURE);
 }
@@ -684,15 +686,16 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
     /* curl setup */
     ch = curl_easy_init();
     curl_easy_setopt(ch, CURLOPT_URL, script_url);
-    curl_easy_setopt(ch, CURLOPT_PORT, wport); //80
+    curl_easy_setopt(ch, CURLOPT_PORT, wport); /* 80, 443 */
 
     curl_easy_setopt(ch, CURLOPT_DNS_CACHE_TIMEOUT, 3600);
     curl_easy_setopt(ch, CURLOPT_DNS_USE_GLOBAL_CACHE, 1);	/* DNS CACHE  */
     curl_easy_setopt(ch, CURLOPT_NOPROGRESS, 1L);		/* No progress meter */
 
-    if ((proxy_host != NULL) && (proxy_port > 0)) {
+    //if ((proxy_host != NULL) && (proxy_port > 0)) {
+    if ((proxy_host != NULL) && (proxy_port != NULL)) {
     	curl_easy_setopt(ch, CURLOPT_PROXY, proxy_host);
-    	curl_easy_setopt(ch, CURLOPT_PROXYPORT, proxy_port);	/* 8118 */
+    	curl_easy_setopt(ch, CURLOPT_PROXYPORT, proxy_port);	/* 8118, 8888, 9500, ... */
     	curl_easy_setopt(ch, CURLOPT_PROXYTYPE, CURLPROXY_HTTP);
     	/* optional proxy username and password */
     	if ((proxy_user != NULL) && (proxy_pass != NULL)) {
@@ -737,6 +740,7 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
     //list = curl_slist_append(list, "Request URL: https://www.fantuz.net/nslookup.php");
     list = curl_slist_append(list, "User-Agent:Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/50.0.2661.94 Safari/537.36");
     list = curl_slist_append(list, "Host: www.fantuz.net");
+    //list = curl_slist_append(list, "If-None-Match: *");
     //list = curl_slist_append(list, "Accept:text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8");
 //    list = curl_slist_append(list, "Accept-Encoding:gzip, deflate, sdch");
 //    list = curl_slist_append(list, "Accept-Language:en-US,en;q=0.8,fr;q=0.6,it;q=0.4");
@@ -866,6 +870,7 @@ void *threadFunc(void *arg)
 		printf("VARIABLE-RECV: %s\n", yhostname);
 	}
 	
+        //rip = lookup_host(yhostname, proxy_host, proxy_port, proxy_user, proxy_pass, lookup_script, typeq, wport);
         rip = lookup_host(yhostname, proxy_host, proxy_port, proxy_user, proxy_pass, lookup_script, typeq, wport);
 
 	/* PTHREAD SET SPECIFIC GLOBAL VARIABLE ... */
@@ -945,7 +950,7 @@ int main(int argc, char *argv[])
     struct sockaddr_in serv_addr;
     struct hostent *local_address;
     char *bind_address = NULL, *proxy_host = NULL, *proxy_user = NULL,
-         *proxy_pass = NULL, *typeq = NULL, *lookup_script = NULL; 
+         *proxy_pass = NULL, *typeq = NULL, *lookup_script = NULL, *httpsssl = NULL; 
     opterr = 0;
     DEBUG = 0;
        
@@ -964,7 +969,7 @@ int main(int argc, char *argv[])
     stack_size = -1;
 
     /* Command line args */
-    while ((c = getopt (argc, argv, "s:p:l:r:h:t:w:u:k:v::")) != -1)
+    while ((c = getopt (argc, argv, "s:p:l:r:H:t:w:u:k:v::")) != -1)
     switch (c)
      {
         case 't':
@@ -984,13 +989,14 @@ int main(int argc, char *argv[])
             wport = atoi(optarg);
             if (wport <= 0) {
                 fprintf(stdout," *** Invalid webserver port\n");
+                printf(" *** Invalid webserver port: %d\n", wport);
                 exit(EXIT_FAILURE);
             }
         break;
 
         case 'r':
             proxy_port = atoi(optarg);
-            if (proxy_port <= 0) {
+            if ((proxy_port <= 0) || (proxy_port >= 65536) || (proxy_port == NULL)) {
                 fprintf(stdout," *** Invalid proxy port\n");
                 exit(EXIT_FAILURE);
             }
@@ -1004,7 +1010,7 @@ int main(int argc, char *argv[])
             bind_address = (char *)optarg;
         break;
 
-        case 'h':
+        case 'H':
             proxy_host = (char *)optarg;
         break;
 
@@ -1014,6 +1020,10 @@ int main(int argc, char *argv[])
 
         case 'k':
             proxy_pass = (char *)optarg;
+        break;
+
+        case 'S':
+            httpsssl = (char *)optarg;
         break;
 
         case 's':
