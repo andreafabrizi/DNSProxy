@@ -353,6 +353,25 @@ void build_dns_reponse(int sd, struct sockaddr_in *yclient, struct dns_request *
     response[1] = (uint8_t)dns_req->transaction_id;
     response+=2;
     
+/*
+TXT, SRV, SOA, PTR, NS, MX, DS, DNSKEY, AAAA, A, unused
+
+DNS query : (dns.flags.response == 0) and (dns.qry.type == 0x0001)
+DNS response : (dns.flags.response == 1) && (dns.resp.type == 0x0001)
+
+A IPv4 host address 0x0001
+AAAA IPv6 host address 0x001c
+NS authoritative name server 0x0002
+CNAME alias canonical name 0x0005
+SOA start of zone authority 0x0006
+PTR Domain name pointer 0x000c
+HINFO host info 0x000d
+MINFO mailbox/mail list info 0x000e
+MX mail exchange 0x000f
+AXFR zone transfer 0x00fc 
+
+*/
+
     if (mode == DNS_MODE_ANSWER) {
         /* Default flags for a standard query (0x8580) */
 	/* Shall it be authoritative answer... or not ? :) */
