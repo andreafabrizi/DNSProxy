@@ -6,7 +6,14 @@ resolves remote hosts using an external PHP script, through http proxy requests.
 If you can't use VPN, UDP tunnels or other methods to resolve external names 
 in your LAN, DNS proxy is a good and simple solution.
 
-## Building
+The source code is hosted on [GitHub](https://github.com/andreafabrizi/DNSProxy/)
+
+## Get the code
+```
+git clone https://github.com/andreafabrizi/DNSProxy.git
+```
+
+## Build
 
 For debian/ubuntu users:  
 `apt-get install libcurl4-openssl-dev`
@@ -75,7 +82,7 @@ www.google.com.		3600	IN	A	173.194.64.106
 ;; MSG SIZE  rcvd: 48
 ```
 
-## Changelog:
+## Changelog
 
 Version 0.5 - May 17 2013:
 * Add proxy authentication support
