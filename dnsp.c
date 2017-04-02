@@ -69,7 +69,7 @@
 
 pthread_key_t glob_var_key_ip;
 pthread_key_t glob_var_key_client;
-//static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 //static pthread_mutex_t mutex = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
 //pthread_mutex_t mutex = PTHREAD_ERRORCHECK_MUTEX_INITIALIZER_NP;
 pthread_mutexattr_t MAttr;
@@ -869,11 +869,11 @@ void *threadFunc(void *arg)
 	//str=(char*)arg;
 
 	//if (pthread_mutex_lock(&mutex)) {
-//	if (pthread_mutex_trylock(&mutex)) {
-//	    printf("init lock OK ... \n");
-//	} else {
-//	    printf("init lock NOT OK ... \n");
-//	}
+	if (pthread_mutex_trylock(&mutex)) {
+	    printf("init lock OK ... \n");
+	} else {
+	    printf("init lock NOT OK ... \n");
+	}
 
     	if (DEBUG) {
 		
@@ -945,7 +945,6 @@ void *threadFunc(void *arg)
 	//char *s = inet_ntoa(xclient->sin_addr);
 	//pthread_setspecific(glob_var_key_ip, NULL);
 
-/*
 	if (pthread_mutex_unlock(&mutex)) {
 	    printf("unlock OK..\n");
 	} else {
@@ -954,7 +953,6 @@ void *threadFunc(void *arg)
 
 	pthread_mutex_destroy(&mutex);
 	printf("destroy OK..\n");
-*/
    	//printf("Thread/process ID : %d\n", getpid());
 	//pthread_exit(NULL);
 	exit(EXIT_SUCCESS);
@@ -1114,10 +1112,10 @@ int main(int argc, char *argv[])
 //      exit(2);
 //   }
 
-//    if(sem_init(&mutex,1,1) < 0) {
-//       perror("semaphore initilization");
-//       exit(2);
-//    }
+    if(sem_init(&mutex,1,1) < 0) {
+       perror("semaphore initilization");
+       exit(2);
+    }
 
 //    if ((mutex = sem_open("/tmp/semaphore", O_CREAT, 0644, 1)) == SEM_FAILED ) {
 //        perror("sem_open");
