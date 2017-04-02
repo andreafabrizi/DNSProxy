@@ -22,7 +22,6 @@
 
 #define _GNU_SOURCE
 #include <stdio.h>
-#include <pthread.h>
 #include <sys/timeb.h>
 #include <sys/types.h> 
 #include <sys/socket.h>
@@ -39,6 +38,7 @@
 #include <curl/easy.h>
 #include <signal.h>
 #include <semaphore.h>
+#include <pthread.h>
 //#include <omp.h>
 
 
@@ -69,8 +69,7 @@
 
 pthread_key_t glob_var_key_ip;
 pthread_key_t glob_var_key_client;
-
-static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+//static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 //static pthread_mutex_t mutex = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
 //pthread_mutex_t mutex = PTHREAD_ERRORCHECK_MUTEX_INITIALIZER_NP;
 pthread_mutexattr_t MAttr;
@@ -139,18 +138,18 @@ thread_start(void *arg)
    return uargv;
 }
 
-struct thread_data{
-	int threads;
-	int thread_id;
-	int exec; //total number of executions 
-	int max_req_client;
-	int random; //1=yes 0=no whether requests are the max or randomdouble
-	int ssl; //1=yes 0=no
-	int uselogin; //1=yes 0=no
-	char domain[256];
-	char login[256];
-	char password[256];
-};
+//struct thread_data{
+//	int threads;
+//	int thread_id;
+//	int exec; //total number of executions 
+//	int max_req_client;
+//	int random; //1=yes 0=no whether requests are the max or randomdouble
+//	int ssl; //1=yes 0=no
+//	int uselogin; //1=yes 0=no
+//	char domain[256];
+//	char login[256];
+//	char password[256];
+//};
 
 int DEBUG;
 
@@ -180,10 +179,10 @@ void usage(void)
                        " OPTIONS:\n"
                        "      -l\t\t Local server address\n"
                        "      -p\t\t Local server port 	  (optional, defaults to 53)\n"
-                       "      -h\t\t Remote proxy address (optional)\n"
-                       "      -r\t\t Remote proxy port    (optional)\n"
-                       "      -u\t\t Proxy username       (optional)\n"
-                       "      -k\t\t Proxy password       (optional)\n"
+                       "      -H\t\t Cache proxy address (optional)\n"
+                       "      -r\t\t Cache proxy port    (optional)\n"
+                       "      -u\t\t Cache proxy username       (optional)\n"
+                       "      -k\t\t Cache proxy password       (optional)\n"
                        "      -s\t\t Lookup script URL\n"
                        "      -w\t\t Lookup port          (optional, defaults to 80/443 for HTTP/HTTPS)\n"
                        "      -t\t\t Stack size in format 0x1000000 (MB)\n"
@@ -711,8 +710,8 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
     curl_easy_setopt(ch, CURLOPT_DNS_USE_GLOBAL_CACHE, 1);	/* DNS CACHE  */
     curl_easy_setopt(ch, CURLOPT_NOPROGRESS, 1L);		/* No progress meter */
 
-    //if ((proxy_host != NULL) && (proxy_port > 0)) {
-    if ((proxy_host != NULL) && (proxy_port != NULL)) {
+    //if ((proxy_host != NULL) && (proxy_port != NULL)) {
+    if ((proxy_host != NULL) && (proxy_port > 0 && proxy_port < 65535)) {
     	curl_easy_setopt(ch, CURLOPT_PROXY, proxy_host);
     	curl_easy_setopt(ch, CURLOPT_PROXYPORT, proxy_port);	/* 8118, 8888, 9500, ... */
     	curl_easy_setopt(ch, CURLOPT_PROXYTYPE, CURLPROXY_HTTP);
@@ -869,12 +868,12 @@ void *threadFunc(void *arg)
         pthread_key_create(&key_i, NULL);
 	//str=(char*)arg;
 
-	if (pthread_mutex_trylock(&mutex)) {
 	//if (pthread_mutex_lock(&mutex)) {
-	    printf("init lock OK ... \n");
-	} else {
-	    printf("init lock NOT OK ... \n");
-	}
+//	if (pthread_mutex_trylock(&mutex)) {
+//	    printf("init lock OK ... \n");
+//	} else {
+//	    printf("init lock NOT OK ... \n");
+//	}
 
     	if (DEBUG) {
 		
@@ -901,7 +900,7 @@ void *threadFunc(void *arg)
 		//pthread_setspecific(glob_var_key_ip, rip);
 		//pthread_getspecific(glob_var_key_ip);
 // MOD 2016	printf("VARIABLE-RET-HTTP-GLOBAL: %x\n", glob_var_key_ip);
-		printf("VARIABLE-HTTP: %x\n", pthread_getspecific(glob_var_key_ip));
+		//..printf("VARIABLE-HTTP: %x\n", pthread_getspecific(glob_var_key_ip));
 		//printf("build: %s", inet_ntop(AF_INET, &ip_header->saddr, ipbuf, sizeof(ipbuf)));
 	}
 
@@ -1015,7 +1014,8 @@ int main(int argc, char *argv[])
 
         case 'r':
             proxy_port = atoi(optarg);
-            if ((proxy_port <= 0) || (proxy_port >= 65536) || (proxy_port == NULL)) {
+            //if ((proxy_port <= 0) || (proxy_port >= 65536) || (proxy_port == NULL)) {
+            if ((proxy_port <= 0) || (proxy_port >= 65536)) {
                 fprintf(stdout," *** Invalid proxy port\n");
                 exit(EXIT_FAILURE);
             }
@@ -1109,28 +1109,32 @@ int main(int argc, char *argv[])
     if (bind(sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0) 
        error("Error opening socket (bind)");
 
-//    //if(sem_init(*sem_t,1,1) < 0) {
+//   if(sem_init(*sem_t,1,1) < 0) {
+//      perror("semaphore initilization");
+//      exit(2);
+//   }
+
 //    if(sem_init(&mutex,1,1) < 0) {
 //       perror("semaphore initilization");
 //       exit(2);
 //    }
 
-    if ((mutex = sem_open("/tmp/semaphore", O_CREAT, 0644, 1)) == SEM_FAILED ) {
-        perror("sem_open");
-        exit(EXIT_FAILURE);
-    }
-    
-//    if(pthread_mutex_init(&mutex, &MAttr))
-//    {
-//        printf("Unable to initialize a mutex\n");
-//        return -1;
+//    if ((mutex = sem_open("/tmp/semaphore", O_CREAT, 0644, 1)) == SEM_FAILED ) {
+//        perror("sem_open");
+//        exit(EXIT_FAILURE);
 //    }
+    
+    if(pthread_mutex_init(&mutex, &MAttr))
+    {
+        printf("Unable to initialize a mutex while threading\n");
+        return -1;
+    }
 
     while (1) {
 
     pthread_mutexattr_init(&MAttr);
     //pthread_mutexattr_settype(&MAttr, PTHREAD_MUTEX_ERRORCHECK);
-    pthread_mutexattr_settype(&MAttr, PTHREAD_MUTEX_RECURSIVE);
+    //pthread_mutexattr_settype(&MAttr, PTHREAD_MUTEX_RECURSIVE);
 
 	wait(NULL);
 	int nnn = 0, i = 0;
@@ -1169,7 +1173,7 @@ int main(int argc, char *argv[])
     	//wait(NULL);
         /* Child */
 	if (fork() == 0) {
-	    //sem_wait(&mutex);
+	    // sem_wait(&mutex);
    	    dns_req = parse_dns_request(request, request_len);
 
 	    if (DEBUG) {
@@ -1262,17 +1266,17 @@ int main(int argc, char *argv[])
 	    threadFunc(readParams);
 	    //ret = pthread_create(&pth[i],&attr,threadFunc,readParams);
 
-	    sem_wait(&mutex);
-	    sem_post(&mutex);
+	    // sem_wait(&mutex);
+	    // sem_post(&mutex);
 
 	    for(r=0; r < NUMT*NUM_THREADS; r++) {
 	    	if(0 != ret) {
 			fprintf(stderr, "Couldn't run thread number %d, errno %d\n", i, ret);
-		        char *vvv = pthread_getspecific(glob_var_key_ip);
-		        printf("GLOBAL-FAIL-IP: %s\n", vvv);
+		        //char *vvv = pthread_getspecific(glob_var_key_ip);
+		        //printf("GLOBAL-FAIL-IP: %s\n", vvv);
 	    	} else {
-		        char *vvv = pthread_getspecific(glob_var_key_ip);
-		        printf("GLOBAL-SUCC-IP: %s\n", vvv);
+		        //char *vvv = pthread_getspecific(glob_var_key_ip);
+		        //printf("GLOBAL-SUCC-IP: %s\n", vvv);
 		}
 
 	        //pthread_join(pth[i],NULL);

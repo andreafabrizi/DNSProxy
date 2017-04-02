@@ -1,8 +1,6 @@
 CC=gcc
-CFLAGS=-O2 -Wall -g -DTLS -rdynamic
-LIBS=-lcurl -lpthread
-
-
+CFLAGS=-O2 -g -DTLS -rdynamic -lrt
+LIBSi+=-lcurl -lpthread 
 
 dnsp: dnsp.c
 	${CC} ${CFLAGS} -o dnsp dnsp.c ${LIBS}
