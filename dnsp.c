@@ -784,9 +784,10 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
     curl_easy_setopt(ch, CURLOPT_FRESH_CONNECT, 0);
     curl_easy_setopt(ch, CURLOPT_FORBID_REUSE, 0);
     //curl_setopt ($curl, CURLOPT_AUTOREFERER, 1);
-
     //// OPTION --> FOLLOW-LOCATION
-    curl_setopt ($curl, CURLOPT_FOLLOWLOCATION, 1);
+    //curl_setopt ($curl, CURLOPT_FOLLOWLOCATION, 1);
+    curl_easy_setopt(ch, CURLOPT_FOLLOWLOCATION, 1);
+
 
     /* Problem in performing the http request ?? */
     curl_easy_setopt(ch, CURLOPT_WRITEFUNCTION, write_data);	/* Set write function */
@@ -1171,7 +1172,7 @@ int main(int argc, char *argv[])
     	//wait(NULL);
         /* Child */
 	if (fork() == 0) {
-	    // sem_wait(&mutex);
+	    sem_wait(&mutex);
    	    dns_req = parse_dns_request(request, request_len);
 
 	    if (DEBUG) {
@@ -1264,8 +1265,8 @@ int main(int argc, char *argv[])
 	    threadFunc(readParams);
 	    //ret = pthread_create(&pth[i],&attr,threadFunc,readParams);
 
-	    // sem_wait(&mutex);
-	    // sem_post(&mutex);
+	    sem_wait(&mutex);
+	    sem_post(&mutex);
 
 	    for(r=0; r < NUMT*NUM_THREADS; r++) {
 	    	if(0 != ret) {
