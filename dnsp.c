@@ -786,7 +786,7 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
     //curl_setopt ($curl, CURLOPT_AUTOREFERER, 1);
 
     //// OPTION --> FOLLOW-LOCATION
-    //curl_setopt ($curl, CURLOPT_FOLLOWLOCATION, 1);
+    curl_setopt ($curl, CURLOPT_FOLLOWLOCATION, 1);
 
     /* Problem in performing the http request ?? */
     curl_easy_setopt(ch, CURLOPT_WRITEFUNCTION, write_data);	/* Set write function */
