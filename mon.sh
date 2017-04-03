@@ -1,7 +1,5 @@
 #!/bin/bash
 
-#set -x
-
 DNS=$1
 PORT=$2
 NUM=$3

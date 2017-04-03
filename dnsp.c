@@ -28,6 +28,7 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <errno.h>
+//#include <spawn.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdarg.h>
@@ -828,7 +829,9 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
         //return http_response;
     }
    
-    printf("inside curl (GOOD) .... %s\n",http_response);
+    if (DEBUG) {
+        printf("%s\n",http_response);
+    }
     curl_easy_cleanup(ch);
     free(script_url);
     curl_slist_free_all(list);
@@ -870,7 +873,7 @@ void *threadFunc(void *arg)
 
 	//if (pthread_mutex_lock(&mutex)) {
 	if (pthread_mutex_trylock(&mutex)) {
-	    printf("init lock OK ... \n");
+	    //printf("init lock OK ... \n");
 	} else {
 	    printf("init lock NOT OK ... \n");
 	}
@@ -946,17 +949,19 @@ void *threadFunc(void *arg)
 	//pthread_setspecific(glob_var_key_ip, NULL);
 
 	if (pthread_mutex_unlock(&mutex)) {
-	    printf("unlock OK..\n");
+            if (DEBUG) {
+		printf("unlock OK..\n");
+   		printf("Thread/process ID : %d\n", getpid());
+	    }
 	} else {
 	    printf("unlock NOT OK..\n");
 	} 
 
 	if (pthread_mutex_destroy(&mutex)) {
-		printf("destroy OK..\n");
+		//printf("destroy OK..\n");
 	} else {
 		printf("destroy NOT OK..\n");
 	}
-   	printf("Thread/process ID : %d\n", getpid());
 	//pthread_exit(NULL);
 	exit(EXIT_SUCCESS);
 }
@@ -1319,7 +1324,7 @@ int main(int argc, char *argv[])
 
 	    nnn++;
 	    // RECOVERY FROM THREAD BOMB
-   	    printf("ELSE: Thread/process ID : %d\n", getpid());
+   	    //printf("ELSE: Thread/process ID : %d\n", getpid());
 	    //if (nnn > 32) {wait(NULL);}
 	    continue;
 	    //break;

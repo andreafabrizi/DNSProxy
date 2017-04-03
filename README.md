@@ -15,13 +15,16 @@ TOR-friendly and requires minimal resources.
 
 Building is easy on Mac and Ubuntu, CentOS, Fedora. Based on curl libs.
 
+Still bugs presents, i.e.:
+ - max@trinity:~/DNSProxy$ dig +short -p 5353 -x 104.27.133.199 @localhost
+	;; Warning: Message parser reports malformed message packet.
 
 For debian/ubuntu users:  
 `apt-get install libcurl4-openssl-dev`
 then compile with
 `make`
 or
-`gcc dnsp.c -lcurl -g -lpthread -DTLS -o dnsp -rdynamic`
+ gcc dnsp.c -W -lcurl -g -lpthread -DTLS -rdynamic -lrt -o dnsp
 
 ## Usage 
 

@@ -4,7 +4,11 @@ DNS=$1
 PORT=$2
 NUM=$3
 
-if [ -z $1 ] || [ -z $2 ] || [ -z $3 ] ; then echo "parameters missing"; exit 127; fi
+if [ -z $1 ] || [ -z $2 ] || [ -z $3 ]; then
+	echo "parameters missing... ./$(basename $0) 127.0.0.1 53 1000"
+	echo "parameters missing... ./$(basename $0) server port queries"
+	exit 127
+fi
 
 #cat DNS.txt | head -$NUM | xargs -n 100 -I {} -P 1 \
 cat DNS.txt | head -$NUM | xargs -n 5 -I {} -P $(echo $NUM/5| bc) \
