@@ -683,8 +683,6 @@ external-mxp.xx.fbcdn.net
 external.xx.fbcdn.net
 extjs.cachefly.net
 f.dailymail.co.uk
-f.friuo.com
-f.mol.im
 f.ssl.fastly.net
 f1grandprix.motorionline.com
 fa.wikipedia.org
@@ -2123,7 +2121,6 @@ www.contattalarai.rai.it
 www.cooladata.com
 www.corbanworks.com
 www.corriereadriatico.it
-www.cplusplus.com
 www.cprogramming.com
 www.crawlability.com
 www.cs.odu.edu
@@ -2132,14 +2129,12 @@ www.cs.utk.edu
 www.cs.wisc.edu
 www.csl.sri.com
 www.cultura.rai.it
-www.culturadepau.cat
 www.cygwin.com
 www.dailymail.co.uk
 www.dailymotion.com
 www.datamation.com
 www.ddgi.cat
 www.dealextreme.com
-www.debian.org
 www.deejay.it
 www.deindeal.ch
 www.diabetescare.net
@@ -2194,7 +2189,6 @@ www.fimmg.it
 www.finmeccanica.com
 www.finmeccanica.it
 www.firenzetoday.it
-www.flashmint.com
 www.flickr.com
 www.foggiatoday.it
 www.fogonacaixadagua.com.br
@@ -2331,7 +2325,6 @@ www.linux-kvm.org
 www.linux.org
 www.linuxatemyram.com
 www.linuxdoc.org
-www.linuxforums.co.uk
 www.linuxjournal.com
 www.linuxmint.com
 www.linuxquestions.org
@@ -2402,7 +2395,6 @@ www.novaratoday.it
 www.ntp.org
 www.nuclearflower.com
 www.nuovitalenti.rai.it
-www.nview.io
 www.nytimes.com
 www.o2.co.uk
 www.oempcworld.com
@@ -2413,7 +2405,6 @@ www.onair.aero
 www.onewire.ca
 www.openairinterface.org
 www.opengroup.org
-www.opensolaris.org
 www.openssl.org
 www.oracle.com
 www.oracle.com.edgekey.net
