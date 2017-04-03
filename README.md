@@ -15,10 +15,6 @@ TOR-friendly and requires minimal resources.
 
 Building is easy on Mac and Ubuntu, CentOS, Fedora. Based on curl libs.
 
-Still bugs presents, i.e.:
- - dig +short -p 5353 -x 104.27.133.199 @localhost
-;; Warning: Message parser reports malformed message packet.
-
 For debian/ubuntu users:  
 `apt-get install libcurl4-openssl-dev`
 then compile with
@@ -106,6 +102,11 @@ www.google.com.		3600	IN	A	173.194.64.106
 
 When You properly implement cache on the webserver, answers will come back in
  few milliseconds, after the first recursive resolution.
+ 
+Still bugs presents, i.e.:
+ - dig +short -p 5353 -x 104.27.133.199 @localhost
+ - ;; Warning: Message parser reports malformed message packet.
+
 
 ## Changelog:
 Version 1.01 - April 2015:
