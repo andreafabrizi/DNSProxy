@@ -41,7 +41,6 @@
 #include <pthread.h>
 //#include <omp.h>
 
-
 #ifndef SIGCLD
 #   define SIGCLD SIGCHLD
 #endif
@@ -69,8 +68,8 @@
 
 pthread_key_t glob_var_key_ip;
 pthread_key_t glob_var_key_client;
-static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
-//static pthread_mutex_t mutex = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
+//static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t mutex = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
 //pthread_mutex_t mutex = PTHREAD_ERRORCHECK_MUTEX_INITIALIZER_NP;
 pthread_mutexattr_t MAttr;
 
@@ -952,9 +951,12 @@ void *threadFunc(void *arg)
 	    printf("unlock NOT OK..\n");
 	} 
 
-	pthread_mutex_destroy(&mutex);
-	printf("destroy OK..\n");
-   	//printf("Thread/process ID : %d\n", getpid());
+	if (pthread_mutex_destroy(&mutex)) {
+		printf("destroy OK..\n");
+	} else {
+		printf("destroy NOT OK..\n");
+	}
+   	printf("Thread/process ID : %d\n", getpid());
 	//pthread_exit(NULL);
 	exit(EXIT_SUCCESS);
 }
@@ -1133,7 +1135,7 @@ int main(int argc, char *argv[])
 
     pthread_mutexattr_init(&MAttr);
     //pthread_mutexattr_settype(&MAttr, PTHREAD_MUTEX_ERRORCHECK);
-    //pthread_mutexattr_settype(&MAttr, PTHREAD_MUTEX_RECURSIVE);
+    pthread_mutexattr_settype(&MAttr, PTHREAD_MUTEX_RECURSIVE);
 
 	wait(NULL);
 	int nnn = 0, i = 0;
@@ -1171,7 +1173,11 @@ int main(int argc, char *argv[])
 
     	//wait(NULL);
         /* Child */
-	if (fork() == 0) {
+	//// pid = clone(fn, stack_aligned, CLONE_VM | SIGCHLD, arg);
+	//// pid = clone(childFunc, stackTop, CLONE_NEWUTS | SIGCHLD, argv[1]);
+	//// posix_spawn()
+	//if (fork() == 0) {
+	if (vfork() == 0) {
 	    sem_wait(&mutex);
    	    dns_req = parse_dns_request(request, request_len);
 
@@ -1257,7 +1263,7 @@ int main(int argc, char *argv[])
 
 	    if (pthread_mutex_trylock(&mutex)) {
 		//ret = pthread_create(&pth[i],NULL,threadFunc,readParams);
-		printf("lock OK ...\n");
+		//printf("lock OK ...\n");
 	    } else {
 		printf("lock NOT OK ...\n");
 	    }
@@ -1306,13 +1312,14 @@ int main(int argc, char *argv[])
 	    //pthread_join(pth[i],NULL);
 	    continue;
 	    pthread_setspecific(glob_var_key_ip, NULL);
+
 	}
 	    //exit(EXIT_SUCCESS);
 	else {
 
 	    nnn++;
 	    // RECOVERY FROM THREAD BOMB
-   	    //printf("ELSE: Thread/process ID : %d\n", getpid());
+   	    printf("ELSE: Thread/process ID : %d\n", getpid());
 	    //if (nnn > 32) {wait(NULL);}
 	    continue;
 	    //break;
@@ -1351,6 +1358,7 @@ int main(int argc, char *argv[])
 	    // NONSENSE CAUSE NO THREAD ANYMORE
 	    //if (DEBUG) {fprintf(stderr, "Finished joining thread i-> %d, nnn-> %d \n",i,nnn);}
 	}
+
     }
 }
 

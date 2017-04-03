@@ -606,9 +606,6 @@ e9706.dscg.akamaiedge.net
 e9729.b.akamaiedge.net
 easylist-downloads.adblockplus.org
 ebanking-ch.ubs.com
-ebanking-ch1.gemini.ubs.com
-ebanking-ch1.ubs.com
-ebanking-ch2.ubs.com
 ebill.orange.ch
 ecadn-ap.cedexis.com
 ecadn-eu.cedexis.com
@@ -1480,7 +1477,6 @@ query.ess-apple.com.akadns.net
 query.ess.apple.com
 queue.acm.org
 quimby.gnus.org
-quinstreetenterprise.com
 quota.for-system.com
 quotes-global2.ubs.com
 quotes-public.ubs.com
