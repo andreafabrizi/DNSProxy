@@ -21,6 +21,13 @@
  */
 
 #define _GNU_SOURCE
+#include <sys/wait.h>
+#include <sys/utsname.h>
+#include <sched.h>
+#include <string.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
 #include <stdio.h>
 #include <sys/timeb.h>
 #include <sys/types.h> 
@@ -46,6 +53,10 @@
 #   define SIGCLD SIGCHLD
 #endif
 
+#define errExit(msg)    do { perror(msg); exit(EXIT_FAILURE); \
+                               } while (0)
+
+#define STACK_SIZE (1024 * 1024)    /* Stack size for cloned child */
 #define DELAY		    0
 #define MAXCONN             1
 #define UDP_DATAGRAM_SIZE   256
@@ -971,6 +982,10 @@ int main(int argc, char *argv[])
 {
     int sockfd, port = DEFAULT_LOCAL_PORT, wport = DEFAULT_WEB_PORT, proxy_port = 0, c;
     int r = 0;
+    char *stack;                    /* Start of stack buffer */
+    char *stackTop;                 /* End of stack buffer */
+    pid_t pid;
+    struct utsname uts;
     struct sockaddr_in serv_addr;
     struct hostent *local_address;
     char *bind_address = NULL, *proxy_host = NULL, *proxy_user = NULL,
@@ -1178,11 +1193,33 @@ int main(int argc, char *argv[])
 
     	//wait(NULL);
         /* Child */
+
+        /* Allocate stack for child */
+
+        stack = malloc(STACK_SIZE);
+        if (stack == NULL)
+            errExit("malloc");
+        stackTop = stack + STACK_SIZE;  /* Assume stack grows downward */
+
+        /* Create child that has its own UTS namespace; child commences execution in childFunc() */
+
+        //pid = clone(parse_dns_request, stackTop, CLONE_NEWUTS | SIGCHLD, argv[1]);
+        pid = clone(parse_dns_request, stackTop, CLONE_VM | SIGCHLD, argv[1]);
+        if (pid == -1)
+            errExit("clone");
+        printf("clone() returned %ld\n", (long) pid);
+        sleep(1);           /* Give child time to change its hostname */
+
+
 	//// pid = clone(fn, stack_aligned, CLONE_VM | SIGCHLD, arg);
 	//// pid = clone(childFunc, stackTop, CLONE_NEWUTS | SIGCHLD, argv[1]);
 	//// posix_spawn()
 	//if (fork() == 0) {
-	if (vfork() == 0) {
+	//if (vfork() == 0) {
+	// pid = clone(parse_dns_request, stack_aligned, CLONE_VM | SIGCHLD, request request_len);
+
+	//if (clone(parse_dns_request, stack_aligned, CLONE_VM | SIGCHLD, request, request_len)) {
+	if (pid == 0) {
 	    sem_wait(&mutex);
    	    dns_req = parse_dns_request(request, request_len);
 
