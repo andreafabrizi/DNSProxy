@@ -109,6 +109,15 @@ Still bugs presents, i.e.:
 
 
 ## Changelog:
+
+Version 1.01 - March 2017:
+* going back to either threads or vfork...
+* want to implement DNSSEC somehow
+* did improve code readability
+* done more crashtest, memleak, timing tests
+* it really works with millions query !
+* provided Varnish config as well
+
 Version 1.01 - April 2015:
 * HTTPS resolver support (even more privacy)
 * Multithreading listener/responder
