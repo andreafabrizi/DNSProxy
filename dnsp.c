@@ -1204,22 +1204,22 @@ int main(int argc, char *argv[])
         /* Create child that has its own UTS namespace; child commences execution in childFunc() */
 
         //pid = clone(parse_dns_request, stackTop, CLONE_NEWUTS | SIGCHLD, argv[1]);
-        pid = clone(parse_dns_request, stackTop, CLONE_VM | SIGCHLD, argv[1]);
-        if (pid == -1)
-            errExit("clone");
-        printf("clone() returned %ld\n", (long) pid);
-        sleep(1);           /* Give child time to change its hostname */
+        ////pid = clone(parse_dns_request, stackTop, CLONE_VM | SIGCHLD, argv[1]);
+        ////if (pid == -1)
+        ////    errExit("clone");
+        ////printf("clone() returned %ld\n", (long) pid);
+        //sleep(1);           /* Give child time to change its hostname */
 
 
 	//// pid = clone(fn, stack_aligned, CLONE_VM | SIGCHLD, arg);
 	//// pid = clone(childFunc, stackTop, CLONE_NEWUTS | SIGCHLD, argv[1]);
 	//// posix_spawn()
 	//if (fork() == 0) {
-	//if (vfork() == 0) {
+	if (vfork() == 0) {
 	// pid = clone(parse_dns_request, stack_aligned, CLONE_VM | SIGCHLD, request request_len);
 
 	//if (clone(parse_dns_request, stack_aligned, CLONE_VM | SIGCHLD, request, request_len)) {
-	if (pid == 0) {
+	//if (pid == 0) {
 	    sem_wait(&mutex);
    	    dns_req = parse_dns_request(request, request_len);
 
