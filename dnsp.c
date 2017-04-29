@@ -1,7 +1,7 @@
 /*
  * DNS proxy 1.01
  *  
- * Copyright (C) 2014-2015 Massimiliano Fantuzzi <superfantuz@gmail.com>
+ * Copyright (C) 2014-2020 Massimiliano Fantuzzi <superfantuz@gmail.com>
  * Copyright (C) 2009-2013 Andrea Fabrizi <andrea.fabrizi@gmail.com>
  *  
  * This program is free software; you can redistribute it and/or modify
