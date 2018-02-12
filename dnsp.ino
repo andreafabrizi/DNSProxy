@@ -1,6 +1,10 @@
 /*
- Copyright: (c) SAEKI Yoshiyasu, Massimiliano Fantuzzi HB3YOE
- Analog inputs attached to pins A0 through A5 (optional)
+ Copyright: (c) SAEKI Yoshiyasu
+ Web Server: A simple web server that shows the value of the analog input pins. Uusing an Arduino Wiznet Ethernet shield.
+
+ Circuit:
+ * Ethernet shield attached to pins 10, 11, 12, 13
+ * Analog inputs attached to pins A0 through A5 (optional)
 */
 
 #include <SPI.h>
@@ -35,9 +39,11 @@
 #define SS          53
 //#define SPI_SS_PIN  53  //from Robot_Control/SdCard.h
 
+/* last 2018 mod, test to see if working
 #define SD_CS        6
 #define SPI_SS      53
 #define SPI_CS       8
+*/
 
 //#define ETHERNET_SHIELD_SPI_CS  8;
 
@@ -84,7 +90,7 @@ const int8_t DISABLE_CHIP_SELECT = 6;
 
 void setup()
 {
-  Serial.begin(9600);
+  //Serial.begin(9600);
   /*
   while (!Serial) {
     ;
@@ -111,16 +117,17 @@ void setup()
   digitalWrite(7,HIGH);
 
   startOne();
-  delay(200);
+  delay(100);
   startTwo();
-  delay(200);
+  delay(100);
   
-  Serial.println(F("Ready"));
+  //Serial.println(F("Ready"));
 }
 
 void loop() {
-  //checkServerOne();
-  //checkServerTwo();
+  
+  checkServerOne();
+  checkServerTwo();
   
 /*
   // listen for incoming clients
@@ -177,12 +184,13 @@ void loop() {
   int requestSize = UdpTwo.parsePacket(); //int requestSize = Udp.available();
   
   if(requestSize) {
-    Serial.print("Received packet of size ");
-    Serial.println(requestSize);
-    Serial.print("From ");
+    //Serial.print("Received packet of size ");
+    //Serial.println(requestSize);
+    //Serial.print("From ");
     
     IPAddress remote = UdpTwo.remoteIP();
 
+    /*
     for (int i = 0; i < 4; i++) {
       Serial.print(remote[i], DEC);
       if (i < 3) {
@@ -191,7 +199,8 @@ void loop() {
     }
     Serial.print(", port ");
     Serial.println(UdpTwo.remotePort());
-
+    */
+    
     //Udp.readPacket(requestBuffer, PACKET_MAX_SIZE, remoteIp, remotePort);
     UdpTwo.read(requestBuffer, PACKET_MAX_SIZE);
 
@@ -210,7 +219,7 @@ void loop() {
         lon = requestBuffer[ini];
       }
       domain[i] = '\0';
-      Serial.println(domain);
+      //Serial.println(domain);
       /*
       - ANSWER
         //response[0] = 0x81;
@@ -333,8 +342,8 @@ void loop() {
         
         //responseBuffer[resIndex++] = '\x00';    // end
      
-        Serial.println("Contents:");
-        Serial.println(requestBuffer);
+        //Serial.println("Contents:");
+        //Serial.println(requestBuffer);
 
         //Udp.sendPacket((uint8_t *)responseBuffer, (uint16_t)(resIndex - 1),remoteIp, remotePort);
         UdpTwo.beginPacket(UdpTwo.remoteIP(), UdpTwo.remotePort());
@@ -377,16 +386,38 @@ void checkServerTwo() {
 }
 
 void checkClient(int board) {
-  EthernetClient client;
   
-  if (board > 0 && board < 2) {
-    EthernetClient client = serverOne.available();
-  } else if (board > 1 && board < 3) {
-    EthernetClient client = serverTwo.available();
-  } else { return; }
+  /*
+  switch (board) {
+  case 1:
+    EthernetClient clientOne = serverOne.available();
+    break;
+  case 2:
+    EthernetClient clientTwo = serverTwo.available();
+    break;
+  default:
+    //EthernetClient client;
+    // statements
+    Serial.println("aborting due to unexistent board value...");
+    return;
+  }
+  */
+  
+  EthernetClient client;
+  //if (board > 0 && board < 2) {
+    EthernetClient clientOne = serverOne.available();
+  //} else if (board > 1 && board < 3) {
+    EthernetClient clientTwo = serverTwo.available();
+  //} else { Serial.println("aborting due to unexistent board value..."); return; }
   
   currentLineIsBlank = true;
-  if(client) {
+
+  if(clientOne || clientTwo) {
+    //Serial.print("client coming in...");
+    //Serial.println(board);
+    
+    if (clientOne) { client = clientOne; } else { client = clientTwo; }
+    
     while(client.connected()) {
       if(client.available()) {
         c = client.read();
