@@ -1,3 +1,4 @@
+
 /*
   Copyright: (c) SAEKI Yoshiyasu, Massimiliano Fantuzzi HB3YOE
   Analog inputs attached to pins A0 through A5 (optional)
@@ -49,7 +50,10 @@ byte macOne[] = {  0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xEC };
 byte macTwo[] = {  0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED };
 
 //byte ip[] = {192, 168, 254, 100};
-byte resIp[] = {192, 168, 3, 241};
+//byte resIp[] = {192, 168, 3, 241};
+//byte resIp[] = {0x08,0x08,0x08,0x08};
+byte resIp[4] = {94,130,94,9};
+//byte resIp[4] = {8,8,8,8};
 
 unsigned int listenPort = 53;
 byte remoteIp[4];
@@ -215,7 +219,9 @@ void loop() {
         lon = requestBuffer[ini];
       }
       domain[i] = '\0';
+      
       //Serial.println(domain);
+      
       /*
       - ANSWER
         //response[0] = 0x81;
@@ -248,29 +254,37 @@ void loop() {
       
       if(domain[0] != '\0') {  // request exists
         int resIndex = 0;
+        
         for(int k = 0; k < 2; k++) {            // identification
           responseBuffer[resIndex++] = requestBuffer[k];
         }
+        
         responseBuffer[resIndex++] = '\x85';    // response   //81
                                                 // recursion desired
         responseBuffer[resIndex++] = '\x80';    // recursive
                                                 // no error
+        
         //for(int k = 4; k < 6; k++) {            // question
           //responseBuffer[resIndex++] = requestBuffer[k];
           responseBuffer[resIndex++] = '\x00';
           responseBuffer[resIndex++] = '\x01';
         //}
-        //for(int k = 4; k < 6; k++) {            // answer
-          //responseBuffer[resIndex++] = requestBuffer[k];
-          responseBuffer[resIndex++] = '\x00';
-          responseBuffer[resIndex++] = '\x01';
-        //}
-        for(int k = 0; k < 4; k++) {            // authority, addition
-          responseBuffer[resIndex++] = '\x00';
+        
+        for(int k = 4; k < 6; k++) {            // answer
+          responseBuffer[resIndex++] = requestBuffer[k];
+          //responseBuffer[resIndex++] = '\x00';
+          //responseBuffer[resIndex++] = '\x01';
         }
+        
+        //for(int k = 0; k < 4; k++) {            // authority, additional
+          responseBuffer[resIndex++] = '\x00';
+          responseBuffer[resIndex++] = '\x00';
+          responseBuffer[resIndex++] = '\x00';
+          responseBuffer[resIndex++] = '\x00';
+        //}
 
-        //for(int k = 12; k < requestSize - 8; k++) {  // question
-        for(int k = 0; k < requestSize; k++) {  // question
+        //for(int k = 12; k < requestSize -8; k++) {  // question
+        for(int k = 12; k < requestSize - 11; k++) {  // question
           responseBuffer[resIndex++] = requestBuffer[k];
         }
 
@@ -288,9 +302,12 @@ void loop() {
         
         responseBuffer[resIndex++] = '\xc0';    // pointer to answer
         responseBuffer[resIndex++] = '\x0c';
-
+        //responseBuffer[resIndex++] = '\x00';    // pointer to answer
+        //responseBuffer[resIndex++] = '\x00';
+        
         /* TYPES */
-/*        
+        
+  /*        
   if (dns_req->qtype == 0x0f) { //MX
           response[0] = 0x00;
           response[1] = 0x0f;
@@ -315,28 +332,28 @@ void loop() {
           response[1] = 0x02;
           response+=2;
   } else { return; }
-*/
+  */
   
         responseBuffer[resIndex++] = '\x00';    // type A
         responseBuffer[resIndex++] = '\x01';
-        
+
         responseBuffer[resIndex++] = '\x00';    // class
         responseBuffer[resIndex++] = '\x01';
         
         responseBuffer[resIndex++] = '\x00';    // ttl (orig 0x3c, now 4 hours)
         responseBuffer[resIndex++] = '\x00';
-        
-        responseBuffer[resIndex++] = '\x38';
-        responseBuffer[resIndex++] = '\x40';    // ttl end
+        responseBuffer[resIndex++] = '\x38';    //3840
+        responseBuffer[resIndex++] = '\x40';
         
         responseBuffer[resIndex++] = '\x00';    // ip length for A record
         responseBuffer[resIndex++] = '\x04';
+        
         responseBuffer[resIndex++] = resIp[0];  // ip
         responseBuffer[resIndex++] = resIp[1];
         responseBuffer[resIndex++] = resIp[2];
         responseBuffer[resIndex++] = resIp[3];
         
-        //responseBuffer[resIndex++] = '\x00';    // end
+        responseBuffer[resIndex++] = '\x00';    // end
      
         //Serial.println("Contents:");
         //Serial.println(requestBuffer);
@@ -426,7 +443,7 @@ void checkClient(int board) {
           client.println(F("<!DOCTYPE HTML>"));
           client.println(F("<html><head>"));
           client.println(F("<meta http-equiv=\"refresh\" content=\"5\">"));
-          client.print(F("</head><body>Hello world from ")); //ethernet one!
+          client.print(F("</head><body>Hello world from "));
           client.print(board);
           client.print(F("</body>"));
           client.println(F("</html>"));
