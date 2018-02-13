@@ -20,7 +20,7 @@ For debian/ubuntu users:
 then compile with
 `make`
 or
- gcc dnsp.c -W -lcurl -g -lpthread -DTLS -rdynamic -lrt -o dnsp
+`gcc dnsp.c -W -lcurl -g -lpthread -DTLS -rdynamic -lrt -o dnsp`
 
 ## Usage 
 
