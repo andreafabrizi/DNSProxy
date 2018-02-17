@@ -1,8 +1,7 @@
 /*
- * DNS proxy 1.01
+ * DNS proxy 1.5
  *  
- * Copyright (C) 2014-2020 Massimiliano Fantuzzi <superfantuz@gmail.com>
- * Copyright (C) 2009-2013 Andrea Fabrizi <andrea.fabrizi@gmail.com>
+ * Copyright (C) 2014-2018 Massimiliano Fantuzzi <superfantuz@gmail.com>
  *  
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -53,8 +52,8 @@
 #   define SIGCLD SIGCHLD
 #endif
 
-#define errExit(msg)    do { perror(msg); exit(EXIT_FAILURE); \
-                               } while (0)
+#define errExit(msg)		do { perror(msg); exit(EXIT_FAILURE); } while (0)
+#define handle_error(msg)	do { perror(msg); exit(EXIT_FAILURE); } while (0)
 
 #define STACK_SIZE (1024 * 1024)    /* Stack size for cloned child */
 #define DELAY		    0
@@ -74,9 +73,6 @@
 
 //#define TYPEQ		    2
 //#define DEBUG		    0
-
-#define handle_error(msg) \
-        do { perror(msg); exit(EXIT_FAILURE); } while (0)
 
 pthread_key_t glob_var_key_ip;
 pthread_key_t glob_var_key_client;
@@ -189,15 +185,15 @@ void usage(void)
                        " usage: dnsp -l [local_host] -p [local_port] -h [proxy_host] -r [proxy_port] -w [lookup_port] -s [lookup_script] -\n\n"
                        " OPTIONS:\n"
                        "      -l\t\t Local server address\n"
-                       "      -p\t\t Local server port 	  (optional, defaults to 53)\n"
-                       "      -H\t\t Cache proxy address (optional)\n"
-                       "      -r\t\t Cache proxy port    (optional)\n"
-                       "      -u\t\t Cache proxy username       (optional)\n"
-                       "      -k\t\t Cache proxy password       (optional)\n"
+                       "      -p\t\t Local server port		(optional, defaults to 53)\n"
+                       "      -H\t\t Cache proxy address	(strongly suggested)\n"
+                       "      -r\t\t Cache proxy port		(strongly suggested)\n"
+                       "      -u\t\t Cache proxy username	(optional)\n"
+                       "      -k\t\t Cache proxy password	(optional)\n"
                        "      -s\t\t Lookup script URL\n"
-                       "      -w\t\t Lookup port          (optional, defaults to 80/443 for HTTP/HTTPS)\n"
-                       "      -t\t\t Stack size in format 0x1000000 (MB)\n"
-                       "      -v\t\t Enable juicy DEBUG logging\n"
+                       "      -w\t\t Lookup port		(optional, defaults to 80/443 for HTTP/HTTPS)\n"
+                       "      -t\t\t Stack size in format	0x1000000 (MB)\n"
+                       "      -v\t\t Enable DEBUG\n"
                        "      -S\t\t Enable HTTPS\n"
                        "\n"
                        " Example HTTP:   sudo ./dnsp -p 53 -l 127.0.0.1 -r 8118 -H 127.0.0.1 -w 80 -s http://www.fantuz.net/nslookup.php -t 0x1000000\n"
@@ -1245,7 +1241,11 @@ int main(int argc, char *argv[])
 	    } else if (dns_req->qtype == 0x0f) {
 		typeq = "MX";
 	    } else { //{ dns_req->qtype == 0xff;} 
-		printf("gotcha\n");} //PTR ?
+		printf("gotcha: %x \r\n",dns_req->qtype);} //PTR ?
+
+	    // https://en.wikipedia.org/wiki/List_of_DNS_record_types
+	    // AAAA is 0x1c, dec 28.
+	    //
 
 	    /* CORE DNS LOOKUP IS MADE ONCE (via HTTP and nslookup.php) THEN CACHED INTO THE NETWORK (polipo, memcache ...)
 	     IMPLEMENTS DOMAIN BLACKLISTING, AUTHENTICATION, SSL. PENDING MULTITHREADING. SOON, MAKE BETTER FILTER .. */
