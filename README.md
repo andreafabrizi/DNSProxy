@@ -70,8 +70,8 @@ The more DNSP resolvers, the less DNS queries will be traceable (TOR leaking pro
       -v		 Enable DEBUG
       -S		 Enable HTTPS
 
- Example HTTP+proxy   :   sudo ./dnsp -p 53 -l 127.0.0.1 -r 8118 -H 127.0.0.1 -w 80 -s http://www.fantuz.net/ns.php
- Example HTTPS direct :  sudo ./dnsp -p 53 -l 127.0.0.1 -w 443 -s https://www.fantuz.net/ns.php
+ Example HTTP+proxy   :  dnsp -p 53 -l 127.0.0.1 -r 8118 -H 127.0.0.1 -w 80 -s http://www.fantuz.net/ns.php
+ Example HTTPS direct :  dnsp -p 53 -l 127.0.0.1 -w 443 -s https://www.fantuz.net/ns.php
 
 ```
 ## Testing
@@ -125,6 +125,7 @@ Version 1.5 - February 2018:
 * deleted some files
 * added Arduino double ethernet shield script
 * will soon add the arduino-ethernet library with the added select() function
+* added the GO version made by chinese people, inspired at my DNSP software
 * other thought pending
 
 Version 1.01 - March 2017:

@@ -196,8 +196,8 @@ void usage(void)
                        "      -v\t\t Enable DEBUG\n"
                        "      -S\t\t Enable HTTPS\n"
                        "\n"
-                       " Example HTTP+proxy   :  sudo ./dnsp -p 53 -l 127.0.0.1 -r 8118 -H 127.0.0.1 -w 80 -s http://www.fantuz.net/ns.php\n"
-		       " Example HTTPS direct :  sudo ./dnsp -p 53 -l 127.0.0.1 -w 443 -s https://www.fantuz.net/ns.php\n\n"
+                       " Example HTTP+proxy   :  dnsp -p 53 -l 127.0.0.1 -r 8118 -H 127.0.0.1 -w 80 -s http://www.fantuz.net/ns.php\n"
+		       " Example HTTPS direct :  dnsp -p 53 -l 127.0.0.1 -w 443 -s https://www.fantuz.net/ns.php\n\n"
     ,VERSION);
     exit(EXIT_FAILURE);
 }
