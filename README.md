@@ -28,50 +28,50 @@ or
 
 ```bash
  # You can use a caching HTTP proxy
-dnsp -p 53 -l 127.0.0.1 -h 127.0.0.1 -r 8118 -w 80 -s https://www.fantuz.net/nslookup.php
+dnsp -p 53 -l 127.0.0.1 -h 127.0.0.1 -r 8118 -w 80 -s https://www.fantuz.net/ns.php
 
  # You want just to surf anonymously, using the HTTP/DNS service without HTTP caching proxy
-dnsp -p 53 -l 127.0.0.1 -s https://www.fantuz.net/nslookup.php
+dnsp -p 53 -l 127.0.0.1 -s https://www.fantuz.net/ns.php
 
  # HTTP vs HTTPS modes
-dnsp -p 53 -l 127.0.0.1 -w 80 -s http://www.fantuz.net/nslookup.php
-dnsp -p 53 -l 127.0.0.1 -w 443 -s https://www.fantuz.net/nslookup.php
+dnsp -p 53 -l 127.0.0.1 -w 80 -s http://www.fantuz.net/ns.php
+dnsp -p 53 -l 127.0.0.1 -w 443 -s https://www.fantuz.net/ns.php
 ```
 
 In this example, DNS proxy listens on local UDP port 53 and sends the 
 request to the PHP script hosted at the example address, eventually through
 proxy (i.e. TOR, squid, charles).
 
-You can rely on any HTTP/HTTPS proxy server, should you need caching. Any
-polipo, squid, nginx, charles, SOCKS, TOR, will work properly with DNSP.
+You can rely on your favourite HTTP/HTTPS proxy server, should you need response caching.
+Any polipo, squid, nginx, Varnish, charles, SOCKS, TOR, will work properly with DNSP.
 
-You can also run DNSP on plain HTTP without proxy, but mind that your
-navigation won't be anonymous.... so better use HTTPS at least :)
+You can also run DNSP through HTTP(S) without proxy, directly attaching the DNSP server to
+the remote resolver webservice.
 
 **IMPORTANT:** Please, don't use the script hosted on my server as demonstration.
-It might be subjected to umpredicted change, offlining, defacing.
-Instead - host yourself the nslookup.php script, and spread it on a friend's server!
-The more we are, the less DNS becomes a 'trackable' TOR leak.
+It might be subjected to umpredicted change, offlining, defacing....
+Instead - host yourself as many *ns.php* scripts as you can, or send it on a friend's server!
+The more DNSP resolvers, the less DNS queries will be traceable (TOR leaking problem).
 
 ```bash
- dnsp 1.01
- usage: dnsp -l [local_host] -h [proxy_host] -r [proxy_port] -w [webport] \
-	-s [lookup_script] -t [stack_size]
+ dnsp 1.5
+ usage: dnsp -l [local_host] -p [local_port] -h [proxy_host] -r [proxy_port] -w [lookup_port] -s [lookup_script] -
 
  OPTIONS:
       -l		 Local server address
-      -p		 Local server port
-      -h		 Remote proxy address
-      -r		 Remote proxy port
-      -u		 Proxy username (optional)
-      -k		 Proxy password (optional)
+      -p		 Local server port	(optional, defaults to 53)
+      -H		 Cache proxy address	(strongly suggested)
+      -r		 Cache proxy port	(strongly suggested)
+      -u		 Cache proxy username	(optional)
+      -k		 Cache proxy password	(optional)
       -s		 Lookup script URL
-      -w		 Webserver port (optional, default 80)
-      -t		 Stack size in format 0x1000000 (MB)
-      -v		 Enable juicy DEBUG logging
+      -w		 Lookup port		(optional, defaults to 80/443 for HTTP/HTTPS)
+      -t		 Stack size in format	0x1000000 (MB)
+      -v		 Enable DEBUG
+      -S		 Enable HTTPS
 
- Example: dnsp -p 53 -l 127.0.0.1 -h 127.0.0.1 -r 8118 -w 80 \
-	-s https://www.fantuz.net/nslookup.php -t 0x1000000
+ Example HTTP+proxy   :   sudo ./dnsp -p 53 -l 127.0.0.1 -r 8118 -H 127.0.0.1 -w 80 -s http://www.fantuz.net/ns.php
+ Example HTTPS direct :  sudo ./dnsp -p 53 -l 127.0.0.1 -w 443 -s https://www.fantuz.net/ns.php
 
 ```
 ## Testing
@@ -80,7 +80,7 @@ To test if DNS proxy is working correctly, first run the program as following, b
 filling in Your favorite TOR proxy address:
 
 ```bash
-dnsp -l 127.0.0.1 -h 127.0.0.1 -r 8118 -w 443 -s http://www.fantuz.net/nslookup.php
+dnsp -l 127.0.0.1 -w 443 -s https://www.fantuz.net/ns.php
 ```
 
 then, try to resolve an hostname using the **dig** command:

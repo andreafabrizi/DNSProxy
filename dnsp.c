@@ -62,7 +62,7 @@
 #define DNSREWRITE          256
 #define HTTP_RESPONSE_SIZE  256
 #define URL_SIZE            256
-#define VERSION             "1.1"
+#define VERSION             "1.5"
 #define DNS_MODE_ANSWER     1
 #define DNS_MODE_ERROR      2
 #define DEFAULT_LOCAL_PORT  53
@@ -185,9 +185,9 @@ void usage(void)
                        " usage: dnsp -l [local_host] -p [local_port] -h [proxy_host] -r [proxy_port] -w [lookup_port] -s [lookup_script] -\n\n"
                        " OPTIONS:\n"
                        "      -l\t\t Local server address\n"
-                       "      -p\t\t Local server port		(optional, defaults to 53)\n"
+                       "      -p\t\t Local server port	(optional, defaults to 53)\n"
                        "      -H\t\t Cache proxy address	(strongly suggested)\n"
-                       "      -r\t\t Cache proxy port		(strongly suggested)\n"
+                       "      -r\t\t Cache proxy port	(strongly suggested)\n"
                        "      -u\t\t Cache proxy username	(optional)\n"
                        "      -k\t\t Cache proxy password	(optional)\n"
                        "      -s\t\t Lookup script URL\n"
@@ -196,9 +196,8 @@ void usage(void)
                        "      -v\t\t Enable DEBUG\n"
                        "      -S\t\t Enable HTTPS\n"
                        "\n"
-                       " Example HTTP:   sudo ./dnsp -p 53 -l 127.0.0.1 -r 8118 -H 127.0.0.1 -w 80 -s http://www.fantuz.net/nslookup.php -t 0x1000000\n"
-		       " Example HTTPS:  sudo ./dnsp -p 53 -l 127.0.0.1 -r 8888 -H 127.0.0.1 -w 443 -s https://www.fantuz.net/nslookup.php\n\n"
-		       " Example HTTPS:  sudo ./dnsp -l 192.168.0.5 -w 80 -s http://www.fantuz.net/nslookup.php\n\n"
+                       " Example HTTP+proxy   :  sudo ./dnsp -p 53 -l 127.0.0.1 -r 8118 -H 127.0.0.1 -w 80 -s http://www.fantuz.net/ns.php\n"
+		       " Example HTTPS direct :  sudo ./dnsp -p 53 -l 127.0.0.1 -w 443 -s https://www.fantuz.net/ns.php\n\n"
     ,VERSION);
     exit(EXIT_FAILURE);
 }
