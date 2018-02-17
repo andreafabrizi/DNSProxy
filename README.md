@@ -8,26 +8,36 @@ If you can't access VPN or tunnels  to resolve names externally (TOR users),
 DNSProxy is a simple and efficient solution.
 
 All you need to start resolving anonymous DNS is a PHP server hosting the
-nslookup.php script (i.e. fantuz.net). This software is completeley 
-TOR-friendly and requires minimal resources.
+*ns.php* resolver script. This software is completeley  TOR-friendly, it 
+requires minimal resources.
 
 ## Building
 
-Building is easy on Mac and Ubuntu, CentOS, Fedora. Based on curl libs.
+Building is easy on Mac and Ubuntu, CentOS, Fedora... Probably UNIX and Windows.
+Based on curl libs, pthread, TLS and other standard libraries
 
 For debian/ubuntu users:  
 `apt-get install libcurl4-openssl-dev`
-then compile with
+
+Once done installing pre-requisites, compile with:
 `make`
 or
 `gcc dnsp.c -W -lcurl -g -lpthread -DTLS -rdynamic -lrt -o dnsp`
 
-## Usage 
+## Usage scenario, examples
 
 ```bash
-sudo ./dnsp -p 53 -l 127.0.0.1 -h 127.0.0.1 -r 8118 -w 80 -s https://www.fantuz.net/nslookup.php
-sudo ./dnsp -p 53 -l 127.0.0.1 -w 443 -s https://www.fantuz.net/nslookup.php
+ # You can use a caching HTTP proxy
+dnsp -p 53 -l 127.0.0.1 -h 127.0.0.1 -r 8118 -w 80 -s https://www.fantuz.net/nslookup.php
+
+ # You want just to surf anonymously, using the HTTP/DNS service without HTTP caching proxy
+dnsp -p 53 -l 127.0.0.1 -s https://www.fantuz.net/nslookup.php
+
+ # HTTP vs HTTPS modes
+dnsp -p 53 -l 127.0.0.1 -w 80 -s http://www.fantuz.net/nslookup.php
+dnsp -p 53 -l 127.0.0.1 -w 443 -s https://www.fantuz.net/nslookup.php
 ```
+
 In this example, DNS proxy listens on local UDP port 53 and sends the 
 request to the PHP script hosted at the example address, eventually through
 proxy (i.e. TOR, squid, charles).
