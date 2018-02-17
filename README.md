@@ -111,14 +111,21 @@ www.google.com.		3600	IN	A	173.194.64.106
 ```
 
 When You properly implement cache on the webserver, answers will come back in
- few milliseconds, after the first recursive resolution.
- 
-Still bugs presents, i.e.:
- - dig +short -p 5353 -x 104.27.133.199 @localhost
- - ;; Warning: Message parser reports malformed message packet.
+ few milliseconds, after the first recursive resolution...
 
+This is a new idea in terms of transport of DNS outside of it's original scope.
+This proxy project might well evolve in direction of having an IP protocol number 
+assignement, or something like that.
 
 ## Changelog:
+
+Version 1.5 - February 2018:
+* fixed README and easen installation/testing procedure
+* soon to get on DNSSEC
+* deleted some files
+* added Arduino double ethernet shield script
+* will soon add the arduino-ethernet library with the added select() function
+* other thought pending
 
 Version 1.01 - March 2017:
 * going back to either threads or vfork...
@@ -126,7 +133,7 @@ Version 1.01 - March 2017:
 * did improve code readability
 * done more crashtest, memleak, timing tests
 * it really works with millions query !
-* provided Varnish config as well
+* published and improved a Varnish configuration as well
 
 Version 1.01 - April 2015:
 * HTTPS resolver support (even more privacy)
