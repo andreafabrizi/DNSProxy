@@ -31,17 +31,17 @@ or
 
 ## Installing
 
-# STEP 0
+### STEP 0, having access to the HTTP(S) nameserver webservice
 Deploy the **ns.php** on a webserver, possibly not your local machine.
 If you ignore how-to carry on such a task, or you do not have access to such a 
 webserver, just use my webservice, as per following examples.
 
-# STEP 1
+### STEP 1, having access to an HTTP(S) proxy, optional but suggested
 Setup a caching proxy, on the local machine or on a remote host, and feed the 
 parameters of your HTTP caching/proxy server to the *dnsp* program (see host and
 port parameters, -H and -r).
 
-# STEP 2
+### STEP 2, simple compilation of DNSP binary prior to running
 Compile the *dnsp* binary by running provided build commands (make, for example)
 
 ## Testing
