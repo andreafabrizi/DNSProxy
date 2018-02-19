@@ -141,3 +141,4 @@ if (isSet($_GET["host"]) && isSet($_GET["type"])) {
 //        $mx = getmxrr($host);
 
 ?>
+

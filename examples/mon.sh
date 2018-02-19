@@ -3,6 +3,7 @@
 DNS=$1
 PORT=$2
 NUM=$3
+FILE='./DNS_example_input.txt'
 
 if [ -z $1 ] || [ -z $2 ] || [ -z $3 ]; then
 	echo "parameters missing... ./$(basename $0) 127.0.0.1 53 1000"
@@ -15,7 +16,7 @@ fi
 a=0
 WAIT=""
 
-for i in $(cat DNS.txt | head -$NUM); do
+for i in $(head -$NUM $FILE); do
 	if [ $a -lt $(echo $NUM/10| bc) ]; then
 		dig +retry=0 -p $PORT $i @$DNS &
 		WAIT="$WAIT $!"
