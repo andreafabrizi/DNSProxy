@@ -11,6 +11,17 @@ All you need to start resolving anonymous DNS is a PHP server hosting the
 *ns.php* resolver script. This software is completeley  TOR-friendly, it 
 requires minimal resources.
 
+## Disclaimer
+IF ANONIMITY IS A CONCERN, make sure to host NS.PHP on a good trustable server !
+To be clear, the ns.php script DOES do DNS request, which relies on mechanisms
+of resolving DNS that are normally controlled by the hosting provider (and
+hence, supposedly optimised for best speed and caching), mechanisms that are
+outside the scope of DNSP as a software. That said, you MUST use an external
+server that you trust and you can deploy on. As suggested, having the 
+ns.php script running locally makes no sense and WILL make ALL of your DNS
+queries leaking. Useful for testing purposes only !!
+IF ANONIMITY IS A CONCERN, make sure to host NS.PHP on a good trustable server !
+
 ## Headline: why DNSP ?
 This is a new idea in terms of transport of DNS outside of it's original scope.
 This proxy project might well evolve in direction of having an IP protocol number 
