@@ -11,6 +11,11 @@ All you need to start resolving anonymous DNS is a PHP server hosting the
 *ns.php* resolver script. This software is completeley  TOR-friendly, it 
 requires minimal resources.
 
+## Headline: why DNSP ?
+This is a new idea in terms of transport of DNS outside of it's original scope.
+This proxy project might well evolve in direction of having an IP protocol number 
+assignement, or something like that.
+
 ## Building
 
 Building is easy on Mac and Ubuntu, CentOS, Fedora... Probably UNIX and Windows.
@@ -23,6 +28,60 @@ Once done installing pre-requisites, compile with:
 `make`
 or
 `gcc dnsp.c -W -lcurl -g -lpthread -DTLS -rdynamic -lrt -o dnsp`
+
+## Installing
+
+# STEP 0
+Deploy the **ns.php** on a webserver, possibly not your local machine.
+If you ignore how-to carry on such a task, or you do not have access to such a 
+webserver, just use my webservice, as per following examples.
+
+# STEP 1
+Setup a caching proxy, on the local machine or on a remote host, and feed the 
+parameters of your HTTP caching/proxy server to the *dnsp* program (see host and
+port parameters, -H and -r).
+
+# STEP 2
+Compile the *dnsp* binary by running provided build commands (make, for example)
+
+## Testing
+
+To test if DNS proxy is working correctly, first run the program as following, by
+filling in Your favorite TOR proxy address:
+
+```bash
+dnsp -l 127.0.0.1 -w 443 -s https://www.fantuz.net/ns.php
+```
+
+then, try to resolve an hostname using the **dig** command:
+
+```bash
+dig www.google.com @127.0.0.1
+```
+
+The result must be something like this:
+
+```
+; <<>> DiG 9.8.1-P1 <<>> www.google.com @127.0.0.1
+;; global options: +cmd
+;; Got answer:
+;; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: 29155
+;; flags: qr aa rd ra; QUERY: 1, ANSWER: 1, AUTHORITY: 0, ADDITIONAL: 0
+
+;; QUESTION SECTION:
+;www.google.com. 		IN	A
+
+;; ANSWER SECTION:
+www.google.com.		3600	IN	A	173.194.64.106
+
+;; Query time: 325 msec
+;; SERVER: 127.0.0.1#53(127.0.0.1)
+;; WHEN: Fri May 17 11:52:08 2013
+;; MSG SIZE  rcvd: 48
+```
+
+When You properly implement cache on the webserver, answers will come back in
+ few milliseconds, after the first recursive resolution...
 
 ## Usage scenario, examples
 
@@ -74,49 +133,6 @@ The more DNSP resolvers, the less DNS queries will be traceable (TOR leaking pro
  Example HTTPS direct :  dnsp -p 53 -l 127.0.0.1 -w 443 -s https://www.fantuz.net/ns.php
 
 ```
-## Testing
-
-To test if DNS proxy is working correctly, first run the program as following, by
-filling in Your favorite TOR proxy address:
-
-```bash
-dnsp -l 127.0.0.1 -w 443 -s https://www.fantuz.net/ns.php
-```
-
-then, try to resolve an hostname using the **dig** command:
-
-```bash
-dig www.google.com @127.0.0.1
-```
-
-The result must be something like this:
-
-```
-; <<>> DiG 9.8.1-P1 <<>> www.google.com @127.0.0.1
-;; global options: +cmd
-;; Got answer:
-;; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: 29155
-;; flags: qr aa rd ra; QUERY: 1, ANSWER: 1, AUTHORITY: 0, ADDITIONAL: 0
-
-;; QUESTION SECTION:
-;www.google.com. 		IN	A
-
-;; ANSWER SECTION:
-www.google.com.		3600	IN	A	173.194.64.106
-
-;; Query time: 325 msec
-;; SERVER: 127.0.0.1#53(127.0.0.1)
-;; WHEN: Fri May 17 11:52:08 2013
-;; MSG SIZE  rcvd: 48
-```
-
-When You properly implement cache on the webserver, answers will come back in
- few milliseconds, after the first recursive resolution...
-
-This is a new idea in terms of transport of DNS outside of it's original scope.
-This proxy project might well evolve in direction of having an IP protocol number 
-assignement, or something like that.
-
 ## Changelog:
 
 Version 1.5 - February 2018:
