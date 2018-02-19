@@ -350,8 +350,8 @@ void build_dns_reponse(int sd, struct sockaddr_in *yclient, struct dns_request *
     maxim = malloc (DNSREWRITE);
     bzero(maxim, DNSREWRITE);
 
-    response_ptr = response;
     //maxim_ptr = maxim;
+    response_ptr = response;
 
     /* Transaction ID */
     response[0] = (uint8_t)(dns_req->transaction_id >> 8);
@@ -394,10 +394,12 @@ AXFR zone transfer 0x00fc
         response[1] = 0x01;
         response+=2;
     } else if (mode == DNS_MODE_ERROR) {
-       /* DNS_MODE_ERROR should truncate message instead of building it up ...  */
+        
+	/* DNS_MODE_ERROR should truncate message instead of building it up ...  */
 
         /* Server failure (0x8182), but what if we want NXDOMAIN (0x....) ???*/
-	    /*
+	    
+	/*
 	     * NOERROR (RCODE:0) : DNS Query completed successfully
 	     * FORMERR (RCODE:1) : DNS Query Format Error
 	     * SERVFAIL (RCODE:2) : Server failed to complete the DNS request
@@ -422,7 +424,7 @@ AXFR zone transfer 0x00fc
 	     *   0x0F01-0x0FFF
 	     * 4096-65535      available for assignment
 	     *   0x1000-0xFFFF
-	     * */
+	*/
 
         response[0] = 0x81;
         response[1] = 0x82;
@@ -557,7 +559,10 @@ AXFR zone transfer 0x00fc
 		response[1] = 0x0a;
         	response+=2;
 
-	        /* POINTER, IF YOU ARE SO BRAVE OR ABLE TO USE IT (4 bytes) -> do not use label then... so you should re-write the code to have super-duper minimal responses. That code would also need domain comparison, to see if suffix can be appended */
+	        /* POINTER, IF YOU ARE SO BRAVE OR ABLE TO USE IT (4 bytes) -> do not use label-mode then...
+		 * in that case, you should re-write the code to have super-duper minimal responses.
+		 * That code would also need to implement domain comparison to check if suffix can be appended */
+
 		//response[0] = 0xc0;
 		//response[1] = 0x0c;
         	//response+=2;
@@ -618,6 +623,7 @@ AXFR zone transfer 0x00fc
         	fprintf(stdout, "DNS_MODE_ISSUE\n");
 		return;
 	}
+	
 	//*response++=(unsigned char)(strlen(ip)+1);
 	//memcpy(response,ip,strlen(ip)-1);
 	//strncpy(response,ip,strlen(ip)-1);
@@ -737,14 +743,12 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
     //CURL_SSLVERSION_TLSv1);
     //curl_easy_setopt(ch, CURLOPT_CAINFO, pCACertFile);
 
-    /* try to see.... */
+    /* try to see if it works .. not sure anymore */
     //curl_easy_setopt(ch, CURLINFO_HEADER_OUT, "" );
     //curl_easy_setopt(ch, CURLOPT_HEADER, 1L);
 
     /*
-    OPTION --> add resolver & CURL headers
-    CALLBACK TO PHP, BEHIND WHICH SITS THE "REAL" RESOLVER
-    CAN BE HIDDEN BY MANUAL RESOLVE OVERRIDE, I.E.
+    WIP --> add resolver CURL header
     --resolve my.site.com:80:1.2.3.4, -H "Host: my.site.com"
     */
 
@@ -1209,6 +1213,7 @@ int main(int argc, char *argv[])
 	//// pid = clone(fn, stack_aligned, CLONE_VM | SIGCHLD, arg);
 	//// pid = clone(childFunc, stackTop, CLONE_NEWUTS | SIGCHLD, argv[1]);
 	//// posix_spawn()
+	
 	//if (fork() == 0) {
 	if (vfork() == 0) {
 	// pid = clone(parse_dns_request, stack_aligned, CLONE_VM | SIGCHLD, request request_len);
