@@ -153,7 +153,9 @@ Version 1.5 - February 2018:
 * added Arduino double ethernet shield script
 * will soon add the arduino-ethernet library with the added select() function
 * added the GO version made by chinese people, inspired at my DNSP software
-* other thought pending
+* having few issues caching on ClouFlare-alike caches (304 not showing anymore ? want more of them).
+* everything works as usual: caching is lazy, CURL follows redirects (301, I want less of them)
+* other thought and implementations pending
 
 Version 1.01 - March 2017:
 * going back to either threads or vfork...
