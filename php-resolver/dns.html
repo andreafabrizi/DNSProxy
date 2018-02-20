@@ -1,0 +1,18 @@
+<html>
+<head>
+<title>DNS Check</title>
+<script language="javascript" src="dnscheck.js"></script>
+</head>
+<body>
+    <table width="0%"  border="0" cellspacing="0" cellpadding="0">
+          <tr>
+            <td align="right">DOMAIN:</td>
+            <td align="left"><input type="text" id="domainTxt" name="domainTxt"></td>
+            <td align="left"><span id="output" class="inputFormError"></span></td>
+          </tr>
+          <tr>
+            <td align="center" colspan="2"><input type="submit" id="submitBtn" value="Submit" onclick="dnsCheck('domainTxt','output')"></td>
+          </tr>
+    </table>
+</body>
+</html>
