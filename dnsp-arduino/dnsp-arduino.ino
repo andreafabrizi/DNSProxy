@@ -15,7 +15,7 @@
 #define DNSREWRITE          256
 #define HTTP_RESPONSE_SIZE  256
 #define URL_SIZE            256
-#define VERSION             "1.1"
+#define VERSION             "1.5"
 #define DNS_MODE_ANSWER     1
 #define DNS_MODE_ERROR      2
 #define DEFAULT_LOCAL_PORT  53

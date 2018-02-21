@@ -129,14 +129,14 @@ struct thread_info {    	/* Used as argument to thread_start() */
 static void *
 thread_start(void *arg)
 {
-    struct thread_info *tinfo = arg;
-    char *uargv, *p;
+   struct thread_info *tinfo = arg;
+   char *uargv, *p;
 
    printf("Thread %d: top of stack near %p; argv_string=%s\n",
             tinfo->thread_num, &p, tinfo->argv_string);
 
    uargv = strdup(tinfo->argv_string);
-    if (uargv == NULL)
+   if (uargv == NULL)
         handle_error("strdup");
 
    for (p = uargv; *p != '\0'; p++)
@@ -182,7 +182,7 @@ struct dns_reponse
 void usage(void)
 {
     fprintf(stderr, "\n dnsp %s\n"
-                       " usage: dnsp -l [local_host] -p [local_port] -h [proxy_host] -r [proxy_port] -w [lookup_port] -s [lookup_script] -\n\n"
+                       " usage: dnsp -l [local_host] -p [local_port:53,5353,..] -H [proxy_host] -r [proxy_port:8118,8888,3128,9500..] \n\t\t-w [lookup_port:80,443,..] -s [lookup_script] \n\n"
                        " OPTIONS:\n"
                        "      -l\t\t Local server address\n"
                        "      -p\t\t Local server port	(optional, defaults to 53)\n"
@@ -191,13 +191,13 @@ void usage(void)
                        "      -u\t\t Cache proxy username	(optional)\n"
                        "      -k\t\t Cache proxy password	(optional)\n"
                        "      -s\t\t Lookup script URL\n"
-                       "      -w\t\t Lookup port		(optional, defaults to 80/443 for HTTP/HTTPS)\n"
+                       "      -w\t\t Lookup port		(optional, if non-standard 80/443)\n"
                        "      -t\t\t Stack size in format	0x1000000 (MB)\n"
                        "      -v\t\t Enable DEBUG\n"
                        "      -S\t\t Enable HTTPS\n"
                        "\n"
-                       " Example HTTP+proxy   :  dnsp -p 53 -l 127.0.0.1 -r 8118 -H 127.0.0.1 -w 80 -s http://www.fantuz.net/ns.php\n"
-		       " Example HTTPS direct :  dnsp -p 53 -l 127.0.0.1 -w 443 -s https://www.fantuz.net/ns.php\n\n"
+                       " Example HTTP+proxy   :  dnsp -p 53 -l 127.0.0.1 -r 8118 -H 127.0.0.1 -w 80 -s http://www.fantuz.net/nslookup.php\n"
+		       " Example HTTPS direct :  dnsp -p 53 -l 127.0.0.1 -w 443 -s https://www.fantuz.net/nslookup.php\n\n"
     ,VERSION);
     exit(EXIT_FAILURE);
 }
@@ -727,6 +727,7 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
     	curl_easy_setopt(ch, CURLOPT_PROXY, proxy_host);
     	curl_easy_setopt(ch, CURLOPT_PROXYPORT, proxy_port);	/* 8118, 8888, 9500, ... */
     	curl_easy_setopt(ch, CURLOPT_PROXYTYPE, CURLPROXY_HTTP);
+	//
     	/* optional proxy username and password */
     	if ((proxy_user != NULL) && (proxy_pass != NULL)) {
     	    curl_easy_setopt(ch, CURLOPT_PROXYUSERNAME, proxy_user);
@@ -767,7 +768,9 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
     //list = curl_slist_append(list, "Remote Address: 217.114.216.51:443");
     //list = curl_slist_append(list, "Request URL: https://www.fantuz.net/nslookup.php");
     list = curl_slist_append(list, "User-Agent:Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/50.0.2661.94 Safari/537.36");
-    list = curl_slist_append(list, "Host: www.fantuz.net");
+
+    //list = curl_slist_append(list, "Host: www.fantuz.net");
+    
     //list = curl_slist_append(list, "If-None-Match: *");
     //list = curl_slist_append(list, "Accept:text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8");
 //    list = curl_slist_append(list, "Accept-Encoding:gzip, deflate, sdch");
@@ -901,7 +904,6 @@ void *threadFunc(void *arg)
 		printf("VARIABLE-RECV: %s\n", yhostname);
 	}
 	
-        //rip = lookup_host(yhostname, proxy_host, proxy_port, proxy_user, proxy_pass, lookup_script, typeq, wport);
         rip = lookup_host(yhostname, proxy_host, proxy_port, proxy_user, proxy_pass, lookup_script, typeq, wport);
 
 	/* PTHREAD SET SPECIFIC GLOBAL VARIABLE ... */
@@ -1006,8 +1008,20 @@ int main(int argc, char *argv[])
     /* The "-s" option specifies a stack size for our threads */
     stack_size = -1;
 
+    /*
+    const char    * short_opt = "hf:";
+    struct option   long_opt[] =
+    {
+       {"help",          no_argument,       NULL, 'h'},
+       {"file",          required_argument, NULL, 'f'},
+       {NULL,            0,                 NULL, 0  }
+    };
+
+    */
+
     /* Command line args */
-    while ((c = getopt (argc, argv, "s:p:l:r:H:t:w:u:k:v::")) != -1)
+    while ((c = getopt (argc, argv, "s:p:l:r:H:t:w:u:k:hv")) != -1)
+    // while ((c = getopt_long(argc, argv, short_opt, long_opt, NULL)) != -1)
     switch (c)
      {
         case 't':
@@ -1043,6 +1057,7 @@ int main(int argc, char *argv[])
                 
         case 'v':
             DEBUG = 1;
+            fprintf(stderr," *** DEBUG ON\n");
         break;
         
         case 'l':
@@ -1061,14 +1076,28 @@ int main(int argc, char *argv[])
             proxy_pass = (char *)optarg;
         break;
 
+	/*
         case 'S':
             httpsssl = (char *)optarg;
         break;
+	*/
 
         case 's':
             lookup_script = (char *)optarg;
         break;
-                                        
+
+        case 'h':
+            usage();
+        break;
+	/*
+	    if  (optopt == 'S')
+                fprintf(stderr," *** NOT YET IMPLEMENTED\n");
+	    else
+	    if  (optopt == 'h')
+                fprintf(stderr," *** Invalid stack size\n");
+	    else
+        */
+
         case '?':
             if (optopt == 'p')
                 fprintf(stderr," *** Invalid local port\n");
@@ -1085,6 +1114,9 @@ int main(int argc, char *argv[])
 	    if  (optopt == 't')
                 fprintf(stderr," *** Invalid stack size\n");
 	    else
+	    if  (optopt == 'h')
+	    	usage();
+	    else
             if (isprint(optopt))
                 fprintf(stderr," *** Invalid option -- '%c'\n", optopt);
             usage();
@@ -1096,7 +1128,6 @@ int main(int argc, char *argv[])
         abort ();
     }
 
-    //if ((port == 0) || (proxy_port == 0) || (bind_address == NULL) || (proxy_host == NULL) || (lookup_script == NULL))
     if ((bind_address == NULL) || (lookup_script == NULL))
         usage();
 
@@ -1112,8 +1143,8 @@ int main(int argc, char *argv[])
     int socketid = 0;
     if (sockfd < 0) 
         error("Error opening socket");
-    if ((socketid = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) < 0) err(1, "socket(2) failed");
 
+    if ((socketid = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) < 0) err(1, "socket(2) failed");
 
     bzero((char *) &serv_addr, sizeof(serv_addr));
     local_address = gethostbyname(bind_address);
