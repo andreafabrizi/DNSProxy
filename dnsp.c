@@ -180,7 +180,7 @@ struct dns_reponse
 /* usage */
 void usage(void)
 {
-    fprintf(stderr, "\n dnsp %s\n"
+    fprintf(stderr, "\n dnsp %s, copyright @ 2018 Massimiliano Fantuzzi, HB3YOE, GNU/GPL License\n\n"
                        " usage: dnsp -l [local_host] -p [local_port:53,5353,..] -H [proxy_host] -r [proxy_port:8118,8888,3128,9500..] \n\t\t-w [lookup_port:80,443,..] -s [lookup_script] \n\n"
                        " OPTIONS:\n"
                        "      -l\t\t Local server address\n"
@@ -190,9 +190,13 @@ void usage(void)
                        "      -u\t\t Cache proxy username	(optional)\n"
                        "      -k\t\t Cache proxy password	(optional)\n"
                        "      -s\t\t Lookup script URL\n"
-                       "      -w\t\t Lookup port		(optional, if non-standard 80/443)\n"
+                       "      -w\t\t Lookup port		(optional, if anything else than 80/443)\n"
                        "      -t\t\t Stack size in format	0x1000000 (MB)\n"
+                       "\n"
+                       " TESTING/DEV OPTIONS:\n"
                        "      -v\t\t Enable DEBUG\n"
+                       "      -I\t\t Upgrade Insecure Requests, HSTS work in progress\n"
+                       "      -R\t\t Enable CURL resolve mechanism, avoiding extra gethostbyname, work in progress\n"
                        "\n"
                        " Example HTTP+proxy   :  dnsp -p 53 -l 127.0.0.1 -r 8118 -H 127.0.0.1 -w 80 -s http://www.fantuz.net/nslookup.php\n"
 		       " Example HTTPS direct :  dnsp -p 53 -l 127.0.0.1 -w 443 -s https://www.fantuz.net/nslookup.php\n\n"
