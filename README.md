@@ -193,3 +193,6 @@ Version 0.4 - November 16 2009:
 
 Version 0.1 - April 09 2009:
 * Initial release
+
+https://www.reddit.com/user/fantamix/comments/7yotib/dnsp_a_dns_proxy_to_avoid_dns_leakage/
+https://www.reddit.com/r/hacking/comments/7zjbv2/why_to_use_a_dns_proxy_why_shall_it_be/
