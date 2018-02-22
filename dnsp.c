@@ -330,8 +330,9 @@ void build_dns_reponse(int sd, struct sockaddr_in *yclient, struct dns_request *
 
     if (DEBUG) {
 	    //printf("BUILD-xhostname-int				: %u\n", (uint32_t)strlen(xhostname));
+	    /*
 	    printf("BUILD-req-query				: %s\n", dns_req->query);
-	
+	    */
 	    printf("BUILD-yclient->sin_addr.s_addr		: %u\n", (uint32_t)(yclient->sin_addr).s_addr);
 	    printf("BUILD-yclient->sin_port			: %u\n", (uint32_t)(yclient->sin_port));
 	    printf("BUILD-yclient->sin_family			: %d\n", (uint32_t)(yclient->sin_family));
@@ -655,7 +656,9 @@ AXFR zone transfer 0x00fc
 		printf("BUILD-INSIDE-yclient->sin_port                	: %u\n", htons(yclient->sin_port));
 		printf("BUILD-INSIDE-yclient->sin_family              	: %d\n", (uint32_t)(yclient->sin_family));
 		printf("BUILD-INSIDE-dns-req->hostname			: %s\n", dns_req->hostname);
+		/*
 		printf("BUILD-INSIDE-dns_req->query			: %s\n", dns_req->query);
+		*/
 		printf("BUILD-INSIDE-xrequestlen			: %u\n", (uint16_t)xrequestlen);
 	//	printf("BUILD-INSIDE-xdns_req->query			: %s\n", xdns_req->query);
 	//	printf("BUILD-INSIDE-xdns_req->hostname-to-char		: %s\n", (char *)(xdns_req->hostname));
@@ -773,8 +776,8 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
     curl_easy_setopt(ch, CURLOPT_DNS_USE_GLOBAL_CACHE, 1);	/* DNS CACHE  */
     curl_easy_setopt(ch, CURLOPT_NOPROGRESS, 1L);		/* No progress meter */
 
-    //if ((proxy_host != NULL) && (proxy_port != NULL)) {
-    if ((proxy_host != NULL) && (proxy_port > 0 && proxy_port < 65535)) {
+    //if ((proxy_host != NULL) && (proxy_port > 0 && proxy_port < 65535)) {
+    if ((proxy_host != NULL) && (proxy_port != NULL)) {
     	curl_easy_setopt(ch, CURLOPT_PROXY, proxy_host);
     	curl_easy_setopt(ch, CURLOPT_PROXYPORT, proxy_port);	/* 8118, 8888, 9500, ... */
     	curl_easy_setopt(ch, CURLOPT_PROXYTYPE, CURLPROXY_HTTP);
@@ -844,7 +847,11 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
     curl_easy_setopt(ch, CURLOPT_FRESH_CONNECT, 0);
     curl_easy_setopt(ch, CURLOPT_FORBID_REUSE, 0);
     //curl_setopt ($curl, CURLOPT_AUTOREFERER, 1);
-    //// OPTION --> FOLLOW-LOCATION
+    
+    /* OPTION --> FOLLOW-LOCATION, necessary if getting HTTP 301 */
+    // HTTP/1.1 301 Moved Permanently
+    // Location: http://www.example.org/index.asp
+    
     //curl_setopt ($curl, CURLOPT_FOLLOWLOCATION, 1);
     curl_easy_setopt(ch, CURLOPT_FOLLOWLOCATION, 1);
 
@@ -859,7 +866,7 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
     curl_share_setopt(curlsh, CURLSHOPT_SHARE, CURL_LOCK_DATA_DNS); 
 
     ret = curl_easy_perform(ch);
-    //printf("%s",ret);
+    //if (DEBUG) {printf("%s",ret);};
 
     //if ((ret < 0) || (ret > 0)) {
     if (ret < 0) {
@@ -889,7 +896,7 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
     }
    
     if (DEBUG) {
-        printf("%s\n",http_response);
+        printf("---\n%s\n---\n",http_response);
     }
 
     curl_easy_cleanup(ch);
@@ -980,6 +987,7 @@ void *threadFunc(void *arg)
 		    printf("THREAD-V-xclient->sin_port			: %u\n", (uint32_t)(yclient->sin_port));
 		    printf("THREAD-V-xclient->sin_family		: %u\n", (uint32_t)(yclient->sin_family));
 		    printf("THREAD-V-answer				: %s\n", rip);
+		    /*
 		    printf("THREAD-V-xhostname				: %s\n", yhostname);
 		    printf("THREAD-V-dns-req->hostname			: %s\n", dns_req->hostname);
 		    printf("THREAD-V-dns_req->query			: %s\n", dns_req->query);
@@ -987,6 +995,7 @@ void *threadFunc(void *arg)
 		    printf("THREAD-V-xdns_req->hostname-to-char		: %s\n", (char *)(xdns_req->hostname));
 		    printf("THREAD-V-xdns_req->hostname			: %s\n", xdns_req->hostname);
 		    printf("THREAD-V-xdns_req->query			: %s\n", xdns_req->query);
+		    */
 	    }
 
             build_dns_reponse(sockfd, yclient, xhostname, rip, DNS_MODE_ANSWER, request_len);
