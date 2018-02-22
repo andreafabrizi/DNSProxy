@@ -156,7 +156,7 @@ thread_start(void *arg)
 //	char password[256];
 //};
 
-int DEBUG;
+int DEBUG, DEBUGCURL;
 char* substring(char*, int, int);
 
 struct dns_request
@@ -195,6 +195,7 @@ void usage(void)
                        "\n"
                        " TESTING/DEV OPTIONS:\n"
                        "      -v\t\t Enable DEBUG\n"
+                       "      -C\t\t Enable verbose CURL, useful to spot cache issues or dig down into HSTS/HTTPS quirks\n"
                        "      -I\t\t Upgrade Insecure Requests, HSTS work in progress\n"
                        "      -R\t\t Enable CURL resolve mechanism, avoiding extra gethostbyname, work in progress\n"
                        "\n"
@@ -785,7 +786,11 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
     	}
     }
 
-    curl_easy_setopt(ch, CURLOPT_VERBOSE,  0);			/* Verbose OFF */
+    if (DEBUGCURL) {
+	    curl_easy_setopt(ch, CURLOPT_VERBOSE,  1);			/* Verbose ON  */
+    } else {
+	    curl_easy_setopt(ch, CURLOPT_VERBOSE,  0);			/* Verbose OFF */
+    }
 
     curl_easy_setopt(ch, CURLOPT_SSL_VERIFYPEER, 0L);
     curl_easy_setopt(ch, CURLOPT_SSL_VERIFYHOST, 0L);;
@@ -798,12 +803,11 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
     //curl_easy_setopt(ch, CURLINFO_HEADER_OUT, "" );
     //curl_easy_setopt(ch, CURLOPT_HEADER, 1L);
 
-    /*
-    WIP --> add resolver CURL header
-    --resolve my.site.com:80:1.2.3.4, -H "Host: my.site.com"
-    */
+    /* OVERRIDE RESOLVER --> add resolver CURL header, work in progress */
+    // in the form of CLI --resolve my.site.com:80:1.2.3.4, -H "Host: my.site.com"
 
-    //// OPTION --> HEADERS
+    /* OPTIONAL HEADERS, set with curl_slist_append */
+     
     //    list = curl_slist_append(list, "Host: www.fantuz.net");
     //    list = curl_slist_append(list, "Remote Address: 217.114.216.51:80");
     //    list = curl_slist_append(list, "Request URL: http://www.fantuz.net/nslookup.php");
@@ -813,38 +817,29 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
     //hosting = curl_slist_append(hosting, "www.fantuz.net:80:217.114.216.51");
     //curl_easy_setopt(ch, CURLOPT_RESOLVE, hosting);
 
-    //list = curl_slist_append(list, "Request URL:https://www.fantuz.net/nslookup.php?host=news.google.fr.&type=A");
+    //list = curl_slist_append(list, "Request URL:http://www.fantuz.net/nslookup.php?host=news.google.fr.&type=A");
+    //list = curl_slist_append(list, "Request URL:http://www.fantuz.net/nslookup.php");
     //list = curl_slist_append(list, "Request Method:GET");
     //list = curl_slist_append(list, "Remote Address: 217.114.216.51:443");
-    //list = curl_slist_append(list, "Request URL: https://www.fantuz.net/nslookup.php");
-    list = curl_slist_append(list, "User-Agent:Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/50.0.2661.94 Safari/537.36");
 
-    //list = curl_slist_append(list, "Host: www.fantuz.net");
+    list = curl_slist_append(list, "Host: www.fantuz.net");
+    list = curl_slist_append(list, "User-Agent:Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/50.0.2661.94 Safari/537.36");
+    //list = curl_slist_append(list, "User-Agent:Mozilla/5.0 (Macintosh; Intel Mac OS X 10_6_8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36");
+    list = curl_slist_append(list, "Connection:keep-alive");
+    list = curl_slist_append(list, "Upgrade-Insecure-Requests:0");
     
     //list = curl_slist_append(list, "If-None-Match: *");
     //list = curl_slist_append(list, "Accept:text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8");
-//    list = curl_slist_append(list, "Accept-Encoding:gzip, deflate, sdch");
-//    list = curl_slist_append(list, "Accept-Language:en-US,en;q=0.8,fr;q=0.6,it;q=0.4");
-    list = curl_slist_append(list, "Connection:keep-alive");
-    
-    //list = curl_slist_append(list, "Upgrade-Insecure-Requests:1");
-
-    //list = curl_slist_append(list, "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_6_8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36");
+    //list = curl_slist_append(list, "Accept-Encoding:gzip, deflate, sdch");
+    //list = curl_slist_append(list, "Accept-Language:en-US,en;q=0.8,fr;q=0.6,it;q=0.4");
 
     curl_easy_setopt(ch, CURLOPT_HTTPHEADER, list);
 
-	//Accept:text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8
-	//Accept-Encoding:gzip, deflate, sdch
-	//Accept-Language:en-US,en;q=0.8,fr;q=0.6,it;q=0.4
-	//Connection:keep-alive
-	//Host:www.fantuz.net
-	//Upgrade-Insecure-Requests:1
-	//User-Agent:Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/50.0.2661.94 Safari/537.36
-
 // curl -H "Host: www.fantuz.net" -H "Remote Address:217.114.216.51:80" -H "Request URL:http://www.fantuz.net/nslookup.php" -H "Host:www.fantuz.net" -H "User-Agent:Mozilla/5.0 (Macintosh; Intel Mac OS X 10_6_8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36" http://www.fantuz.net/nslookup.php?host=fantuz.net
 
-
     /* HOW DOES A NEW TCP INFLUENCE WEB CACHE ?? */
+    /* polipo likes pipelining, reuse, pretty powerful */
+    /* how about squid/nginx et al. ?? */
     curl_easy_setopt(ch, CURLOPT_MAXCONNECTS, MAXCONN);
     curl_easy_setopt(ch, CURLOPT_FRESH_CONNECT, 0);
     curl_easy_setopt(ch, CURLOPT_FORBID_REUSE, 0);
@@ -853,12 +848,11 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
     //curl_setopt ($curl, CURLOPT_FOLLOWLOCATION, 1);
     curl_easy_setopt(ch, CURLOPT_FOLLOWLOCATION, 1);
 
-
     /* Problem in performing the http request ?? */
     curl_easy_setopt(ch, CURLOPT_WRITEFUNCTION, write_data);	/* Set write function */
     curl_easy_setopt(ch, CURLOPT_WRITEDATA, http_response);
 
-    //CURL_LOCK_DATA_SHARE
+    // CURL_LOCK_DATA_SHARE, quite advanced and criptic
     curlsh = curl_share_init();
     curl_easy_setopt(ch, CURLOPT_SHARE, curlsh);
     curl_share_setopt(curlsh, CURLSHOPT_SHARE, CURL_LOCK_DATA_COOKIE);
@@ -897,6 +891,7 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
     if (DEBUG) {
         printf("%s\n",http_response);
     }
+
     curl_easy_cleanup(ch);
     free(script_url);
     curl_slist_free_all(list);
@@ -1045,6 +1040,7 @@ int main(int argc, char *argv[])
          *proxy_pass = NULL, *typeq = NULL, *lookup_script = NULL, *httpsssl = NULL; 
     opterr = 0;
     DEBUG = 0;
+    DEBUGCURL = 0;
        
     //sem_t mutex;
     sem_t sem;
@@ -1074,7 +1070,7 @@ int main(int argc, char *argv[])
     // while ((c = getopt_long(argc, argv, short_opt, long_opt, NULL)) != -1)
 
     /* Command line args */
-    while ((c = getopt (argc, argv, "s:p:l:r:H:t:w:u:k:hv")) != -1)
+    while ((c = getopt (argc, argv, "s:p:l:r:H:t:w:u:k:hvC")) != -1)
     switch (c)
      {
         case 't':
@@ -1108,6 +1104,11 @@ int main(int argc, char *argv[])
             }
         break;
                 
+        case 'C':
+            DEBUGCURL = 1;
+            fprintf(stderr," *** verbose CURL ON\n");
+        break;
+
         case 'v':
             DEBUG = 1;
             fprintf(stderr," *** DEBUG ON\n");
