@@ -35,8 +35,6 @@
 #include <netinet/in.h>
 #include <errno.h>
 //#include <spawn.h>
-#include <stdlib.h>
-#include <string.h>
 #include <stdarg.h>
 #include <netdb.h>
 #include <unistd.h>
@@ -159,6 +157,7 @@ thread_start(void *arg)
 //};
 
 int DEBUG;
+char* substring(char*, int, int);
 
 struct dns_request
 {
@@ -194,7 +193,6 @@ void usage(void)
                        "      -w\t\t Lookup port		(optional, if non-standard 80/443)\n"
                        "      -t\t\t Stack size in format	0x1000000 (MB)\n"
                        "      -v\t\t Enable DEBUG\n"
-                       "      -S\t\t Enable HTTPS\n"
                        "\n"
                        " Example HTTP+proxy   :  dnsp -p 53 -l 127.0.0.1 -r 8118 -H 127.0.0.1 -w 80 -s http://www.fantuz.net/nslookup.php\n"
 		       " Example HTTPS direct :  dnsp -p 53 -l 127.0.0.1 -w 443 -s https://www.fantuz.net/nslookup.php\n\n"
@@ -319,7 +317,9 @@ void build_dns_reponse(int sd, struct sockaddr_in *yclient, struct dns_request *
          *response_ptr;
 	 //*ppch,
 	 //*typeq,
-    int i, ppch;
+    //int i, ppch;
+    //int ppch;
+    uint i,ppch;
     ssize_t bytes_sent;
 
 
@@ -670,10 +670,12 @@ AXFR zone transfer 0x00fc
         fprintf(stdout, "DNS_MODE_UNKNOWN\n");
         bytes_sent = sendto(sd, response_ptr, response - response_ptr, 0, (struct sockaddr *)yclient, 16);
     }
-    /* DNS VOLUME CALCULATION */
+
+    /* DNS PACKET/VOLUME DISPLAY */
     if (DEBUG) {
 	printf("SENT %d bytes\n", (uint32_t)bytes_sent);
     }
+    
     //fdatasync(sd);
     close(sd);
     free(response_ptr);
@@ -691,15 +693,42 @@ static size_t write_data(void *ptr, size_t size, size_t nmemb, void *stream)
     return 0;
 }
 
+char *substring(char *string, int position, int length) 
+{
+   char *pointer;
+   int c;
+ 
+   pointer = malloc(length+1);
+ 
+   if (pointer == NULL)
+   {
+      printf("Unable to allocate memory.\n");
+      exit(1);
+   }
+ 
+   for (c = 0 ; c < length ; c++)
+   {
+      *(pointer+c) = *(string+position-1);      
+      string++;   
+   }
+ 
+   *(pointer+c) = '\0';
+ 
+   return pointer;
+}
+
 /* *  Hostname lookup *  Return: *   OK: Resolved IP *   KO: Null */
 char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_port, const char *proxy_user, const char *proxy_pass, const char *lookup_script, const char *typeq, unsigned int wport)
 {
     CURL *ch;
     CURLSH *curlsh;
     char *http_response,
-         *script_url;
+         *script_url,
+	 *pointer;
+    char base[1];
+
     int ret;
-//    struct curl_slist *hosting = NULL;
+    //struct curl_slist *hosting = NULL;
     struct curl_slist *list = NULL;
 
     script_url = malloc(URL_SIZE);
@@ -708,7 +737,24 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
     
     snprintf(script_url, URL_SIZE-1, "%s?host=%s&type=%s", lookup_script, host, typeq);
     //printf(http_response);
-    
+
+    pointer = substring( script_url, 5, 1);
+    strcpy(base, "s");
+
+    int result = strcmp(pointer, base);
+    //printf("Required substring is \"%s\"\n", pointer);
+    //printf("Compared substring is \"%s\"\n", base);
+    //printf("Result is \"%d\"\n", result);
+
+    if(result == 0) {
+	    wport=443;
+    } else {
+	    wport=80;
+    }
+
+    free(pointer);
+  
+    //return 0;    
     static const char *pCertFile = "testcert.pem";
     static const char *pCACertFile="fantuznet.pem";
     static const char *pHeaderFile = "dumpit";
@@ -776,7 +822,9 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
 //    list = curl_slist_append(list, "Accept-Encoding:gzip, deflate, sdch");
 //    list = curl_slist_append(list, "Accept-Language:en-US,en;q=0.8,fr;q=0.6,it;q=0.4");
     list = curl_slist_append(list, "Connection:keep-alive");
-    list = curl_slist_append(list, "Upgrade-Insecure-Requests:1");
+    
+    //list = curl_slist_append(list, "Upgrade-Insecure-Requests:1");
+
     //list = curl_slist_append(list, "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_6_8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36");
 
     curl_easy_setopt(ch, CURLOPT_HTTPHEADER, list);
@@ -884,9 +932,9 @@ void *threadFunc(void *arg)
         pthread_key_create(&key_i, NULL);
 	//str=(char*)arg;
 
-	//if (pthread_mutex_lock(&mutex)) {
 	if (pthread_mutex_trylock(&mutex)) {
-	    //printf("init lock OK ... \n");
+	//if (pthread_mutex_lock(&mutex)) {
+	    printf("init lock OK ... \n");
 	} else {
 	    printf("init lock NOT OK ... \n");
 	}
@@ -995,6 +1043,7 @@ int main(int argc, char *argv[])
     DEBUG = 0;
        
     //sem_t mutex;
+    sem_t sem;
     sem_t *mutex;
     int s, tnum, opt, num_threads;
     struct thread_info *tinfo;
@@ -1016,12 +1065,12 @@ int main(int argc, char *argv[])
        {"file",          required_argument, NULL, 'f'},
        {NULL,            0,                 NULL, 0  }
     };
-
     */
+    
+    // while ((c = getopt_long(argc, argv, short_opt, long_opt, NULL)) != -1)
 
     /* Command line args */
     while ((c = getopt (argc, argv, "s:p:l:r:H:t:w:u:k:hv")) != -1)
-    // while ((c = getopt_long(argc, argv, short_opt, long_opt, NULL)) != -1)
     switch (c)
      {
         case 't':
@@ -1089,14 +1138,6 @@ int main(int argc, char *argv[])
         case 'h':
             usage();
         break;
-	/*
-	    if  (optopt == 'S')
-                fprintf(stderr," *** NOT YET IMPLEMENTED\n");
-	    else
-	    if  (optopt == 'h')
-                fprintf(stderr," *** Invalid stack size\n");
-	    else
-        */
 
         case '?':
             if (optopt == 'p')
@@ -1150,7 +1191,7 @@ int main(int argc, char *argv[])
     local_address = gethostbyname(bind_address);
 
     if (local_address == NULL)
-        error("Error resolving local host");
+      error("Error resolving local host");
     
     serv_addr.sin_family = AF_INET;
     memcpy (&serv_addr.sin_addr.s_addr, local_address->h_addr,sizeof (struct in_addr));
@@ -1158,22 +1199,22 @@ int main(int argc, char *argv[])
 
     /* bind() */
     if (bind(sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0) 
-       error("Error opening socket (bind)");
+      error("Error opening socket (bind)");
 
-//   if(sem_init(*sem_t,1,1) < 0) {
-//      perror("semaphore initilization");
-//      exit(2);
-//   }
+    //if(sem_init(*sem_t,1,1) < 0) {
+    //  perror("semaphore initilization");
+    //  exit(2);
+    //}
 
-    if(sem_init(&mutex,1,1) < 0) {
-       perror("semaphore initilization");
-       exit(2);
-    }
+    //if(sem_init(&mutex,1,1) < 0) {
+    //  perror("semaphore initilization");
+    //  exit(2);
+    //}
 
-//    if ((mutex = sem_open("/tmp/semaphore", O_CREAT, 0644, 1)) == SEM_FAILED ) {
-//        perror("sem_open");
-//        exit(EXIT_FAILURE);
-//    }
+    //if ((mutex = sem_open("/tmp/semaphore", O_CREAT, 0644, 1)) == SEM_FAILED ) {
+    //  perror("sem_open");
+    //  exit(EXIT_FAILURE);
+    //}
     
     if(pthread_mutex_init(&mutex, &MAttr))
     {
@@ -1188,7 +1229,8 @@ int main(int argc, char *argv[])
     pthread_mutexattr_settype(&MAttr, PTHREAD_MUTEX_RECURSIVE);
 
 	wait(NULL);
-	int nnn = 0, i = 0;
+	int nnn = 0;
+	uint i = 0;
 	int s, tnum, opt;
 	int stack_size;
 	int rc, t, status;
@@ -1204,7 +1246,7 @@ int main(int argc, char *argv[])
 	//pthread_id_np_t   tid;
 	//tid = pthread_getthreadid_np();
 
-//	pthread_t *pth = malloc( NUMT * sizeof(pthread_t) );			// this is our thread identifier
+	pthread_t *pth = malloc( NUMT * sizeof(pthread_t) );			// this is our thread identifier
 	//pthread_t *tid = malloc( NUMT * sizeof(pthread_t) );
 	//pthread_t thread[NUM_THREADS];
 	//static pthread_t tidd;
@@ -1248,9 +1290,10 @@ int main(int argc, char *argv[])
 	//if (fork() == 0) {
 	if (vfork() == 0) {
 	// pid = clone(parse_dns_request, stack_aligned, CLONE_VM | SIGCHLD, request request_len);
+	//if (pid == 0) {
 
 	//if (clone(parse_dns_request, stack_aligned, CLONE_VM | SIGCHLD, request, request_len)) {
-	//if (pid == 0) {
+	    
 	    sem_wait(&mutex);
    	    dns_req = parse_dns_request(request, request_len);
 
@@ -1282,17 +1325,19 @@ int main(int argc, char *argv[])
 	    // AAAA is 0x1c, dec 28.
 	    //
 
-	    /* CORE DNS LOOKUP IS MADE ONCE (via HTTP and nslookup.php) THEN CACHED INTO THE NETWORK (polipo, memcache ...)
-	     IMPLEMENTS DOMAIN BLACKLISTING, AUTHENTICATION, SSL. PENDING MULTITHREADING. SOON, MAKE BETTER FILTER .. */
+	    /*
+	     * CORE DNS LOOKUP IS MADE ONCE (via HTTP against nslookup.php) THEN CACHED INTO THE NETWORK (polipo, memcache ...)
+	     * IMPLEMENTS DOMAIN BLACKLISTING, AUTHENTICATION, SSL, THREADS
+	    */
 
 	    /* OPTION --> BUFFER SIZE */
-	   // int sndbuf = 512;
-	   // int rcvbuf = 512;
-	   // int yes = 1;
-	   // //setsockopt(sockfd, SOL_SOCKET, SO_RCVBUF, &buffsize, sizeof(buffsize));
-	   // setsockopt(sockfd, SOL_SOCKET, SO_RCVBUF, &rcvbuf, sizeof(sndbuf));
-	   // setsockopt(sockfd, SOL_SOCKET, SO_SNDBUF, &sndbuf, sizeof(rcvbuf));
-	   // setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int));
+	    // int sndbuf = 512;
+	    // int rcvbuf = 512;
+	    // int yes = 1;
+	    // //setsockopt(sockfd, SOL_SOCKET, SO_RCVBUF, &buffsize, sizeof(buffsize));
+	    // setsockopt(sockfd, SOL_SOCKET, SO_RCVBUF, &rcvbuf, sizeof(sndbuf));
+	    // setsockopt(sockfd, SOL_SOCKET, SO_SNDBUF, &sndbuf, sizeof(rcvbuf));
+	    // setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int));
 
 	    int ret;
 	    //int test = 42;
@@ -1340,7 +1385,7 @@ int main(int argc, char *argv[])
 
 	    if (pthread_mutex_trylock(&mutex)) {
 		//ret = pthread_create(&pth[i],NULL,threadFunc,readParams);
-		//printf("lock OK ...\n");
+		printf("lock OK ...\n");
 	    } else {
 		printf("lock NOT OK ...\n");
 	    }
@@ -1348,6 +1393,7 @@ int main(int argc, char *argv[])
 	    threadFunc(readParams);
 	    //ret = pthread_create(&pth[i],&attr,threadFunc,readParams);
 
+	    // ONLY IF USING SEMAPHORES .... NOT WITH MUTEX
 	    sem_wait(&mutex);
 	    sem_post(&mutex);
 
@@ -1383,10 +1429,10 @@ int main(int argc, char *argv[])
 
 	    if (nnn > NUMT*NUM_THREADS*4) {wait(NULL);}
    	    printf("IF: Thread/process ID : %d\n", getpid());
-//	    if (i != 0) { i=0;}
+	    //if (i != 0) { i=0;}
 	    pthread_mutex_destroy(&mutex);
 
-	    //pthread_join(pth[i],NULL);
+	    pthread_join(pth[i],NULL);
 	    continue;
 	    pthread_setspecific(glob_var_key_ip, NULL);
 
@@ -1395,7 +1441,7 @@ int main(int argc, char *argv[])
 	else {
 
 	    nnn++;
-	    // RECOVERY FROM THREAD BOMB
+	    // RECOVER FROM THREAD BOMB SITUATION
    	    //printf("ELSE: Thread/process ID : %d\n", getpid());
 	    //if (nnn > 32) {wait(NULL);}
 	    continue;
@@ -1432,7 +1478,7 @@ int main(int argc, char *argv[])
 	    //pthread_join(pth[i],NULL);
 	    //pthread_exit(NULL);
 
-	    // NONSENSE CAUSE NO THREAD ANYMORE
+	    // NONSENSE CAUSE WE ARE NOT IN THREAD-MODEL ANYMORE ... LEFT FOR HOUSEKEEPING
 	    //if (DEBUG) {fprintf(stderr, "Finished joining thread i-> %d, nnn-> %d \n",i,nnn);}
 	}
 
