@@ -53,24 +53,31 @@
 #define errExit(msg)		do { perror(msg); exit(EXIT_FAILURE); } while (0)
 #define handle_error(msg)	do { perror(msg); exit(EXIT_FAILURE); } while (0)
 
-#define STACK_SIZE (1024 * 1024)    /* Stack size for cloned child */
-#define DELAY		    0
-#define MAXCONN             1
+#define VERSION           "1.5"
+
+/* Stack size for cloned child */
+#define STACK_SIZE (1024 * 1024)    
+/* DELAY for CURL to wait ? do not remember, needs documentation */
+#define DELAY		      0
+/* how can it be influenced, this CURL parameter ? kept for historical reasons, will not be useful in threaded model */
+#define MAXCONN               1
 #define UDP_DATAGRAM_SIZE   256
 #define DNSREWRITE          256
 #define HTTP_RESPONSE_SIZE  256
 #define URL_SIZE            256
-#define VERSION             "1.5"
-#define DNS_MODE_ANSWER     1
-#define DNS_MODE_ERROR      2
-#define DEFAULT_LOCAL_PORT  53
-#define DEFAULT_WEB_PORT    80
-#define NUMT	            4
-#define NUM_THREADS         4
-#define NUM_HANDLER_THREADS 1
+#define DNS_MODE_ANSWER       1
+#define DNS_MODE_ERROR        2
+#define DEFAULT_LOCAL_PORT   53
+#define DEFAULT_WEB_PORT     80
+#define DEFAULT_PRX_PORT   8118
 
-//#define TYPEQ		    2
-//#define DEBUG		    0
+/* for threaded model, experimental options, not in use at the moment */
+#define NUMT	              4
+#define NUM_THREADS           4
+#define NUM_HANDLER_THREADS   1
+
+//#define TYPEQ	    	    2
+//#define DEBUG	    	    0
 
 pthread_key_t glob_var_key_ip;
 pthread_key_t glob_var_key_client;
@@ -113,17 +120,30 @@ struct thread_info {    	/* Used as argument to thread_start() */
     char     *argv_string;      /* From command-line argument */
 };
 
-//void start_thread(pthread_t *mt)
-//{
-//    mystruct local_data = {};
-//    mystruct *data = malloc(sizeof(*data));
-//    *data = local_data;
-//    pthread_create(mt, NULL, threadFunc,readParams);
-//    //pthread_create(mt, NULL, threadFunc,data);
-//    //ret = pthread_create(&pth[i],NULL,threadFunc,readParams);
-//    //pthread_create(&pth[i],NULL,threadFunc,readParams);
-//}
-
+/*
+//from: https://stackoverflow.com/questions/15420307/call-pthread-create-from-outside-main-function
+void start_thread(pthread_t *mt)
+{
+    mystruct *data = malloc(sizeof(*data));
+    ...;
+    pthread_create(mt, NULL, do_work_son, data);
+}
+*/
+/*
+void start_thread(pthread_t *mt)
+{
+    //mystruct local_data = {};
+    //mystruct *data = malloc(sizeof(*data));
+    struct readThreadParams local_data = {};
+    struct readThreadParams *data = malloc(sizeof(*data));
+    *data = local_data;
+    //pthread_create(mt, NULL, threadFunc,readParams);
+    pthread_create(mt, NULL, thread_start,data);
+    //pthread_create(mt, NULL, threadFunc,data);
+    //ret = pthread_create(&pth[i],NULL,threadFunc,readParams);
+    //pthread_create(&pth[i],NULL,threadFunc,readParams);
+}
+*/
 static void *
 thread_start(void *arg)
 {
@@ -335,8 +355,8 @@ void build_dns_reponse(int sd, struct sockaddr_in *yclient, struct dns_request *
 	    */
 	    printf("BUILD-yclient->sin_addr.s_addr		: %u\n", (uint32_t)(yclient->sin_addr).s_addr);
 	    printf("BUILD-yclient->sin_port			: %u\n", (uint32_t)(yclient->sin_port));
-	    printf("BUILD-yclient->sin_family			: %d\n", (uint32_t)(yclient->sin_family));
-	    printf("BUILD-xrequestlen				: %d\n", (uint32_t)(xrequestlen));
+	    printf("BUILD-yclient->sin_family		: %d\n", (uint32_t)(yclient->sin_family));
+	    printf("BUILD-xrequestlen			: %d\n", (uint32_t)(xrequestlen));
 	
 	    //printf("BUILD-client->sa_family			: %u\n", (struct sockaddr)&xclient->sa_family);
 	    //printf("BUILD-client->sa_data			: %u\n", (uint32_t)client->sa_data);
@@ -654,21 +674,23 @@ AXFR zone transfer 0x00fc
 		printf("BUILD-INSIDE-yclient->sin_addr.s_addr         	: %u\n", (uint32_t)(yclient->sin_addr).s_addr);
 		printf("BUILD-INSIDE-yclient->sin_port                	: %u\n", (uint32_t)(yclient->sin_port));
 		printf("BUILD-INSIDE-yclient->sin_port                	: %u\n", htons(yclient->sin_port));
-		printf("BUILD-INSIDE-yclient->sin_family              	: %d\n", (uint32_t)(yclient->sin_family));
+		printf("BUILD-INSIDE-yclient->sin_family		: %d\n", (uint32_t)(yclient->sin_family));
 		printf("BUILD-INSIDE-dns-req->hostname			: %s\n", dns_req->hostname);
 		/*
 		printf("BUILD-INSIDE-dns_req->query			: %s\n", dns_req->query);
 		*/
 		printf("BUILD-INSIDE-xrequestlen			: %u\n", (uint16_t)xrequestlen);
+		
 	//	printf("BUILD-INSIDE-xdns_req->query			: %s\n", xdns_req->query);
 	//	printf("BUILD-INSIDE-xdns_req->hostname-to-char		: %s\n", (char *)(xdns_req->hostname));
 	//	printf("BUILD-INSIDE-xdns_req->hostname			: %s\n", xdns_req->hostname);
 	//	printf("BUILD-INSIDE-xdns_req->query			: %s\n", xdns_req->query);
 	}
         
+	/* example kept for educational purposes, to show how the response packet is built, tailored for the client */
+	//bytes_sent = sendto(3, "\270\204\205\200\0\1\0\1\0\0\0\0\6google\2jp\0\0\1\0\1\300\f\0\1\0"..., 43, 0, {sa_family=0x0002 /* AF_??? */, sa_data="\365\366\374\177\0\0\1\0\0\0\3\0\0\0"}, 16)
 	//bytes_sent = sendto(sd, response_ptr, response - response_ptr, 0, (struct sockaddr *)(&yclient), sizeof(yclient));
         bytes_sent = sendto(sd, response_ptr, response - response_ptr, 0, (struct sockaddr *)yclient, 16);
-	//bytes_sent = sendto(3, "\270\204\205\200\0\1\0\1\0\0\0\0\6google\2jp\0\0\1\0\1\300\f\0\1\0"..., 43, 0, {sa_family=0x0002 /* AF_??? */, sa_data="\365\366\374\177\0\0\1\0\0\0\3\0\0\0"}, 16)
 
     } else if (mode == DNS_MODE_ERROR) {
     /* Are we into "No such name" ?... just an NXDOMAIN ?? */ 
@@ -880,20 +902,21 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
         return NULL;
     }
    
-    /* Can't resolve host */
+    // Can't resolve host 
     if ((strlen(http_response) > 256) || (strncmp(http_response, "0.0.0.0", 7) == 0)) {
-	/* insert error answers here, as NXDOMAIN, SERVFAIL etc */
+	// insert error answers here, as NXDOMAIN, SERVFAIL etc
         printf("CORE: MALFORMED DNS, possible SERVFAIL from origin... \n");
-	printf("from %s",script_url);
+	printf("from %s\n",script_url);
         curl_easy_cleanup(ch);
         free(script_url);
 	curl_slist_free_all(list);
 	//curl_slist_free_all(hosting);
-    	printf("inside curl (MALF) .... %s\n",http_response);
+    	printf("Here inside curl, %s\n",http_response);
         http_response = "0.0.0.0\r\n";
         return NULL;
         //return http_response;
     }
+    
    
     if (DEBUG) {
         printf("---\n%s\n---\n",http_response);
@@ -946,7 +969,6 @@ void *threadFunc(void *arg)
 	}
 
     	if (DEBUG) {
-		
 		//char *p = &xclient->sin_addr.s_addr;
 		char *s = inet_ntoa(yclient->sin_addr);
 		printf("test: %s\n",(char *)params->xhostname->hostname);
@@ -964,8 +986,8 @@ void *threadFunc(void *arg)
 	pthread_setspecific(glob_var_key_ip, rip);
 
 	if (DEBUG) {	
-		printf("VARIABLE-RET-HTTP: %d", ret);
-		printf("VARIABLE-RET-HTTP: %s", rip);
+		printf("VARIABLE-RET-HTTP: %d\n", ret);
+		printf("VARIABLE-RET-HTTP: %s\n", rip);
 		//pthread_setspecific(glob_var_key_ip, rip);
 		//pthread_getspecific(glob_var_key_ip);
 // MOD 2016	printf("VARIABLE-RET-HTTP-GLOBAL: %x\n", glob_var_key_ip);
@@ -983,8 +1005,8 @@ void *threadFunc(void *arg)
 		    printf("THREAD-V-socket-xsockfd			: %u\n", xsockfd);
 		    printf("THREAD-V-socket-xsockfd			: %d\n", xsockfd);
 		    printf("THREAD-V-MODE-ANSWER			: %d\n", DNS_MODE_ANSWER);
-		    printf("THREAD-V-xclient->sin_addr.s_addr		: %u\n", (uint32_t)(yclient->sin_addr).s_addr);
-		    printf("THREAD-V-xclient->sin_port			: %u\n", (uint32_t)(yclient->sin_port));
+		    printf("THREAD-V-xclient->sin_addr.s_addr	: %u\n", (uint32_t)(yclient->sin_addr).s_addr);
+		    printf("THREAD-V-xclient->sin_port		: %u\n", (uint32_t)(yclient->sin_port));
 		    printf("THREAD-V-xclient->sin_family		: %u\n", (uint32_t)(yclient->sin_family));
 		    printf("THREAD-V-answer				: %s\n", rip);
 		    /*
@@ -1037,7 +1059,7 @@ void *threadFunc(void *arg)
 /* *   main */
 int main(int argc, char *argv[])
 {
-    int sockfd, port = DEFAULT_LOCAL_PORT, wport = DEFAULT_WEB_PORT, proxy_port = 0, c;
+    int sockfd, port = DEFAULT_LOCAL_PORT, wport = DEFAULT_WEB_PORT, proxy_port = DEFAULT_PRX_PORT, c;
     int r = 0;
     char *stack;                    /* Start of stack buffer */
     char *stackTop;                 /* End of stack buffer */
@@ -1047,6 +1069,7 @@ int main(int argc, char *argv[])
     struct hostent *local_address;
     char *bind_address = NULL, *proxy_host = NULL, *proxy_user = NULL,
          *proxy_pass = NULL, *typeq = NULL, *lookup_script = NULL, *httpsssl = NULL; 
+    
     opterr = 0;
     DEBUG = 0;
     DEBUGCURL = 0;
@@ -1063,7 +1086,7 @@ int main(int argc, char *argv[])
     int thr = 0;
     int *ptr[2];
 
-    /* The "-s" option specifies a stack size for our threads */
+    /* The "-s" option specifies a stack size for our threads, guess unlimited is not a good idea */
     stack_size = -1;
 
     /*
@@ -1405,7 +1428,7 @@ int main(int argc, char *argv[])
 	    }
 
 	    threadFunc(readParams);
-	    //ret = pthread_create(&pth[i],&attr,threadFunc,readParams);
+	    ret = pthread_create(&pth[i],&attr,threadFunc,readParams);
 
 	    // ONLY IF USING SEMAPHORES .... NOT WITH MUTEX
 	    sem_wait(&mutex);
