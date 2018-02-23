@@ -27,6 +27,28 @@ This is a new idea in terms of transport of DNS outside of it's original scope.
 This proxy project might well evolve in direction of having an IP protocol number 
 assignement, or something like that.
 
+## Architecture
+               +------------------+
+   +---------  | DNSP listeni on  |<------------+
+   |           | socket for HTTP  |             |
+   |           +------------------+             | reply is sent on HTTP(S)
+   |                    ^                       | back to DNSP which then
+   |                    | if valid answer  in   | forges a proper UDP/DNS response
+   |                    | local HTTP caches,    | as per RFC1035 & following.
+   |                    | do not exit localhost |
+   v                    |                       :
+ +----------+   +--------+-------+           /-------------------\
+ |client/OS | --+   DNSProxy     +---------->|                   |
+ |  issues  |   +----------------+           | HTTP(S) webserver |
+ | DNS qry  |   | can modify TTL |           |  (nslookup.php)   |
+ |(syscall) |   | blacklist,cache|           | does the real job |
+ +---+------+   +----------------+           \-------------------/
+     :                                  	  ^
+     |  qry goes to DNSP daemon on 127.0.0.1:53   |
+     +--------------------------------------------+
+	and is being transported on HTTP, with
+           no use of DNS or UDP whatsoever 
+
 ## Building
 
 Building is easy on Mac and Ubuntu, CentOS, Fedora... Probably UNIX and Windows.
