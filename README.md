@@ -28,6 +28,7 @@ This proxy project might well evolve in direction of having an IP protocol numbe
 assignement, or something like that.
 
 ## Architecture
+```
                +------------------+
    +---------  | DNSP listeni on  |<------------+
    |           | socket for HTTP  |             |
@@ -48,6 +49,7 @@ assignement, or something like that.
      +--------------------------------------------+
 	and is being transported on HTTP, with
            no use of DNS or UDP whatsoever 
+```
 
 ## Building
 
