@@ -29,16 +29,15 @@ assignement, or something like that.
 
 ## Architecture
 ```
-               +----------------------+
-   +---------  | DNSP listens on      |<------------+
-   |           |socket for HTTP(S)    |             |
-   |           | reply, cached or not |             |
-   |           +----------------------+             | reply is sent on HTTP(S)
-   |                    ^                           | back to DNSP which then
-   |                    | if valid answer  in       | forges a proper UDP/DNS response
-   |                    | local HTTP caches,        | as per RFC1035 & following.
-   |                    | do not exit localhost     |
-   v                    |                           :
+               +------------------------+
+   +---------  |DNSP listens on original|<------------+
+   |           | socket used by HTTP(S) |             |
+   |           +----------------------+               | reply is sent on HTTP(S)
+   |                    ^                             | back to DNSP which then
+   |                    | if valid answer  in         | forges a proper UDP/DNS response
+   |                    | local HTTP caches,          | as per RFC1035 & following.
+   |                    | do not exit localhost       |
+   v                    |                             :
  +----------+   +--------+-------+           /-------------------\
  |client/OS | --+   DNSProxy     +---------->|                   |
  |  issues  |   +----------------+           | HTTP(S) webserver |
