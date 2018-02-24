@@ -300,7 +300,7 @@ struct dns_request *parse_dns_request(const char *udp_request, size_t request_le
         udp_request++;
         if (dns_req->hostname_len + len >=  sizeof(dns_req->hostname)) {
             free(dns_req);
-	    printf("CORE: size issue in DNS request\n");
+	    printf("CORE: size issue !!\n");
             return NULL;
         }
         strncat(dns_req->hostname, udp_request, len); /* Append the current label to dns_req->hostname */
@@ -754,10 +754,10 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
     CURLSH *curlsh;
     char *http_response,
          *script_url,
-	 *pointer;
+	 *pointer ; //	 *proxy_host_char;
     char base[1];
 
-    int ret;
+    int ret; //, proxy_port_int = 8118;
     //struct curl_slist *hosting = NULL;
     struct curl_slist *list = NULL;
 
@@ -768,6 +768,11 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
     snprintf(script_url, URL_SIZE-1, "%s?host=%s&type=%s", lookup_script, host, typeq);
     //printf(http_response);
 
+    /* PROXY HOST INPUT VALIDATION ... to be improved for sanitisation */
+    //snprintf(proxy_host_char, URL_SIZE-1, "http://%s:%d", proxy_host, proxy_port);
+    //printf(proxy_host_char);
+
+    /* HTTPS DETECTION CODE ... might be better :) */
     pointer = substring( script_url, 5, 1);
     strcpy(base, "s");
 
@@ -777,8 +782,10 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
     //printf("Result is \"%d\"\n", result);
 
     if(result == 0) {
+    	    //printf("USING HTTPS !! GOOD CHOICE :)\n");
 	    wport=443;
     } else {
+    	    //printf("USING HTTP :( full anonymity not guaranteed (MITM attacks-prone)\n");
 	    wport=80;
     }
 
@@ -794,22 +801,26 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
     curl_easy_setopt(ch, CURLOPT_URL, script_url);
     curl_easy_setopt(ch, CURLOPT_PORT, wport); /* 80, 443 */
 
-    curl_easy_setopt(ch, CURLOPT_DNS_CACHE_TIMEOUT, 3600);
-    curl_easy_setopt(ch, CURLOPT_DNS_USE_GLOBAL_CACHE, 1);	/* DNS CACHE  */
+    //curl_easy_setopt(ch, CURLOPT_DNS_CACHE_TIMEOUT, 3600);
+    //curl_easy_setopt(ch, CURLOPT_DNS_USE_GLOBAL_CACHE, 1);	/* DNS CACHE  */
     curl_easy_setopt(ch, CURLOPT_NOPROGRESS, 1L);		/* No progress meter */
 
-    //if ((proxy_host != NULL) && (proxy_port > 0 && proxy_port < 65535)) {
-    if ((proxy_host != NULL) && (proxy_port != NULL)) {
-    	curl_easy_setopt(ch, CURLOPT_PROXY, proxy_host);
-    	curl_easy_setopt(ch, CURLOPT_PROXYPORT, proxy_port);	/* 8118, 8888, 9500, ... */
-    	curl_easy_setopt(ch, CURLOPT_PROXYTYPE, CURLPROXY_HTTP);
+    //printf(proxy_host);
+    //printf(proxy_port);
+
+    //if ((proxy_host != NULL) && (proxy_port != NULL)) {
+    //if ((proxy_host_char != NULL) && (proxy_port_int > 0 && proxy_port_int < 65535)) {
+    	//curl_easy_setopt(ch, CURLOPT_PROXY, "http://192.168.3.93:8118");
+    	curl_easy_setopt(ch, CURLOPT_PROXY, "http://127.0.0.1/");
+    	//curl_easy_setopt(ch, CURLOPT_PROXYPORT, proxy_port_int);	/* 1080, 8118, 8888, 9500, ... */
+    	//curl_easy_setopt(ch, CURLOPT_PROXYTYPE, CURLPROXY_HTTP);
 	//
     	/* optional proxy username and password */
     	if ((proxy_user != NULL) && (proxy_pass != NULL)) {
     	    curl_easy_setopt(ch, CURLOPT_PROXYUSERNAME, proxy_user);
     	    curl_easy_setopt(ch, CURLOPT_PROXYPASSWORD, proxy_pass);
     	}
-    }
+    //}
 
     if (DEBUGCURL) {
 	    curl_easy_setopt(ch, CURLOPT_VERBOSE,  1);			/* Verbose ON  */
@@ -817,12 +828,36 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
 	    curl_easy_setopt(ch, CURLOPT_VERBOSE,  0);			/* Verbose OFF */
     }
 
+    /* curl -H "Host: www.fantuz.net" -H "Remote Address:217.114.216.51:80" -H "Request URL:http://www.fantuz.net/nslookup.php" -H "Host:www.fantuz.net" -H "User-Agent:Mozilla/5.0 (Macintosh; Intel Mac OS X 10_6_8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36" http://www.fantuz.net/nslookup.php?host=fantuz.net
+    */
+
     curl_easy_setopt(ch, CURLOPT_SSL_VERIFYPEER, 0L);
     curl_easy_setopt(ch, CURLOPT_SSL_VERIFYHOST, 0L);;
     curl_easy_setopt(ch, CURLOPT_SSL_VERIFYSTATUS, 0L);
     //curl_easy_setopt(ch, CURLOPT_SSLVERSION, CURL_SSLVERSION_DEFAULT);
     //CURL_SSLVERSION_TLSv1);
     //curl_easy_setopt(ch, CURLOPT_CAINFO, pCACertFile);
+
+    /* HOW DOES A NEW TCP INFLUENCE WEB CACHE ?? */
+    /* polipo likes pipelining, reuse, pretty powerful */
+    /* how about squid/nginx et al. ?? */
+    curl_easy_setopt(ch, CURLOPT_MAXCONNECTS, MAXCONN);
+    curl_easy_setopt(ch, CURLOPT_FRESH_CONNECT, 0);
+    curl_easy_setopt(ch, CURLOPT_FORBID_REUSE, 0);
+    //curl_setopt ($curl, CURLOPT_AUTOREFERER, 1);
+    //curl_setopt( $curl, CURLOPT_RETURNTRANSFER, 1);
+    
+    // cache with HTTP/1.1 304 Not Modified
+
+    /* OPTION --> FOLLOW-LOCATION, necessary if getting HTTP 301 */
+    // HTTP/1.1 301 Moved Permanently
+    // Location: http://www.example.org/index.asp
+    //curl_setopt ($curl, CURLOPT_FOLLOWLOCATION, 1);
+    curl_easy_setopt(ch, CURLOPT_FOLLOWLOCATION, 1);
+
+    /* Problem in performing the http request ?? */
+    curl_easy_setopt(ch, CURLOPT_WRITEFUNCTION, write_data);	/* Set write function */
+    curl_easy_setopt(ch, CURLOPT_WRITEDATA, http_response);
 
     /* try to see if it works .. not sure anymore */
     //curl_easy_setopt(ch, CURLINFO_HEADER_OUT, "" );
@@ -833,9 +868,10 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
 
     /* OPTIONAL HEADERS, set with curl_slist_append */
      
-    //    list = curl_slist_append(list, "Host: www.fantuz.net");
+    //list = curl_slist_append(list, "Host: www.fantuz.net");
+    //list = curl_slist_append(list, "Request URL: http://www.fantuz.net/nslookup.php");
+    
     //    list = curl_slist_append(list, "Remote Address: 217.114.216.51:80");
-    //    list = curl_slist_append(list, "Request URL: http://www.fantuz.net/nslookup.php");
     //    list = curl_slist_append(list, "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_6_8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36");
     //    curl_easy_setopt(ch, CURLOPT_HTTPHEADER, list);
 
@@ -847,7 +883,7 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
     //list = curl_slist_append(list, "Request Method:GET");
     //list = curl_slist_append(list, "Remote Address: 217.114.216.51:443");
 
-    list = curl_slist_append(list, "Host: www.fantuz.net");
+    //list = curl_slist_append(list, "Host: www.fantuz.net");
     list = curl_slist_append(list, "User-Agent:Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/50.0.2661.94 Safari/537.36");
     //list = curl_slist_append(list, "User-Agent:Mozilla/5.0 (Macintosh; Intel Mac OS X 10_6_8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36");
     list = curl_slist_append(list, "Connection:keep-alive");
@@ -859,27 +895,6 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
     //list = curl_slist_append(list, "Accept-Language:en-US,en;q=0.8,fr;q=0.6,it;q=0.4");
 
     curl_easy_setopt(ch, CURLOPT_HTTPHEADER, list);
-
-// curl -H "Host: www.fantuz.net" -H "Remote Address:217.114.216.51:80" -H "Request URL:http://www.fantuz.net/nslookup.php" -H "Host:www.fantuz.net" -H "User-Agent:Mozilla/5.0 (Macintosh; Intel Mac OS X 10_6_8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36" http://www.fantuz.net/nslookup.php?host=fantuz.net
-
-    /* HOW DOES A NEW TCP INFLUENCE WEB CACHE ?? */
-    /* polipo likes pipelining, reuse, pretty powerful */
-    /* how about squid/nginx et al. ?? */
-    curl_easy_setopt(ch, CURLOPT_MAXCONNECTS, MAXCONN);
-    curl_easy_setopt(ch, CURLOPT_FRESH_CONNECT, 0);
-    curl_easy_setopt(ch, CURLOPT_FORBID_REUSE, 0);
-    //curl_setopt ($curl, CURLOPT_AUTOREFERER, 1);
-    
-    /* OPTION --> FOLLOW-LOCATION, necessary if getting HTTP 301 */
-    // HTTP/1.1 301 Moved Permanently
-    // Location: http://www.example.org/index.asp
-    
-    //curl_setopt ($curl, CURLOPT_FOLLOWLOCATION, 1);
-    curl_easy_setopt(ch, CURLOPT_FOLLOWLOCATION, 1);
-
-    /* Problem in performing the http request ?? */
-    curl_easy_setopt(ch, CURLOPT_WRITEFUNCTION, write_data);	/* Set write function */
-    curl_easy_setopt(ch, CURLOPT_WRITEDATA, http_response);
 
     // CURL_LOCK_DATA_SHARE, quite advanced and criptic
     curlsh = curl_share_init();
