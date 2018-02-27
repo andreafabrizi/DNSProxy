@@ -72,7 +72,8 @@
 #define DNS_MODE_ERROR        2
 #define DEFAULT_LOCAL_PORT   53
 #define DEFAULT_WEB_PORT     80
-#define DEFAULT_PRX_PORT   8118
+#define DEFAULT_PRX_PORT   1080
+//#define DEFAULT_PRX_PORT   8118
 
 /* for threaded model, experimental options, not in use at the moment */
 #define NUMT	              4
@@ -124,7 +125,6 @@ struct thread_info {    	/* Used as argument to thread_start() */
 };
 
 /*
-//from: https://stackoverflow.com/questions/15420307/call-pthread-create-from-outside-main-function
 void start_thread(pthread_t *mt)
 {
     mystruct *data = malloc(sizeof(*data));
@@ -206,24 +206,24 @@ void usage(void)
     fprintf(stderr, "\n dnsp %s, copyright @ 2018 Massimiliano Fantuzzi, HB3YOE, GNU/GPL License\n\n"
                        " usage: dnsp -l [local_host] -p [local_port:53,5353,..] -H [proxy_host] -r [proxy_port:8118,8888,3128,9500..] \n\t\t-w [lookup_port:80,443,..] -s [lookup_script] \n\n"
                        " OPTIONS:\n"
-                       "      -l\t\t Local server address\n"
+                       "      -l\t\t Local server address	(optional)\n"
                        "      -p\t\t Local server port	(optional, defaults to 53)\n"
                        "      -H\t\t Cache proxy address	(strongly suggested)\n"
                        "      -r\t\t Cache proxy port	(strongly suggested)\n"
                        "      -u\t\t Cache proxy username	(optional)\n"
                        "      -k\t\t Cache proxy password	(optional)\n"
-                       "      -s\t\t Lookup script URL\n"
-                       "      -w\t\t Lookup port		(optional, if anything else than 80/443)\n"
+                       "      -s\t\t Lookup script URL	(mandatory option)\n"
+                       "      -w\t\t Lookup port		(obsolete, defaults to 80/443 for HTTP/HTTPS)\n"
                        "      -t\t\t Stack size in format	0x1000000 (MB)\n"
                        "\n"
                        " TESTING/DEV OPTIONS:\n"
                        "      -v\t\t Enable DEBUG\n"
-                       "      -C\t\t Enable verbose CURL, useful to spot cache issues or dig down into HSTS/HTTPS quirks\n"
+                       "      -C\t\t Enable CURL VERBOSE, useful to spot cache issues or dig down into HSTS/HTTPS quirks\n"
                        "      -I\t\t Upgrade Insecure Requests, HSTS work in progress\n"
                        "      -R\t\t Enable CURL resolve mechanism, avoiding extra gethostbyname, work in progress\n"
                        "\n"
-                       " Example HTTP+proxy   :  dnsp -p 53 -l 127.0.0.1 -r 8118 -H 127.0.0.1 -w 80 -s http://www.fantuz.net/nslookup.php\n"
-		       " Example HTTPS direct :  dnsp -p 53 -l 127.0.0.1 -w 443 -s https://www.fantuz.net/nslookup.php\n\n"
+		       " Example DNS/HTTPS direct :  dnsp -s https://www.fantuz.net/nslookup.php\n"
+                       " Example DNS/HTTP w/cache :  dnsp -p 53 -l 127.0.0.1 -r 8118 -H 127.0.0.1 -s http://www.fantuz.net/nslookup.php\n\n"
     ,VERSION);
     exit(EXIT_FAILURE);
 }
@@ -1272,8 +1272,13 @@ int main(int argc, char *argv[])
         abort ();
     }
 
-    if ((bind_address == NULL) || (lookup_script == NULL))
+    if (bind_address == NULL) {
+	bind_address = "127.0.0.1";
+    }
+
+    if (lookup_script == NULL) {
         usage();
+    }
 
     /* Prevent child process from becoming zombie process */
     signal(SIGCLD, SIG_IGN);
