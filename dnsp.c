@@ -532,9 +532,19 @@ AXFR zone transfer 0x00fc
 	*response++ = 0x38;
 	*response++ = 0x40;
 	
-	//ptr,ns
-	if (dns_req->qtype == 0x0c || dns_req->qtype == 0x02) {
-        
+	/*
+	 * 0x08 - backspace	\010 octal
+	 * 0x09 - horizontal tab
+	 * 0x0a - linefeed
+	 * 0x0b - vertical tab	\013 octal
+	 * 0x0c - form feed
+	 * 0x0d - carriage return
+	 * 0x20 - space
+	*/ 
+	
+	// TYPES
+	if (dns_req->qtype == 0x0c) {
+        	// PTR
 	        /* Data length (4 bytes)*/
 	        response[0] = 0x00;
 	        response[1] = 0x04;
@@ -543,14 +553,15 @@ AXFR zone transfer 0x00fc
 		response[1] = 0x0c;
 	       	response+=2;
 
-	} else if (dns_req->qtype == 0x05) { //CNAME RECORD
-
+	} else if (dns_req->qtype == 0x02) { 
+		// NS
 	        /* Data length (4 bytes)*/
-        	response[0] = 0x00;
-		response[1] = (strlen(ip)+1);
+	        response[0] = 0x00;
+		response[1] = (strlen(ip)-1);
         	response+=2;
 
-		pch = strtok((char *)ip,".\r\n\t");
+		pch = strtok((char *)ip,". \r\n\t");
+
 		while (pch != NULL)
 		{
 			ppch = strlen(pch);
@@ -559,21 +570,61 @@ AXFR zone transfer 0x00fc
 				*response++ = pch[i];
 				maxim[i] = pch[i];
 			}
-    			pch = strtok (NULL, ".");
+
+    			pch = strtok(NULL, ". ");
+			
+			//if (pch != ' ' && pch != '\t' && pch != NULL) {
+			//if (pch == ' ' || pch == '\t' || pch == NULL || pch == '\n' || pch == '\r') {
 			if (pch == NULL) {
 				for (i = 0; i < ppch+1; ++i) {
 					response--;
 				}
-                                *response++ = ppch-1;
-	                        for (i = 0; i < ppch-1; ++i) {
+                                *response++ = ppch-3;
+				for (i = 0; i < ppch-3; ++i) {
         	                	*response++ = maxim[i];
                 	        }
+				
 			}
 		}
 
 		*response++ = 0x00;
 
-	} else if (dns_req->qtype == 0x0f) { //MX RECORD
+	} else if (dns_req->qtype == 0x05) {
+	       	// CNAME
+	        /* Data length (XXXXX bytes)*/
+        	response[0] = 0x00;
+		response[1] = (strlen(ip)-1);
+        	response+=2;
+
+		pch = strtok((char *)ip,". \r\n\t");
+
+		while (pch != NULL)
+		{
+			ppch = strlen(pch);
+			*response++ = strlen(pch);
+			for (i = 0; i < strlen(pch); ++i) {
+				*response++ = pch[i];
+				maxim[i] = pch[i];
+			}
+
+    			pch = strtok (NULL, ". ");
+			
+			if (pch == NULL) {
+				for (i = 0; i < ppch+1; ++i) {
+					response--;
+				}
+                                *response++ = ppch-3;
+	                        for (i = 0; i < ppch-3; ++i) {
+        	                	*response++ = maxim[i];
+                	        }
+			}
+			
+		}
+
+		*response++ = 0x00;
+
+	} else if (dns_req->qtype == 0x0f) {
+	       	//MX RECORD
 	        /* Data length (4 bytes)*/
         	response[0] = 0x00;
 		response[1] = (strlen(ip)+3);
@@ -622,9 +673,9 @@ AXFR zone transfer 0x00fc
 		
 	} else if (dns_req->qtype == 0x01) { // A RECORD 
 
-        /* Data length (4 bytes)*/
-	*response++ = 0x00;
-	*response++ = 0x04;
+	        /* Data length (4 bytes)*/
+		*response++ = 0x00;
+		*response++ = 0x04;
 
         	token = strtok((char *)ip,".");
         	if (token != NULL) response[0] = atoi(token);
@@ -643,19 +694,14 @@ AXFR zone transfer 0x00fc
         	else return;
 
 		response+=4;
-        	//fprintf(stdout, "DNS_MODE_COMPLETE\n");
 		
       	} else {
         	fprintf(stdout, "DNS_MODE_ISSUE\n");
 		return;
 	}
 	
-	//*response++=(unsigned char)(strlen(ip)+1);
-	//memcpy(response,ip,strlen(ip)-1);
-	//strncpy(response,ip,strlen(ip)-1);
-    
+	//*response++=(unsigned char)(strlen(ip)+1); //memcpy(response,ip,strlen(ip)-1); //strncpy(response,ip,strlen(ip)-1);
 	//recvfrom(3, "\326`\1 \0\1\0\0\0\0\0\1\6google\2it\0\0\1\0\1\0\0)\20\0"..., 256, 0, {sa_family=AF_INET, sin_port=htons(48379), sin_addr=inet_addr("192.168.2.84")}, [16]) = 38
-
 	//(3, "\24\0\0\0\26\0\1\3\23\306;U\0\0\0\0\0\0\0\0", 20, 0, {sa_family=AF_NETLINK, pid=0, groups=00000000}, 12) = 20
 	//(3, "z\271\205\200\0\1\0\1\0\0\0\0\6google\2hr\0\0\2\0\1\300\f\0\2\0"..., 41, 0, {sa_family=0x1a70 /* AF_??? */, sa_data="s\334\376\177\0\0\20D\1\270\223\177\0\0"}, 8)
 	
@@ -706,7 +752,7 @@ AXFR zone transfer 0x00fc
 	printf("SENT %d bytes\n", (uint32_t)bytes_sent);
     }
     
-    //fdatasync(sd);
+    fdatasync(sd);
     close(sd);
     free(response_ptr);
     free(dns_req);
@@ -811,7 +857,7 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
     //if ((proxy_host != NULL) && (proxy_port != NULL)) {
     //if ((proxy_host_char != NULL) && (proxy_port_int > 0 && proxy_port_int < 65535)) {
     	//curl_easy_setopt(ch, CURLOPT_PROXY, "http://192.168.3.93:8118");
-    	curl_easy_setopt(ch, CURLOPT_PROXY, "http://127.0.0.1/");
+    	//curl_easy_setopt(ch, CURLOPT_PROXY, "http://127.0.0.1/"); //1080
     	//curl_easy_setopt(ch, CURLOPT_PROXYPORT, proxy_port_int);	/* 1080, 8118, 8888, 9500, ... */
     	//curl_easy_setopt(ch, CURLOPT_PROXYTYPE, CURLPROXY_HTTP);
 	//
@@ -884,8 +930,8 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
     //list = curl_slist_append(list, "Remote Address: 217.114.216.51:443");
 
     //list = curl_slist_append(list, "Host: www.fantuz.net");
-    list = curl_slist_append(list, "User-Agent:Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/50.0.2661.94 Safari/537.36");
-    //list = curl_slist_append(list, "User-Agent:Mozilla/5.0 (Macintosh; Intel Mac OS X 10_6_8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36");
+    list = curl_slist_append(list, "User-Agent:Mozilla/5.0 (Macintosh; Intel Mac OS X 10_6_8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36");
+    //list = curl_slist_append(list, "User-Agent:Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/50.0.2661.94 Safari/537.36");
     list = curl_slist_append(list, "Connection:keep-alive");
     list = curl_slist_append(list, "Upgrade-Insecure-Requests:0");
     
@@ -1360,6 +1406,8 @@ int main(int argc, char *argv[])
                 exit(EXIT_FAILURE);
             }
 
+	    //1c AAAA
+	    //6 SOA
 	    if (dns_req->qtype == 0x02) {
 		typeq = "NS";
 	    } else if (dns_req->qtype == 0x0c) {

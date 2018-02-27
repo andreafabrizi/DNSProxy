@@ -1,14 +1,10 @@
-<?php
-//error_reporting(E_ALL & ~E_NOTICE); 
-//< //$arr = array( $mc->get("foo"), $mc->get("bar") ); 
-
-//Vary: Accept-Encoding, User-Agent
-// --- SET HEADERS AND DETECT CACHE CONTROL PRESENCE/EXPIRATION.
+<?
 session_cache_limiter('public');					//This stop php’s default no-cache
 session_cache_expire(14400);						// Optional expiry time in minutes
-header("Content-type: text/plain;charset=UTF-8");
+header("Content-type: text/plain"); 
 header("Connection: keep-alive");
 header("Cache-control: public, max-age=14400, s-maxage=14400");
+
 $host = rtrim($_GET["host"],'.');
 
 //// USEFUL IF YOU NEED A PREMPTIVE HTTP CACHE
@@ -95,7 +91,7 @@ if (isSet($_GET["host"]) && isSet($_GET["type"])) {
                 $res = dns_get_record($host, DNS_AAAA, $authns, $addtl) or print '0.0.0.0';
                 $ccc = sizeof($res);
                 $result = $res[rand(0,$ccc-1)][ipv6];
-           		print_r($result);
+           	print_r($result);
 	}
 	if ($_GET["type"] == "MX"){
 		$res = (dns_get_record($host, DNS_MX, $authns, $addtl)) or print '0.0.0.0';
@@ -106,28 +102,34 @@ if (isSet($_GET["host"]) && isSet($_GET["type"])) {
 		//$ddd = sizeof($r2);
 		//print $r2[rand(0,$ddd-1)][ip];
 	}
-    if ($_GET["type"] == "NS"){
-        $res = dns_get_record($host, DNS_NS, $authns, $addtl);
+        if ($_GET["type"] == "NS"){
+                $res = dns_get_record($host, DNS_NS, $authns, $addtl);
 		$ccc = sizeof($res);
-		print $res[rand(0,$ccc-1)][target];
-		//$result = $res[rand(0,$ccc-1)][target];
-		//echo "$result\r\n";
-    }
-	if ($_GET["type"] == "A"){
-        $result = (dns_get_record($host, DNS_A, $authns, $addtl)) or print '0.0.0.0';
+		//print $res[rand(0,$ccc-1)][target];
+		//print_r($res[rand(0,$ccc-1)][target]);
+		$result = $res[rand(0,$ccc-1)][target];
+		echo "$result\r\n\t" ;
+           	//print_r($result);
+        }
+        if ($_GET["type"] == "A"){
+                $result = (dns_get_record($host, DNS_A, $authns, $addtl)) or print '0.0.0.0';
 		$ccc = sizeof($result);
 		print $result[rand(0,$ccc-1)][ip];
+		//print $result[rand(0,$ccc-1)][ipv4];
 		//print_r(array_keys($result[0]));
-    }
-    if ($_GET["type"] == "CNAME"){
-        $res = dns_get_record($host, DNS_CNAME, $authns, $addtl) or print '0.0.0.0';
+        }
+        if ($_GET["type"] == "CNAME"){
+                $res = dns_get_record($host, DNS_CNAME, $authns, $addtl) or print '0.0.0.0';
 		$ccc = sizeof($res);
+		//print $res[rand(0,$ccc-1)][target];
+		//print_r($res[rand(0,$ccc-1)][target]);
 		$result = $res[rand(0,$ccc-1)][target];
-		print $result;
+		echo "$result\r\n" ;
+		//echo nl2br();
 		//$r2 = dns_get_record($h2, DNS_A, $authns, $addtl);
 		//echo $result[0][class];
 		//echo $result[0][ttl];
-    }
+        }
 } else {
 	if (isSet($_GET["host"])) {
 		$host = rtrim($_GET["host"]);
@@ -142,7 +144,5 @@ if (isSet($_GET["host"]) && isSet($_GET["type"])) {
 //        if ($ip != $host) die ($ip);
 //        $ip = gethostbyname($host);
 //        $mx = getmxrr($host);
-
-?>
 
 

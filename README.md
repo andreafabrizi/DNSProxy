@@ -8,7 +8,7 @@ If you can't access VPN or tunnels  to resolve names externally (TOR users),
 DNSProxy is a simple and efficient solution.
 
 All you need to start resolving anonymous DNS is a PHP server hosting the
-*ns.php* resolver script. This software is completeley  TOR-friendly, it 
+*nslookup.php* resolver script. This software is completeley  TOR-friendly, it 
 requires minimal resources.
 
 ## Disclaimer
@@ -20,7 +20,7 @@ outside the scope of DNSP as a software. That said, you MUST use an external
 server that you trust and you can deploy on. As suggested, having the 
 ns.php script running locally makes no sense and WILL make ALL of your DNS
 queries leaking. Useful for testing purposes only !!
-IF ANONIMITY IS A CONCERN, make sure to host NS.PHP on a good trustable server !
+IF ANONIMITY IS A CONCERN, make sure to host NSLOOKUP.PHP on a good trustable server !
 
 ## Headline: why DNSP ?
 This is a new idea in terms of transport of DNS outside of it's original scope.
@@ -85,10 +85,14 @@ To test if DNS proxy is working correctly, first run the program as following, b
 filling in Your favorite TOR proxy address:
 
 ```bash
-dnsp -l 127.0.0.1 -w 443 -s https://www.fantuz.net/ns.php
+dnsp -l 127.0.0.1 -w 443 -s https://www.fantuz.net/nslookup.php
+```
+or
+```
+dnsp -l 127.0.0.1 -w 443 -s https://php-dns.appspot.com/helloworld.php
 ```
 
-then, try to resolve an hostname using the **dig** command:
+then, try to resolve an hostname using the **dig** command against your localhost DNSP:
 
 ```bash
 dig www.google.com @127.0.0.1
@@ -115,21 +119,28 @@ www.google.com.		3600	IN	A	173.194.64.106
 ;; MSG SIZE  rcvd: 48
 ```
 
-When You properly implement cache on the webserver, answers will come back in
- few milliseconds, after the first recursive resolution...
+If the test query works, you can safely replace "nameserver" entries on /etc/resolv.conf
+to start pointing ALL DNS TRAFFIC TO DNSP, leveregin DOH (DNS-over-HTTP).
 
-## Usage scenario, examples
+## Caching answers in the network
+
+When You properly implement cache on the webserver, answers will come back in
+few milliseconds, after the first recursive resolution...
+
+Tested on CloudFlare, Google Cloud Platform, Docker, etc
+
+## Usage examples
 
 ```bash
  # You can use a caching HTTP proxy
-dnsp -p 53 -l 127.0.0.1 -h 127.0.0.1 -r 8118 -w 80 -s https://www.fantuz.net/ns.php
+dnsp -p 53 -l 127.0.0.1 -h 127.0.0.1 -r 8118 -w 80 -s https://www.fantuz.net/nslookup.php
 
  # You want just to surf anonymously, using the HTTP/DNS service without HTTP caching proxy
 dnsp -p 53 -l 127.0.0.1 -s https://www.fantuz.net/ns.php
 
  # HTTP vs HTTPS modes
-dnsp -p 53 -l 127.0.0.1 -w 80 -s http://www.fantuz.net/ns.php
-dnsp -p 53 -l 127.0.0.1 -w 443 -s https://www.fantuz.net/ns.php
+dnsp -p 53 -l 127.0.0.1 -w 80 -s http://www.fantuz.net/nslookup.php
+dnsp -p 53 -l 127.0.0.1 -w 443 -s https://www.fantuz.net/nslookup.php
 ```
 
 In this example, DNS proxy listens on local UDP port 53 and sends the 
@@ -144,7 +155,7 @@ the remote resolver webservice.
 
 **IMPORTANT:** Please, don't use the script hosted on my server as demonstration.
 It might be subjected to umpredicted change, offlining, defacing....
-Instead - host yourself as many *ns.php* scripts as you can, or send it on a friend's server!
+Instead - host yourself as many *nslookup.php* scripts as you can, or send it on a friend's server!
 The more DNSP resolvers, the less DNS queries will be traceable (TOR leaking problem).
 
 ```bash
@@ -164,8 +175,8 @@ The more DNSP resolvers, the less DNS queries will be traceable (TOR leaking pro
       -v		 Enable DEBUG
       -S		 Enable HTTPS
 
- Example HTTP+proxy   :  dnsp -p 53 -l 127.0.0.1 -r 8118 -H 127.0.0.1 -w 80 -s http://www.fantuz.net/ns.php
- Example HTTPS direct :  dnsp -p 53 -l 127.0.0.1 -w 443 -s https://www.fantuz.net/ns.php
+ Example HTTP+proxy   :  dnsp -p 53 -l 127.0.0.1 -r 8118 -H 127.0.0.1 -w 80 -s http://www.fantuz.net/nslookup.php
+ Example HTTPS direct :  dnsp -p 53 -l 127.0.0.1 -w 443 -s https://www.fantuz.net/nslookup.php
 
 ```
 ## Changelog:
@@ -218,5 +229,13 @@ Version 0.4 - November 16 2009:
 Version 0.1 - April 09 2009:
 * Initial release
 
-https://www.reddit.com/user/fantamix/comments/7yotib/dnsp_a_dns_proxy_to_avoid_dns_leakage/
-https://www.reddit.com/r/hacking/comments/7zjbv2/why_to_use_a_dns_proxy_why_shall_it_be/
+## References:
+
+* https://www.reddit.com/user/fantamix/comments/7yotib/dnsp_a_dns_proxy_to_avoid_dns_leakage/
+* https://www.reddit.com/r/hacking/comments/7zjbv2/why_to_use_a_dns_proxy_why_shall_it_be/
+* https://tools.ietf.org/html/draft-ietf-dnsop-dns-wireformat-http-01
+* https://tools.ietf.org/html/draft-ietf-doh-dns-over-https-03
+
+## License
+MIT license, all rights free.
+
