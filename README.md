@@ -112,17 +112,20 @@ Any polipo, squid, nginx, Varnish, charles, SOCKS, TOR, will work properly with 
 You can also run DNSP through HTTP(S) without a local proxy, directly attaching the DNSP server to
 the remote resolver webservice (the nslookup.php can be hosted anywhere, i.e. on Google Cloud Platform).
 
-**IMPORTANT:** Please, don't use the script hosted on my server as demonstration.
-It might be subjected to umpredicted change, offlining, defacing....
-Instead - host yourself as many *nslookup.php* scripts as you can, or send it on a friend's server!
+**IMPORTANT:** Please, don't use the script hosted on my server(s) as they serve as demo-only.
+They might be subject to unpredicted change, offlining, defacing.... Trust your own servers, and 
+host yourself as many *nslookup.php* scripts as you can, or send it on a friend's server!
 The more DNSP resolvers, the less DNS queries will be traceable (TOR leaking problem).
 
 ```bash
- dnsp 1.5
- usage: dnsp [ -l [local_host]] [-p [local_port]] [-h [proxy_host]] [-r [proxy_port]] [-w [lookup_port]] -s [lookup_script] -
+
+ dnsp 1.5, copyright @ 2018 Massimiliano Fantuzzi, HB3YOE, GNU/GPL License
+
+ usage: dnsp [-l [local_host]] [-p [local_port:53,5353,..]] [-H [proxy_host]] [-r [proxy_port:8118,8888,3128,9500..]] 
+		 [-w [lookup_port:80,443,..]] [-s [lookup_script]]
 
  OPTIONS:
-      -l		 Local server address
+      -l		 Local server address	(optional)
       -p		 Local server port	(optional, defaults to 53)
       -H		 Cache proxy address	(strongly suggested)
       -r		 Cache proxy port	(strongly suggested)
@@ -131,13 +134,16 @@ The more DNSP resolvers, the less DNS queries will be traceable (TOR leaking pro
       -s		 Lookup script URL	(mandatory option)
       -w		 Lookup port		(obsolete, defaults to 80/443 for HTTP/HTTPS)
       -t		 Stack size in format	0x1000000 (MB)
+
+ TESTING/DEV OPTIONS:
       -v		 Enable DEBUG
-      -C		 Enable CURL DEBUG
+      -C		 Enable CURL VERBOSE, useful to spot cache issues or dig down into HSTS/HTTPS quirks
+      -I		 Upgrade Insecure Requests, HSTS work in progress
+      -R		 Enable CURL resolve mechanism, avoiding extra gethostbyname, work in progress
       -S		 Enable HTTPS (obsolete option)
 
- Example HTTPS direct :  dnsp -s https://www.fantuz.net/nslookup.php
- Example HTTP+proxy   :  dnsp -p 53 -l 127.0.0.1 -r 8118 -H 127.0.0.1 -s http://www.fantuz.net/nslookup.php
- 
+ Example DNS/HTTPS direct :  dnsp -s https://www.fantuz.net/nslookup.php
+ Example DNS/HTTP w/cache :  dnsp -p 53 -l 127.0.0.1 -r 8118 -H 127.0.0.1 -s http://www.fantuz.net/nslookup.php
 ```
 ## Changelog:
 
