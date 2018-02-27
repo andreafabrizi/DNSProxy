@@ -21,8 +21,7 @@
 
 */
 
-
-#define _GNU_SOURCE
+//#define _GNU_SOURCE
 #include <sys/wait.h>
 #include <sys/utsname.h>
 #include <sched.h>
@@ -203,7 +202,7 @@ struct dns_reponse
 /* usage */
 void usage(void)
 {
-    fprintf(stderr, "\n dnsp %s, copyright @ 2018 Massimiliano Fantuzzi, HB3YOE, GNU/GPL License\n\n"
+    fprintf(stderr, "\n dnsp %s, copyright @ 2018 Massimiliano Fantuzzi, HB3YOE, MIT License\n\n"
                        " usage: dnsp [-l [local_host]] [-p [local_port:53,5353,..]] [-H [proxy_host]] [-r [proxy_port:8118,8888,3128,9500..]] \n"
 		       "\t\t [-w [lookup_port:80,443,..]] [-s [lookup_script]]\n\n"
                        " OPTIONS:\n"
