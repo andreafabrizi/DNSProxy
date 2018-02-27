@@ -122,7 +122,7 @@ The more DNSP resolvers around the world, the less DNS queries will be traceable
 
 ```bash
 
- dnsp 1.5, copyright @ 2018 Massimiliano Fantuzzi, HB3YOE, GNU/GPL License
+ dnsp 1.5, copyright @ 2018 Massimiliano Fantuzzi, HB3YOE, MIT License
 
  usage: dnsp [-l [local_host]] [-p [local_port:53,5353,..]] [-H [proxy_host]] [-r [proxy_port:8118,8888,3128,9500..]] 
 		 [-w [lookup_port:80,443,..]] [-s [lookup_script]]
@@ -154,12 +154,12 @@ TODO:
 * get on DOH and H2 in simple way (CURL)
 * will soon add the arduino-ethernet library with the added select() function (sorry for delay)
 
-
 Version 1.5 - February 2018:
 * added IETF references
 * added Arduino double ethernet shield script
 * fixed NS/CNAME answers (C) and resolver script (PHP)
 * added the GO version made by chinese people, inspired at my DNSP software
+* MIT License in accordance to transfer of rights operated via mail by Andrea
 
 * everything works as usual: caching is lazy, CURL follows redirects (301, I want less of them)
 * other thought and implementations pending
