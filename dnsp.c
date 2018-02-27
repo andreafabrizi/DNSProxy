@@ -68,8 +68,8 @@
 #define DNSREWRITE          256
 #define HTTP_RESPONSE_SIZE  256
 #define URL_SIZE            256
-#define DNS_MODE_ANSWER       1
-#define DNS_MODE_ERROR        2
+#define DNS_MODE_ANSWER       0
+#define DNS_MODE_ERROR        1
 #define DEFAULT_LOCAL_PORT   53
 #define DEFAULT_WEB_PORT     80
 #define DEFAULT_PRX_PORT   1080
@@ -222,7 +222,6 @@ void usage(void)
                        "      -C\t\t Enable CURL VERBOSE, useful to spot cache issues or dig down into HSTS/HTTPS quirks\n"
                        "      -I\t\t Upgrade Insecure Requests, HSTS work in progress\n"
                        "      -R\t\t Enable CURL resolve mechanism, avoiding extra gethostbyname, work in progress\n"
-                       "      -S\t\t Enable HTTPS (obsolete option)\n"
                        "\n"
 		       " Example DNS/HTTPS direct :  dnsp -s https://www.fantuz.net/nslookup.php\n"
                        " Example DNS/HTTP w/cache :  dnsp -p 53 -l 127.0.0.1 -r 8118 -H 127.0.0.1 -s http://www.fantuz.net/nslookup.php\n\n"
@@ -326,7 +325,7 @@ struct dns_request *parse_dns_request(const char *udp_request, size_t request_le
 }
 
 /*  * Builds and sends the dns response datagram */
-void build_dns_reponse(int sd, struct sockaddr_in *yclient, struct dns_request *dns_req, const char *ip, int mode, size_t xrequestlen)
+void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request *dns_req, const char *ip, int mode, size_t xrequestlen)
 {
     char *rip = malloc(256 * sizeof(char));
     //struct dns_request *dns_req;
@@ -389,24 +388,22 @@ void build_dns_reponse(int sd, struct sockaddr_in *yclient, struct dns_request *
     response[1] = (uint8_t)dns_req->transaction_id;
     response+=2;
     
-/*
-TXT, SRV, SOA, PTR, NS, MX, DS, DNSKEY, AAAA, A, unused
+    /*
 
-DNS query : (dns.flags.response == 0) and (dns.qry.type == 0x0001)
-DNS response : (dns.flags.response == 1) && (dns.resp.type == 0x0001)
-
-A IPv4 host address 0x0001
-AAAA IPv6 host address 0x001c
-NS authoritative name server 0x0002
-CNAME alias canonical name 0x0005
-SOA start of zone authority 0x0006
-PTR Domain name pointer 0x000c
-HINFO host info 0x000d
-MINFO mailbox/mail list info 0x000e
-MX mail exchange 0x000f
-AXFR zone transfer 0x00fc 
-
-*/
+    TXT, SRV, SOA, PTR, NS, MX, DS, DNSKEY, AAAA, A, unused
+    
+    A IPv4 host address 0x0001
+    AAAA IPv6 host address 0x001c
+    NS authoritative name server 0x0002
+    CNAME alias canonical name 0x0005
+    SOA start of zone authority 0x0006
+    PTR Domain name pointer 0x000c
+    HINFO host info 0x000d
+    MINFO mailbox/mail list info 0x000e
+    MX mail exchange 0x000f
+    AXFR zone transfer 0x00fc 
+    
+    */
 
     if (mode == DNS_MODE_ANSWER) {
         /* Default flags for a standard query (0x8580) */
@@ -424,6 +421,7 @@ AXFR zone transfer 0x00fc
         response[0] = 0x00;
         response[1] = 0x01;
         response+=2;
+        
     } else if (mode == DNS_MODE_ERROR) {
         
 	/* DNS_MODE_ERROR should truncate message instead of building it up ...  */
@@ -468,8 +466,11 @@ AXFR zone transfer 0x00fc
         response[0] = 0x00;
         response[1] = 0x00;
         response+=2;
+
+	/* Are we into "No such name" ?... just an NXDOMAIN ?? */ 
+	//*response++ = 0x00;
     }
-        
+    
     /* Authority RRs 0 */
     response[0] = 0x00;
     response[1] = 0x00;
@@ -494,7 +495,7 @@ AXFR zone transfer 0x00fc
     response[0] = (uint8_t)(dns_req->qclass >> 8);
     response[1] = (uint8_t)dns_req->qclass;
     response+=2;
-    
+
     /* Answer */
     if (mode == DNS_MODE_ANSWER) {
         /* Pointer to host name in query section */
@@ -502,30 +503,38 @@ AXFR zone transfer 0x00fc
         response[1] = 0x0c;
         response+=2;
         
-	if (dns_req->qtype == 0x0f) { //MX
+	if (dns_req->qtype == 0x0f) {
+		// MX
         	response[0] = 0x00;
 	        response[1] = 0x0f;
         	response+=2;
-	} else if (dns_req->qtype == 0xFF) { //ALL
+	} else if (dns_req->qtype == 0xFF) {
+		// ALL
         	response[0] = 0x00;
 	        response[1] = 0xFF;
         	response+=2;
-	} else if (dns_req->qtype == 0x01) { //A
+	} else if (dns_req->qtype == 0x01) {
+		// A
 		*response++ = 0x00;
 		*response++ = 0x01;
-	} else if (dns_req->qtype == 0x05) { //CNAME
+	} else if (dns_req->qtype == 0x05) {
+		// CNAME
         	response[0] = 0x00;
 	        response[1] = 0x05;
         	response+=2;
-	} else if (dns_req->qtype == 0x0c) { //PTR
+	} else if (dns_req->qtype == 0x0c) {
+		// PTR
         	response[0] = 0x00;
 	        response[1] = 0x0c;
         	response+=2;
-	} else if (dns_req->qtype == 0x02) { //NS
+	} else if (dns_req->qtype == 0x02) {
+		// NS
         	response[0] = 0x00;
 	        response[1] = 0x02;
         	response+=2;
-	} else { return; }
+	} else {
+		//return;
+	}
         
         /* Class IN */
 	*response++ = 0x00;
@@ -547,7 +556,7 @@ AXFR zone transfer 0x00fc
 	 * 0x20 - space
 	*/ 
 	
-	// TYPES
+	/* TYPES */
 	if (dns_req->qtype == 0x0c) {
         	// PTR
 	        /* Data length (4 bytes)*/
@@ -560,7 +569,6 @@ AXFR zone transfer 0x00fc
 
 	} else if (dns_req->qtype == 0x02) { 
 		// NS
-	        /* Data length (4 bytes)*/
 	        response[0] = 0x00;
 		response[1] = (strlen(ip)-1);
         	response+=2;
@@ -596,7 +604,6 @@ AXFR zone transfer 0x00fc
 
 	} else if (dns_req->qtype == 0x05) {
 	       	// CNAME
-	        /* Data length (XXXXX bytes)*/
         	response[0] = 0x00;
 		response[1] = (strlen(ip)-1);
         	response+=2;
@@ -630,10 +637,9 @@ AXFR zone transfer 0x00fc
 
 	} else if (dns_req->qtype == 0x0f) {
 	       	//MX RECORD
-	        /* Data length (4 bytes)*/
+	        /* Data length accounting for answer plus final dot and termination field */
         	response[0] = 0x00;
 		response[1] = (strlen(ip)+3);
-		//response[1] = 0x00;
         	response+=2;
 
 	        /* PRIO (4 bytes)*/
@@ -702,7 +708,7 @@ AXFR zone transfer 0x00fc
 		
       	} else {
         	fprintf(stdout, "DNS_MODE_ISSUE\n");
-		return;
+		//return;
 	}
 	
 	//*response++=(unsigned char)(strlen(ip)+1); //memcpy(response,ip,strlen(ip)-1); //strncpy(response,ip,strlen(ip)-1);
@@ -744,8 +750,15 @@ AXFR zone transfer 0x00fc
         bytes_sent = sendto(sd, response_ptr, response - response_ptr, 0, (struct sockaddr *)yclient, 16);
 
     } else if (mode == DNS_MODE_ERROR) {
-    /* Are we into "No such name" ?... just an NXDOMAIN ?? */ 
         fprintf(stdout, "DNS_MODE_ERROR\n");
+	//(struct sockaddr *)xclient->sin_family = AF_INET;
+	int yclient_len = sizeof(yclient);
+        yclient->sin_family = AF_INET;
+	//yclient->sin_addr.s_addr = inet_addr("192.168.2.84"); 
+	//yclient->sin_port = htons(yclient->sin_port);
+	yclient->sin_port = yclient->sin_port;
+	memset(&(yclient->sin_zero), 0, sizeof(yclient->sin_zero)); // zero the rest of the struct 
+	//memset(yclient, 0, 0);
         bytes_sent = sendto(sd, response_ptr, response - response_ptr, 0, (struct sockaddr *)yclient, 16);
     } else {
         fprintf(stdout, "DNS_MODE_UNKNOWN\n");
@@ -971,18 +984,13 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
     }
    
     // Can't resolve host 
-    if ((strlen(http_response) > 256) || (strncmp(http_response, "0.0.0.0", 7) == 0)) {
+    if ((strlen(http_response) > 512) || (strncmp(http_response, "0.0.0.0", 7) == 0)) {
 	// insert error answers here, as NXDOMAIN, SERVFAIL etc
         printf("CORE: MALFORMED DNS, possible SERVFAIL from origin... \n");
 	printf("from %s\n",script_url);
-        curl_easy_cleanup(ch);
-        free(script_url);
-	curl_slist_free_all(list);
 	//curl_slist_free_all(hosting);
     	printf("Here inside curl, %s\n",http_response);
-        http_response = "0.0.0.0\r\n";
-        return NULL;
-        //return http_response;
+        //http_response = "0.0.0.0";
     }
     
    
@@ -1031,9 +1039,13 @@ void *threadFunc(void *arg)
 
 	if (pthread_mutex_trylock(&mutex)) {
 	//if (pthread_mutex_lock(&mutex)) {
-	    printf("init lock OK ... \n");
+	    if (DEBUG) {
+	    	printf("init lock OK ... \n");
+	    }
 	} else {
-	    printf("init lock NOT OK ... \n");
+	    if (DEBUG) {
+	        printf("init lock NOT OK ... \n");
+	    }
 	}
 
     	if (DEBUG) {
@@ -1088,19 +1100,19 @@ void *threadFunc(void *arg)
 		    */
 	    }
 
-            build_dns_reponse(sockfd, yclient, xhostname, rip, DNS_MODE_ANSWER, request_len);
+            build_dns_response(sockfd, yclient, xhostname, rip, DNS_MODE_ANSWER, request_len);
 
 	    //printf("THREAD-V-xclient->sin_addr.s_addr		: %s\n",(char *)(xclient->sin_family));
         } else if ( strstr(dns_req->hostname, "hamachi.cc") != NULL ) {
             printf("BALCKLIST: pid [%d] - name %s - host %s - size %d \r\n", getpid(), dns_req->hostname, rip, (uint32_t)request_len);
 	    printf("BLACKLIST: xsockfd %d - hostname %s \r\n", xsockfd, xdns_req->hostname);
 	    printf("BLACKLIST: xsockfd %d - hostname %s \r\n", xsockfd, yhostname);
-            build_dns_reponse(xsockfd, yclient, xhostname, rip, DNS_MODE_ANSWER, request_len);
-        } else if ( rip == "0.0.0.0" ) {
+            build_dns_response(sockfd, yclient, xhostname, rip, DNS_MODE_ANSWER, request_len);
+        } else if ((rip == "0.0.0.0") || (strncmp(rip, "0.0.0.0", 7) == 0)) {
        	    printf("ERROR: pid [%d] - name %s - host %s - size %d \r\n", getpid(), dns_req->hostname, rip, (uint32_t)request_len);
 	    printf("ERROR: xsockfd %d - hostname %s \r\n", xsockfd, yhostname);
 	    printf("Generic resolution problem \n");
-            build_dns_reponse(xsockfd, yclient, xhostname, rip, DNS_MODE_ERROR, request_len);
+            build_dns_response(sockfd, yclient, xhostname, rip, DNS_MODE_ERROR, request_len);
 	}
 
 	//char *s = inet_ntoa(xclient->sin_addr);
@@ -1112,14 +1124,21 @@ void *threadFunc(void *arg)
    		printf("Thread/process ID : %d\n", getpid());
 	    }
 	} else {
-	    printf("unlock NOT OK..\n");
+	    if (DEBUG) {
+		printf("unlock NOT OK..\n");
+	    }
 	} 
 
 	if (pthread_mutex_destroy(&mutex)) {
+	    if (DEBUG) {
 		//printf("destroy OK..\n");
+	    }
 	} else {
-		printf("destroy NOT OK..\n");
+	    if (DEBUG) {
+    		    printf("destroy NOT OK..\n");
+	    }
 	}
+	
 	//pthread_exit(NULL);
 	exit(EXIT_SUCCESS);
 }
@@ -1497,9 +1516,13 @@ int main(int argc, char *argv[])
 
 	    if (pthread_mutex_trylock(&mutex)) {
 		//ret = pthread_create(&pth[i],NULL,threadFunc,readParams);
-		printf("lock OK ...\n");
+		if (DEBUG) {
+		    printf("lock OK ...\n");
+		}
 	    } else {
-		printf("lock NOT OK ...\n");
+		if (DEBUG) {
+		    printf("lock NOT OK ...\n");
+		}
 	    }
 
 	    threadFunc(readParams);
