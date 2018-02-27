@@ -89,12 +89,13 @@ Tested on CloudFlare, Google Cloud Platform, Docker, etc
 ## Usage examples
 
 ```bash
- # If you can use a local HTTP caching proxy running on non-default port (!=1080):
-dnsp -p 53 -l 127.0.0.1 -h 127.0.0.1 -r 8118 -s https://www.fantuz.net/nslookup.php
 
  # You want just to surf anonymously, using the HTTPS/DNS service without HTTP caching proxy
  # but still want DNS traffic to be to be encrypted (simplest mode):
-dnsp -p 53 -l 127.0.0.1 -s https://www.fantuz.net/nslookup.php
+dnsp -p 53 -s https://www.fantuz.net/nslookup.php
+
+# If you can leverage the use of local HTTP caching proxy running on non-default port (!=1080):
+dnsp -p 53 -l 127.0.0.1 -h 127.0.0.1 -r 8118 -s https://www.fantuz.net/nslookup.php
 
  # HTTP vs HTTPS modes (-w switch is obsolete, port detection is automatic):
 dnsp -p 53 -l 127.0.0.1 -w 80 -s http://www.fantuz.net/nslookup.php
