@@ -11,21 +11,23 @@ All you need to start resolving anonymous DNS is a PHP server hosting the
 *nslookup.php* resolver script. This software is completeley  TOR-friendly, it 
 requires minimal resources.
 
-## Disclaimer
-IF ANONIMITY IS A CONCERN, make sure to host NS.PHP on a good trustable server !
-To be clear, the ns.php script DOES do DNS request, which relies on mechanisms
-of resolving DNS that are normally controlled by the hosting provider (and
-hence, supposedly optimised for best speed and caching), mechanisms that are
-outside the scope of DNSP as a software. That said, you MUST use an external
-server that you trust and you can deploy on. As suggested, having the 
-ns.php script running locally makes no sense and WILL make ALL of your DNS
-queries leaking. Useful for testing purposes only !!
-IF ANONIMITY IS A CONCERN, make sure to host NSLOOKUP.PHP on a good trustable server !
-
 ## Headline: why DNSP ?
 This is a new idea in terms of transport of DNS outside of it's original scope.
 This proxy project might well evolve in direction of having an IP protocol number 
 assignement, or something like that.
+
+## Disclaimer
+WHEN FULL-ANONIMITY IS A CONCERN, make sure to host *nslookup.php* on a trustable server !
+
+To be clear, the PHP script DOES do the underlying "system call", the classic DNS request.
+Such system call relies on mechanisms pf resolving DNS that are controlled by the hosting provider
+(and hence, supposedly optimised for best speed and caching), mechanisms that are
+outside the scope of DNSP as a software.
+
+That said, you MUST use an external server that you trust and you can deploy on !
+
+Beware, having the PHP script running on the same local machine (not using a remote webservice)
+makes no sense and WILL make ALL of your DNS queries leaking. Useful for TESTING purposes only !!
 
 ## Architecture
 ```
@@ -33,9 +35,9 @@ assignement, or something like that.
    +---------  |DNSP listens on original|<------------+
    |           | socket used by HTTP(S) |             |
    |           +----------------------+               | reply is sent on HTTP(S)
-   |                     ^                            | back to DNSP which then
-   |                     | if valid answer  in        | forges a proper UDP/DNS response
-   |                     | local HTTP caches,         | as per RFC1035 & following.
+   |                     ^                            | back to DNSP (CURL) which then
+   |                     | if valid answer  in        | creates a proper UDP/DNS response,
+   |                     | local HTTP caches,         | in accordance to RFC1035 and other
    |                     | do not exit localhost      |
    v                     |                            :
  +----------+   +--------+-------+           /-------------------\
@@ -53,8 +55,8 @@ assignement, or something like that.
 
 ## Building
 
-Building is easy on Mac and Ubuntu, CentOS, Fedora... Probably UNIX and Windows.
-Based on curl libs, pthread, TLS and other standard libraries
+Building is easy on Linux, Mac... On UNIX and Windows.
+Based on CURL C library, pthread, TLS and other standards.
 
 For debian/ubuntu users:  
 `apt-get install libcurl4-openssl-dev`
@@ -66,25 +68,25 @@ or
 
 ## Installing
 
-### STEP 0, having access to the HTTP(S) nameserver webservice
+#### STEP 0, having access to the HTTP(S) nameserver webservice
 Deploy the **ns.php** on a webserver, possibly not your local machine.
 If you ignore how-to carry on such a task, or you do not have access to such a 
 webserver, just use my webservice, as per following examples.
 
-### STEP 1, having access to an HTTP(S) proxy, optional but suggested
+#### STEP 1, having access to an HTTP(S) proxy, optional but suggested
 Setup a caching proxy, on the local machine or on a remote host, and feed the 
 parameters of your HTTP caching/proxy server to the *dnsp* program (see host and
 port parameters, -H and -r).
 
-### STEP 2, simple compilation of DNSP binary prior to running
+#### STEP 2, simple compilation of DNSP binary prior to running
 Compile the *dnsp* binary by running provided build commands (make, for example)
 
 ## Caching answers in the network
 
-When You properly implement cache on the webserver, answers will come back in
-few milliseconds, after the first recursive resolution...
+DNS cache is populated with standard HTTP answers provided by the remote webservice (which in turn uses
+PHP headers in nslookup.php to influence such caching accordingly). A local caching-only proxy (on any LAN address for example) will help caching HTTP 304 "Not Modified" answers. DNS answers will come back in matter of milliseconds, after the first recursive resolution done eventually on the remote webservice...
 
-Tested on CloudFlare, Google Cloud Platform, Docker, etc
+Tested on CloudFlare, Google Cloud Platform, Docker, NGINX, Apache, etc
 
 ## Usage examples
 
@@ -97,25 +99,26 @@ dnsp -p 53 -s https://www.fantuz.net/nslookup.php
 # If you can leverage the use of local HTTP caching proxy running on non-default port (!=1080):
 dnsp -p 53 -l 127.0.0.1 -h 127.0.0.1 -r 8118 -s https://www.fantuz.net/nslookup.php
 
- # HTTP vs HTTPS modes (-w switch is obsolete, port detection is automatic):
-dnsp -p 53 -l 127.0.0.1 -w 80 -s http://www.fantuz.net/nslookup.php
-dnsp -p 53 -l 127.0.0.1 -w 443 -s https://www.fantuz.net/nslookup.php
+ # HTTP vs HTTPS modes
+dnsp -p 53 -l 127.0.0.1 -s http://www.fantuz.net/nslookup.php
+dnsp -p 53 -l 127.0.0.1 -s https://www.fantuz.net/nslookup.php
 ```
 
-In this example, DNS proxy listens on local UDP port 53 and sends the 
-request to the PHP script hosted at the example address, eventually through
-proxy (i.e. TOR, enterprise-proxy, locked-down country, etc).
+In this example, DNS proxy listens on local UDP port 53, and reuests the PHP script, eventually through
+additional proxy (i.e. TOR, enterprise-proxy, locked-down country, etc).
 
-You can rely on your favourite HTTP/HTTPS proxy server, should you need response caching.
-Any polipo, squid, nginx, Varnish, charles, SOCKS, TOR, will work properly with DNSP.
+Should you be willing to perform "response caching" (and sharing), you can rely on your favourite
+HTTP/HTTPS proxy server, as any of polipo, squid, nginx, Varnish, charles, SOCKS, TOR, will work 
+properly with DNSP.
 
-You can also run DNSP through HTTP(S) without a local proxy, directly attaching the DNSP server to
+You can also run DNSP through HTTP(S) without any caching or extra proxy, directly attaching the DNSP server to
 the remote resolver webservice (the nslookup.php can be hosted anywhere, i.e. on Google Cloud Platform).
 
 **IMPORTANT:** Please, don't use the script hosted on my server(s) as they serve as demo-only.
 They might be subject to unpredicted change, offlining, defacing.... Trust your own servers, and 
 host yourself as many *nslookup.php* scripts as you can, or send it on a friend's server!
-The more DNSP resolvers, the less DNS queries will be traceable (TOR leaking problem).
+
+The more DNSP resolvers around the world, the less DNS queries will be traceable (TOR leaking problem).
 
 ```bash
 
@@ -146,25 +149,28 @@ The more DNSP resolvers, the less DNS queries will be traceable (TOR leaking pro
 ```
 ## Changelog:
 
+TODO:
+* get on DNSSEC
+* get on DOH and H2 in simple way (CURL)
+* will soon add the arduino-ethernet library with the added select() function (sorry for delay)
+
+
 Version 1.5 - February 2018:
-* fixed README and easen installation/testing procedure
-* soon to get on DNSSEC
-* deleted some files
+* added IETF references
 * added Arduino double ethernet shield script
-* will soon add the arduino-ethernet library with the added select() function
+* fixed NS/CNAME answers (C) and resolver script (PHP)
 * added the GO version made by chinese people, inspired at my DNSP software
-* having few issues caching on ClouFlare-alike caches (304 not showing anymore ? want more of them).
+
 * everything works as usual: caching is lazy, CURL follows redirects (301, I want less of them)
 * other thought and implementations pending
-* added IETF references
-* fixed NS/CNAME answers (C) and resolver script (PHP)
+* fixed README and easen installation/testing procedure
+* deleted some junk files, renamed dirs for clarity
 * multiversion PHP, depending on hosting provider (due to slightly different implementation of print(), some headers, random css, substantial differences between h1/h2, etc).
-* about to add DOH and H2 in some way
 
 Version 1.01 - March 2017:
 * going back to either threads or vfork...
 * want to implement DNSSEC somehow
-* did improve code readability
+* having few issues caching on ClouFlare-alike caches (304 not showing anymore ? want more of them).
 * done more crashtest, memleak, timing tests
 * it really works with millions query !
 * published and improved a Varnish configuration as well
@@ -204,11 +210,11 @@ To test if DNS proxy is working correctly, first run the program as following, b
 filling in Your favorite TOR proxy address:
 
 ```bash
-dnsp -l 127.0.0.1 -w 443 -s https://www.fantuz.net/nslookup.php
+dnsp -l 127.0.0.1 -s https://www.fantuz.net/nslookup.php
 ```
 or
 ```
-dnsp -l 127.0.0.1 -w 443 -s https://php-dns.appspot.com/helloworld.php
+dnsp -l 127.0.0.1 -s https://php-dns.appspot.com/helloworld.php
 ```
 
 then, try to resolve an hostname using the **dig** command against your localhost DNSP:
@@ -247,12 +253,13 @@ your configuration, here's mine:
 # curl -s -H "Host: www.fantuz.net" -H "Remote Address:104.27.133.199:80" -H "User-Agent:Mozilla/5.0 \
 (Macintosh; Intel Mac OS X 10_6_8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 \
 Safari/537.36" 'http://www.fantuz.net/nslookup.php?host=fantuz.net&type=NS' | xxd
+
 # curl -s -H "Host: php-dns.appspot.com" -H "User-Agent:Mozilla/5.0 (Macintosh; Intel Mac OS X 10_6_8) \
 AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36" \
 'http://php-dns.appspot.com/helloworld.php?host=fantuz.net&type=NS' | xxd
 ```
 
-Values should end with bits 0d0a:
+Values should end with bits 0d0a. on any server (HEX is easy to read):
 ```
 00000000: 7364 6e73 332e 7668 6f73 7469 6e67 2d69  sdns3.vhosting-i
 00000010: 742e 636f 6d0d 0a                        t.com..
