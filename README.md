@@ -39,9 +39,9 @@ assignement, or something like that.
    |                     | do not exit localhost      |
    v                     |                            :
  +----------+   +--------+-------+           /-------------------\
- |client/OS | --+   DNSProxy     +---------->|                   |
- |  issues  |   +----------------+           | HTTP(S) webserver |
- | DNS qry  |   | can modify TTL |           |  (nslookup.php)   |
+ |client/OS | --+   DNSProxy     +---------->| webservice HTTPS  |
+ |  issues  |   +----------------+           |                   |
+ | DNS qry  |   | can modify TTL |           |   nslookup.php    |
  |(syscall) |   | blacklist,cache|           | does the real job |
  +---+------+   +----------------+           \-------------------/
      :                                  	        ^
@@ -140,7 +140,6 @@ The more DNSP resolvers, the less DNS queries will be traceable (TOR leaking pro
       -C		 Enable CURL VERBOSE, useful to spot cache issues or dig down into HSTS/HTTPS quirks
       -I		 Upgrade Insecure Requests, HSTS work in progress
       -R		 Enable CURL resolve mechanism, avoiding extra gethostbyname, work in progress
-      -S		 Enable HTTPS (obsolete option)
 
  Example DNS/HTTPS direct :  dnsp -s https://www.fantuz.net/nslookup.php
  Example DNS/HTTP w/cache :  dnsp -p 53 -l 127.0.0.1 -r 8118 -H 127.0.0.1 -s http://www.fantuz.net/nslookup.php
