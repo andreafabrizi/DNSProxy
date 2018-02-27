@@ -79,49 +79,6 @@ port parameters, -H and -r).
 ### STEP 2, simple compilation of DNSP binary prior to running
 Compile the *dnsp* binary by running provided build commands (make, for example)
 
-## Testing
-
-To test if DNS proxy is working correctly, first run the program as following, by
-filling in Your favorite TOR proxy address:
-
-```bash
-dnsp -l 127.0.0.1 -w 443 -s https://www.fantuz.net/nslookup.php
-```
-or
-```
-dnsp -l 127.0.0.1 -w 443 -s https://php-dns.appspot.com/helloworld.php
-```
-
-then, try to resolve an hostname using the **dig** command against your localhost DNSP:
-
-```bash
-dig www.google.com @127.0.0.1
-```
-
-The result must be something like this:
-
-```
-; <<>> DiG 9.8.1-P1 <<>> www.google.com @127.0.0.1
-;; global options: +cmd
-;; Got answer:
-;; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: 29155
-;; flags: qr aa rd ra; QUERY: 1, ANSWER: 1, AUTHORITY: 0, ADDITIONAL: 0
-
-;; QUESTION SECTION:
-;www.google.com. 		IN	A
-
-;; ANSWER SECTION:
-www.google.com.		3600	IN	A	173.194.64.106
-
-;; Query time: 325 msec
-;; SERVER: 127.0.0.1#53(127.0.0.1)
-;; WHEN: Fri May 17 11:52:08 2013
-;; MSG SIZE  rcvd: 48
-```
-
-If the test query works, you can safely replace "nameserver" entries on /etc/resolv.conf
-to start pointing ALL DNS TRAFFIC TO DNSP, leveregin DOH (DNS-over-HTTP).
-
 ## Caching answers in the network
 
 When You properly implement cache on the webserver, answers will come back in
@@ -228,6 +185,66 @@ Version 0.4 - November 16 2009:
 
 Version 0.1 - April 09 2009:
 * Initial release
+
+## Testing
+
+To test if DNS proxy is working correctly, first run the program as following, by
+filling in Your favorite TOR proxy address:
+
+```bash
+dnsp -l 127.0.0.1 -w 443 -s https://www.fantuz.net/nslookup.php
+```
+or
+```
+dnsp -l 127.0.0.1 -w 443 -s https://php-dns.appspot.com/helloworld.php
+```
+
+then, try to resolve an hostname using the **dig** command against your localhost DNSP:
+
+```bash
+dig www.google.com @127.0.0.1
+```
+
+The result must be something like this:
+
+```
+; <<>> DiG 9.8.1-P1 <<>> www.google.com @127.0.0.1
+;; global options: +cmd
+;; Got answer:
+;; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: 29155
+;; flags: qr aa rd ra; QUERY: 1, ANSWER: 1, AUTHORITY: 0, ADDITIONAL: 0
+
+;; QUESTION SECTION:
+;www.google.com. 		IN	A
+
+;; ANSWER SECTION:
+www.google.com.		3600	IN	A	173.194.64.106
+
+;; Query time: 325 msec
+;; SERVER: 127.0.0.1#53(127.0.0.1)
+;; WHEN: Fri May 17 11:52:08 2013
+;; MSG SIZE  rcvd: 48
+```
+
+If the test query works, you can safely replace "nameserver" entries on /etc/resolv.conf
+to start pointing ALL DNS TRAFFIC TO DNSP, leveregin DOH (DNS-over-HTTP).
+
+To test if nslookup.php is correctly deployed (eventually on your protected server), replace values accordingly to 
+your configuration, here's mine:
+```
+# curl -s -H "Host: www.fantuz.net" -H "Remote Address:104.27.133.199:80" -H "User-Agent:Mozilla/5.0 \
+(Macintosh; Intel Mac OS X 10_6_8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 \
+Safari/537.36" 'http://www.fantuz.net/nslookup.php?host=fantuz.net&type=NS' | xxd
+# curl -s -H "Host: php-dns.appspot.com" -H "User-Agent:Mozilla/5.0 (Macintosh; Intel Mac OS X 10_6_8) \
+AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36" \
+'http://php-dns.appspot.com/helloworld.php?host=fantuz.net&type=NS' | xxd
+```
+
+Values should end with bits 0d0a:
+```
+00000000: 7364 6e73 332e 7668 6f73 7469 6e67 2d69  sdns3.vhosting-i
+00000010: 742e 636f 6d0d 0a                        t.com..
+```
 
 ## References:
 

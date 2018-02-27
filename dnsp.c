@@ -874,7 +874,9 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
 	    curl_easy_setopt(ch, CURLOPT_VERBOSE,  0);			/* Verbose OFF */
     }
 
-    /* curl -H "Host: www.fantuz.net" -H "Remote Address:217.114.216.51:80" -H "Request URL:http://www.fantuz.net/nslookup.php" -H "Host:www.fantuz.net" -H "User-Agent:Mozilla/5.0 (Macintosh; Intel Mac OS X 10_6_8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36" http://www.fantuz.net/nslookup.php?host=fantuz.net
+    /*
+     curl -s -H "Host: www.fantuz.net" -H "Remote Address:104.27.133.199:80" -H "User-Agent:Mozilla/5.0 (Macintosh; Intel Mac OS X 10_6_8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36" 'http://www.fantuz.net/nslookup.php?host=fantuz.net&type=NS' | xxd
+     curl -s -H "Host: php-dns.appspot.com" -H "User-Agent:Mozilla/5.0 (Macintosh; Intel Mac OS X 10_6_8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36" 'http://php-dns.appspot.com/helloworld.php?host=fantuz.net&type=NS' | xxd
     */
 
     curl_easy_setopt(ch, CURLOPT_SSL_VERIFYPEER, 0L);
