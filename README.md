@@ -33,20 +33,20 @@ assignement, or something like that.
    +---------  |DNSP listens on original|<------------+
    |           | socket used by HTTP(S) |             |
    |           +----------------------+               | reply is sent on HTTP(S)
-   |                    ^                             | back to DNSP which then
-   |                    | if valid answer  in         | forges a proper UDP/DNS response
-   |                    | local HTTP caches,          | as per RFC1035 & following.
-   |                    | do not exit localhost       |
-   v                    |                             :
+   |                     ^                            | back to DNSP which then
+   |                     | if valid answer  in        | forges a proper UDP/DNS response
+   |                     | local HTTP caches,         | as per RFC1035 & following.
+   |                     | do not exit localhost      |
+   v                     |                            :
  +----------+   +--------+-------+           /-------------------\
  |client/OS | --+   DNSProxy     +---------->|                   |
  |  issues  |   +----------------+           | HTTP(S) webserver |
  | DNS qry  |   | can modify TTL |           |  (nslookup.php)   |
  |(syscall) |   | blacklist,cache|           | does the real job |
  +---+------+   +----------------+           \-------------------/
-     :                                  	  ^
-     |  qry goes to DNSP daemon on 127.0.0.1:53   |
-     +--------------------------------------------+
+     :                                  	        ^
+     |  UDP query goes to DNSP daemon on 127.0.0.1:53   |
+     +--------------------------------------------------+
 	and is being transported on HTTP, with
            no use of DNS or UDP whatsoever 
 ```
@@ -89,26 +89,27 @@ Tested on CloudFlare, Google Cloud Platform, Docker, etc
 ## Usage examples
 
 ```bash
- # You can use a caching HTTP proxy
-dnsp -p 53 -l 127.0.0.1 -h 127.0.0.1 -r 8118 -w 80 -s https://www.fantuz.net/nslookup.php
+ # If you can use a local HTTP caching proxy running on non-default port (!=1080):
+dnsp -p 53 -l 127.0.0.1 -h 127.0.0.1 -r 8118 -s https://www.fantuz.net/nslookup.php
 
- # You want just to surf anonymously, using the HTTP/DNS service without HTTP caching proxy
-dnsp -p 53 -l 127.0.0.1 -s https://www.fantuz.net/ns.php
+ # You want just to surf anonymously, using the HTTPS/DNS service without HTTP caching proxy
+ # but still want DNS traffic to be to be encrypted (simplest mode):
+dnsp -p 53 -l 127.0.0.1 -s https://www.fantuz.net/nslookup.php
 
- # HTTP vs HTTPS modes
+ # HTTP vs HTTPS modes (-w switch is obsolete, port detection is automatic):
 dnsp -p 53 -l 127.0.0.1 -w 80 -s http://www.fantuz.net/nslookup.php
 dnsp -p 53 -l 127.0.0.1 -w 443 -s https://www.fantuz.net/nslookup.php
 ```
 
 In this example, DNS proxy listens on local UDP port 53 and sends the 
 request to the PHP script hosted at the example address, eventually through
-proxy (i.e. TOR, squid, charles).
+proxy (i.e. TOR, enterprise-proxy, locked-down country, etc).
 
 You can rely on your favourite HTTP/HTTPS proxy server, should you need response caching.
 Any polipo, squid, nginx, Varnish, charles, SOCKS, TOR, will work properly with DNSP.
 
-You can also run DNSP through HTTP(S) without proxy, directly attaching the DNSP server to
-the remote resolver webservice.
+You can also run DNSP through HTTP(S) without a local proxy, directly attaching the DNSP server to
+the remote resolver webservice (the nslookup.php can be hosted anywhere, i.e. on Google Cloud Platform).
 
 **IMPORTANT:** Please, don't use the script hosted on my server as demonstration.
 It might be subjected to umpredicted change, offlining, defacing....
@@ -117,7 +118,7 @@ The more DNSP resolvers, the less DNS queries will be traceable (TOR leaking pro
 
 ```bash
  dnsp 1.5
- usage: dnsp -l [local_host] -p [local_port] -h [proxy_host] -r [proxy_port] -w [lookup_port] -s [lookup_script] -
+ usage: dnsp [ -l [local_host]] [-p [local_port]] [-h [proxy_host]] [-r [proxy_port]] [-w [lookup_port]] -s [lookup_script] -
 
  OPTIONS:
       -l		 Local server address
@@ -126,15 +127,16 @@ The more DNSP resolvers, the less DNS queries will be traceable (TOR leaking pro
       -r		 Cache proxy port	(strongly suggested)
       -u		 Cache proxy username	(optional)
       -k		 Cache proxy password	(optional)
-      -s		 Lookup script URL
-      -w		 Lookup port		(optional, defaults to 80/443 for HTTP/HTTPS)
+      -s		 Lookup script URL	(mandatory option)
+      -w		 Lookup port		(obsolete, defaults to 80/443 for HTTP/HTTPS)
       -t		 Stack size in format	0x1000000 (MB)
       -v		 Enable DEBUG
-      -S		 Enable HTTPS
+      -C		 Enable CURL DEBUG
+      -S		 Enable HTTPS (obsolete option)
 
- Example HTTP+proxy   :  dnsp -p 53 -l 127.0.0.1 -r 8118 -H 127.0.0.1 -w 80 -s http://www.fantuz.net/nslookup.php
- Example HTTPS direct :  dnsp -p 53 -l 127.0.0.1 -w 443 -s https://www.fantuz.net/nslookup.php
-
+ Example HTTPS direct :  dnsp -s https://www.fantuz.net/nslookup.php
+ Example HTTP+proxy   :  dnsp -p 53 -l 127.0.0.1 -r 8118 -H 127.0.0.1 -s http://www.fantuz.net/nslookup.php
+ 
 ```
 ## Changelog:
 
@@ -148,6 +150,10 @@ Version 1.5 - February 2018:
 * having few issues caching on ClouFlare-alike caches (304 not showing anymore ? want more of them).
 * everything works as usual: caching is lazy, CURL follows redirects (301, I want less of them)
 * other thought and implementations pending
+* added IETF references
+* fixed NS/CNAME answers (C) and resolver script (PHP)
+* multiversion PHP, depending on hosting provider (due to slightly different implementation of print(), some headers, random css, substantial differences between h1/h2, etc).
+* about to add DOH and H2 in some way
 
 Version 1.01 - March 2017:
 * going back to either threads or vfork...
