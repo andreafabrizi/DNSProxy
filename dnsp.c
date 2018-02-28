@@ -280,11 +280,15 @@ struct dns_request *parse_dns_request(const char *udp_request, size_t request_le
     dns_req->questions_num = (uint8_t)udp_request[1] + (uint16_t)(udp_request[0] << 8); 
     udp_request+=2;
 
-    /* Skipping 6 not interesting bytes 
+    /* WHERE IS EDNS ?? */
+
+    /* Skipping 6 not interesting bytes, override with shortened answers (one of the initial purpose of DNSP software) */
+    /*
        uint16_t Answers number 
        uint16_t Records number 
        uint16_t Additionals records number 
     */
+
     udp_request+=6;
     
     /* Getting the dns query */
@@ -854,10 +858,10 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
 
     free(pointer);
   
-    //return 0;    
-    static const char *pCertFile = "testcert.pem";
-    static const char *pCACertFile="fantuznet.pem";
-    static const char *pHeaderFile = "dumpit";
+    // LOAD YOUR CA/CERT HERE
+    //static const char *pCertFile = "testcert.pem";
+    //static const char *pCACertFile="fantuznet.pem";
+    //static const char *pHeaderFile = "dumpit";
 
     /* curl setup */
     ch = curl_easy_init();
@@ -1399,7 +1403,8 @@ int main(int argc, char *argv[])
         stack = malloc(STACK_SIZE);
         if (stack == NULL)
             errExit("malloc");
-        stackTop = stack + STACK_SIZE;  /* Assume stack grows downward */
+	/* Assume stack grows downward */
+        stackTop = stack + STACK_SIZE;
 
         /* Create child that has its own UTS namespace; child commences execution in childFunc() */
 
@@ -1411,18 +1416,24 @@ int main(int argc, char *argv[])
         //sleep(1);           /* Give child time to change its hostname */
 
 
-	//// pid = clone(fn, stack_aligned, CLONE_VM | SIGCHLD, arg);
-	//// pid = clone(childFunc, stackTop, CLONE_NEWUTS | SIGCHLD, argv[1]);
-	//// posix_spawn()
+	// CLONE, process
+	// pid = clone(fn, stack_aligned, CLONE_VM | SIGCHLD, arg);
+	// pid = clone(childFunc, stackTop, CLONE_NEWUTS | SIGCHLD, argv[1]);
+	// posix_spawn()
 	
-	//if (fork() == 0) {
-	if (vfork() == 0) {
+	/* PID PLACEHOLDER LEFT FOR HOUSEKEEPING: processes */
 	// pid = clone(parse_dns_request, stack_aligned, CLONE_VM | SIGCHLD, request request_len);
 	//if (pid == 0) {
-
 	//if (clone(parse_dns_request, stack_aligned, CLONE_VM | SIGCHLD, request, request_len)) {
-	    
+	
+	/* still monolithic, but it suffice to take millions query load */
+	//if (fork() == 0) {
+	if (vfork() == 0) {
+
+	    /* LEFT FOR HOUSEKEEPING, SEMAPHORE LOGIC */
 	    sem_wait(&mutex);
+
+	    /* DNS/UDP PARSE */
    	    dns_req = parse_dns_request(request, request_len);
 
 	    if (DEBUG) {
@@ -1436,8 +1447,13 @@ int main(int argc, char *argv[])
                 exit(EXIT_FAILURE);
             }
 
+	    /* WORK IN PROGRESS: QUERY DETECTION */
+	    
+	    // https://en.wikipedia.org/wiki/List_of_DNS_record_types
+	    // AAAA is 0x1c, dec 28.
 	    //1c AAAA
 	    //6 SOA
+
 	    if (dns_req->qtype == 0x02) {
 		typeq = "NS";
 	    } else if (dns_req->qtype == 0x0c) {
@@ -1451,29 +1467,29 @@ int main(int argc, char *argv[])
 	    } else { //{ dns_req->qtype == 0xff;} 
 		printf("gotcha: %x \r\n",dns_req->qtype);} //PTR ?
 
-	    // https://en.wikipedia.org/wiki/List_of_DNS_record_types
-	    // AAAA is 0x1c, dec 28.
-	    //
-
 	    /*
-	     * CORE DNS LOOKUP IS MADE ONCE (via HTTP against nslookup.php) THEN CACHED INTO THE NETWORK (polipo, memcache ...)
-	     * IMPLEMENTS DOMAIN BLACKLISTING, AUTHENTICATION, SSL, THREADS
+	     * CORE DNS LOOKUP IS MADE ONCE (via CURL/HTTP against nslookup.php) 
+	     * THEN SUCH ANSWER MIGHT BE CACHED IN THE NETWORK (polipo, memcache, CDN, CloudFlare, Varnish, GCP, ...)
+	     * DNS-OVER-HTTP IMPLEMENTS DOMAIN BLACKLISTING, AUTHENTICATION, SSL, THREADS... simple and effective !
 	    */
 
 	    /* OPTION --> BUFFER SIZE */
 	    // int sndbuf = 512;
 	    // int rcvbuf = 512;
 	    // int yes = 1;
+	    
+	    /* SETSOCKOPT doesn't always play nicely, left for housekeeping */
+	    /* Depending on TCP ALGO IN USE BY THE MACHINE (tahoe,bic,cubic...) mileage may vary */
 	    // //setsockopt(sockfd, SOL_SOCKET, SO_RCVBUF, &buffsize, sizeof(buffsize));
 	    // setsockopt(sockfd, SOL_SOCKET, SO_RCVBUF, &rcvbuf, sizeof(sndbuf));
 	    // setsockopt(sockfd, SOL_SOCKET, SO_SNDBUF, &sndbuf, sizeof(rcvbuf));
 	    // setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int));
 
 	    int ret;
-	    //int test = 42;
+	    //int test = 42; // the answer, used in development
 	    int xwport = wport;
 	    int xsockfd;
-	    //char* str = "maxnumberone";
+	    //char* str = "maxnumberone"; // another pun
 	    int xproxy_port = proxy_port;
 	    char* xproxy_user = NULL;
 	    char* xproxy_pass = NULL;
@@ -1507,12 +1523,16 @@ int main(int argc, char *argv[])
 	    readParams->xrequestlen = request_len;
 	    //free(out_array);
 
+	    /* LEFT FOR HOUSEKEEPING: thread retuns if needed */
 	    //tinfo = calloc(NUMT, sizeof(struct thread_info));
 	    //if (tinfo == NULL) handle_error("calloc");
 	
+	    /* ISSUES IN CREATING SUCH A THREAD ? NO I DID NOT */
+	    /* AS DISCUSSED, we stick to monolithic/vfork */
 	    //errore = pthread_create(&tid[i], NULL, threadFunc, &data_array[i]);
 	    //if (i=sizeof(pth)) { i = 0 ;}
 
+	    /*
 	    if (pthread_mutex_trylock(&mutex)) {
 		//ret = pthread_create(&pth[i],NULL,threadFunc,readParams);
 		if (DEBUG) {
@@ -1523,6 +1543,7 @@ int main(int argc, char *argv[])
 		    printf("lock NOT OK ...\n");
 		}
 	    }
+	    */
 
 	    threadFunc(readParams);
 	    ret = pthread_create(&pth[i],&attr,threadFunc,readParams);
@@ -1579,7 +1600,7 @@ int main(int argc, char *argv[])
    	    //printf("ELSE: Thread/process ID : %d\n", getpid());
 	    //if (nnn > 32) {wait(NULL);}
 	    continue;
-	    //break;
+	    //break; // sometimes you just need to take a break
 
 ////	    for(nnn=0; nnn< NUMT; nnn++) {
 ////	        //struct sockaddr_in *xclient = (struct sockaddr_in *)params->xclient;
@@ -1588,7 +1609,7 @@ int main(int argc, char *argv[])
             	//pthread_join(pth[i],NULL);
 ////	    }
 
-// LOCKS AND MUTEXES
+/* LOCKS AND MUTEXES */
 ////	    pthread_mutex_lock(&mutex);
 ////	    if (pthread_mutex_unlock(&mutex)) {
 ////	        //printf("unlock OK.. but no RET\n");
@@ -1598,19 +1619,27 @@ int main(int argc, char *argv[])
 ////	    } 
             //sem_destroy(&mutex);
 
-// JOIN THREADS
-//	    if(pthread_join(pth[i], NULL)) {
-//	    	//fprintf(stderr, "Finished serving client %s on socket %u \n",(struct sockaddr_in *)&client->sin_addr.s_addr,sockfd);
-//	    }
+	    /* JOIN THREADS */
+	    /*
+	    if(pthread_join(pth[i], NULL)) {
+	    	//fprintf(stderr, "Finished serving client %s on socket %u \n",(struct sockaddr_in *)&client->sin_addr.s_addr,sockfd);
+	    }
+	    */
 
-// LOCKS AND MUTEXES
+	    /* LOCKS AND MUTEXES */
+	    /*
 	    //pthread_mutex_destroy(&mutex);
 	    // DO NOT USE
-	    //sem_post(&mutex);
+	    //sem_post(&mutex); // sem_post is fun and dangerous
+	    */
 
-            //exit(EXIT_FAILURE);
+            //exit(EXIT_FAILURE); // did we ?
+	    
+	    /* THREAD JOIN ENDING, RELEASE */
+	    /*
 	    //pthread_join(pth[i],NULL);
 	    //pthread_exit(NULL);
+	    */
 
 	    // NONSENSE CAUSE WE ARE NOT IN THREAD-MODEL ANYMORE ... LEFT FOR HOUSEKEEPING
 	    //if (DEBUG) {fprintf(stderr, "Finished joining thread i-> %d, nnn-> %d \n",i,nnn);}
