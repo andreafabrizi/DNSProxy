@@ -994,8 +994,8 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
 	//curl_slist_free_all(hosting);
     	printf("Here inside curl, %s\n",http_response);
         //http_response = "0.0.0.0";
+        return NULL;
     }
-    
    
     if (DEBUG) {
         printf("---\n%s\n---\n",http_response);
