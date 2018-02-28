@@ -149,25 +149,24 @@ The more DNSP resolvers around the world, the less DNS queries will be traceable
 ```
 ## Changelog:
 
-TODO:
+#### TODO and WIP:
 * get on DNSSEC
 * get on DOH and H2 in simple way (CURL)
-* will soon add the arduino-ethernet library with the added select() function (sorry for delay)
+* soon to add the arduino-ethernet library with the new select() function (sorry for delay)
 
-Version 1.5 - February 2018:
+#### Version 1.5 - February 2018:
 * added IETF references
 * added Arduino double ethernet shield script
 * fixed NS/CNAME answers (C) and resolver script (PHP)
 * added the GO version made by chinese people, inspired at my DNSP software
 * MIT License in accordance to transfer of rights operated via mail by Andrea
-
 * everything works as usual: caching is lazy, CURL follows redirects (301, I want less of them)
 * other thought and implementations pending
 * fixed README and easen installation/testing procedure
 * deleted some junk files, renamed dirs for clarity
 * multiversion PHP, depending on hosting provider (due to slightly different implementation of print(), some headers, random css, substantial differences between h1/h2, etc).
 
-Version 1.01 - March 2017:
+#### Version 1.01 - March 2017:
 * going back to either threads or vfork...
 * want to implement DNSSEC somehow
 * having few issues caching on ClouFlare-alike caches (304 not showing anymore ? want more of them).
@@ -175,7 +174,7 @@ Version 1.01 - March 2017:
 * it really works with millions query !
 * published and improved a Varnish configuration as well
 
-Version 1.01 - April 2015:
+#### Version 1.01 - April 2015:
 * HTTPS resolver support (even more privacy)
 * Multithreading listener/responder
 * Better nginx/polipo setup
@@ -183,47 +182,42 @@ Version 1.01 - April 2015:
 * Will add TCP listener/responder soon
 * Some issue to set the proper ETag on polipo
 
-Version 0.99 - July 2014:
+#### Version 0.99 - July 2014:
 * Add HTTP port selection
 * Add NS, MX, AAAA, PTR, CNAME and other resolving capabilities.
 * Code cleanup and performance review.
 * Implementation with nginx and memcache and load testing 
 
-Version 0.5 - May 17 2013:
+#### Version 0.5 - May 17 2013:
 * Add proxy authentication support
 * port option is now optional (default is 53)
 * Fixed compilation error
 * Minor bug fixes
 
-Version 0.4 - November 16 2009:
+#### Version 0.4 - November 16 2009:
 * Now using libCurl for http requests
 * Implemented concurrent DNS server
 * Bug fixes
 * Code clean
 
-Version 0.1 - April 09 2009:
+#### Version 0.1 - April 09 2009:
 * Initial release
 
 ## Testing
 
-To test if DNS proxy is working correctly, first run the program as following, by
-filling in Your favorite TOR proxy address:
+To test if DNS proxy is working correctly, you can use tcpdump. Or simply run the program as follows,
+maybe just change the webservice address:
 
 ```bash
 dnsp -l 127.0.0.1 -s https://www.fantuz.net/nslookup.php
 ```
-or
-```
-dnsp -l 127.0.0.1 -s https://php-dns.appspot.com/helloworld.php
-```
-
-then, try to resolve an hostname using the **dig** command against your localhost DNSP:
+Open a new terminal and invoke **dig** to resolve a sample hostname against your brand-new 
+localhost instance of DNSP:
 
 ```bash
 dig www.google.com @127.0.0.1
 ```
-
-The result must be something like this:
+The result must be something like this, no errors or warning shall be trown:
 
 ```
 ; <<>> DiG 9.8.1-P1 <<>> www.google.com @127.0.0.1
@@ -244,11 +238,11 @@ www.google.com.		3600	IN	A	173.194.64.106
 ;; MSG SIZE  rcvd: 48
 ```
 
-If the test query works, you can safely replace "nameserver" entries on /etc/resolv.conf
-to start pointing ALL DNS TRAFFIC TO DNSP, leveregin DOH (DNS-over-HTTP).
+If the test query works, you can safely replace the "nameserver" entries on /etc/resolv.conf
+and immediately point ALL DNS TRAFFIC towards DNSP, leveraging DOH (DNS-over-HTTP) capabilites.
 
-To test if nslookup.php is correctly deployed (eventually on your protected server), replace values accordingly to 
-your configuration, here's mine:
+To test whether nslookup.php is correctly deployed and resolving, you could use **bash** (curl).
+Replace URL value in accordance with script location. Here are two that I use to check my deploys:
 ```
 # curl -s -H "Host: www.fantuz.net" -H "Remote Address:104.27.133.199:80" -H "User-Agent:Mozilla/5.0 \
 (Macintosh; Intel Mac OS X 10_6_8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 \
@@ -273,5 +267,5 @@ Values should end with bits 0d0a. on any server (HEX is easy to read):
 * https://tools.ietf.org/html/draft-ietf-doh-dns-over-https-03
 
 ## License
-MIT license, all rights free.
+MIT license, all rights included.
 
