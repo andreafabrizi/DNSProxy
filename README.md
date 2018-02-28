@@ -31,10 +31,10 @@ makes no sense and WILL make ALL of your DNS queries leaking. Useful for TESTING
 
 ## Architecture
 ```
-               +------------------------+
-   +---------  |DNSP listens on original|<------------+
-   |           | socket used by HTTP(S) |             |
-   |           +----------------------+               | reply is sent on HTTP(S)
+              +--------------------------+
+   +----------| DNSP listens on original |<----------+
+   |          | socket used by HTTP(S)   |            |
+   |          +--------------------------+            | reply is sent on HTTP(S)
    |                     ^                            | back to DNSP (CURL) which then
    |                     | if valid answer  in        | creates a proper UDP/DNS response,
    |                     | local HTTP caches,         | in accordance to RFC1035 and other
@@ -62,9 +62,9 @@ For debian/ubuntu users:
 `apt-get install libcurl4-openssl-dev`
 
 Once done installing pre-requisites, compile with:
-`make`
-or
-`gcc dnsp.c -W -lcurl -g -lpthread -DTLS -rdynamic -lrt -o dnsp`
+`make all`
+or manually
+`gcc dnsp.c -W -lcurl -g -lpthread -DTLS -rdynamic -lrt -w -o dnsp`
 
 ## Installing
 

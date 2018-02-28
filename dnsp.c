@@ -84,8 +84,8 @@
 
 pthread_key_t glob_var_key_ip;
 pthread_key_t glob_var_key_client;
-//static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
-static pthread_mutex_t mutex = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
+//static pthread_mutex_t mutex = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
+static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 //pthread_mutex_t mutex = PTHREAD_ERRORCHECK_MUTEX_INITIALIZER_NP;
 pthread_mutexattr_t MAttr;
 
