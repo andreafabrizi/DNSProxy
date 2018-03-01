@@ -55,31 +55,31 @@ if (isSet($_GET["host"]) && isSet($_GET["type"])) {
                 print_r($authns);
                 print_r($addtl);
                 //$ccc = sizeof($result);
-                //print $result[rand(0,$ccc-1)][mname];
+                //print $result[rand(0,$ccc-1)]["mname"];
     }
     if ($_GET["type"] == "SOA"){
                 $result = dns_get_record($host, DNS_SOA, $authns, $addtl);
                 $ccc = sizeof($result);
-                print $result[rand(0,$ccc-1)][mname];
+                print $result[rand(0,$ccc-1)]["mname"];
 	}
     if ($_GET["type"] == "SPF" || $_GET["type"] == "TXT"){
                 $res = dns_get_record($host, DNS_TXT, $authns, $addtl) or print '0.0.0.0';
 
                 $ccc = sizeof($res);
-                $result = $res[rand(0,$ccc-1)][txt];
+                $result = $res[rand(0,$ccc-1)]["txt"];
                 print $result . '</br>';
                 
-				$ddd = sizeof($res[entries]);
+				$ddd = sizeof($res["entries"]);
 				
-				$rx = $res[rand(0,$ddd-1)][entries][0];
+				$rx = $res[rand(0,$ddd-1)]["entries"][0];
                 print_r($rx);
                 print '</br>';
                 
-				$rm = $res[rand(0,$ddd-1)][entries][1];
+				$rm = $res[rand(0,$ddd-1)]["entries"][1];
                 print_r($rm);
                 print '</br>';
                 
-				$rv = $res[rand(0,$ddd-1)][entries][2];
+				$rv = $res[rand(0,$ddd-1)]["entries"][2];
                 print_r($rv);
                 print '</br>';
                 
@@ -90,13 +90,13 @@ if (isSet($_GET["host"]) && isSet($_GET["type"])) {
     if ($_GET["type"] == "AAAA"){
                 $res = dns_get_record($host, DNS_AAAA, $authns, $addtl) or print '0.0.0.0';
                 $ccc = sizeof($res);
-                $result = $res[rand(0,$ccc-1)][ipv6];
+                $result = $res[rand(0,$ccc-1)]["ipv6"];
            	print_r($result);
 	}
 	if ($_GET["type"] == "MX"){
 		$res = (dns_get_record($host, DNS_MX, $authns, $addtl)) or print '0.0.0.0';
 		$ccc = sizeof($res);
-		$result = $res[rand(0,$ccc-1)][target];
+		$result = $res[rand(0,$ccc-1)]["target"];
 		print $result;
 		//$r2 = dns_get_record($h2, DNS_A, $authns, $addtl);
 		//$ddd = sizeof($r2);
@@ -107,14 +107,18 @@ if (isSet($_GET["host"]) && isSet($_GET["type"])) {
 		$ccc = sizeof($res);
 		//print $res[rand(0,$ccc-1)][target];
 		//print_r($res[rand(0,$ccc-1)][target]);
-		$result = $res[rand(0,$ccc-1)][target];
-		echo "$result\r\n\t" ;
+		$result = $res[rand(0,$ccc-1)]["target"];
+		if ($result) {
+			echo "$result\r\n\t" ;
+		} else {
+			echo "0.0.0.0\r\n\t";
+		}
            	//print_r($result);
         }
         if ($_GET["type"] == "A"){
                 $result = (dns_get_record($host, DNS_A, $authns, $addtl)) or print '0.0.0.0';
 		$ccc = sizeof($result);
-		print $result[rand(0,$ccc-1)][ip];
+		print $result[rand(0,$ccc-1)]["ip"];
 		//print $result[rand(0,$ccc-1)][ipv4];
 		//print_r(array_keys($result[0]));
         }
@@ -123,8 +127,12 @@ if (isSet($_GET["host"]) && isSet($_GET["type"])) {
 		$ccc = sizeof($res);
 		//print $res[rand(0,$ccc-1)][target];
 		//print_r($res[rand(0,$ccc-1)][target]);
-		$result = $res[rand(0,$ccc-1)][target];
-		echo "$result\r\n" ;
+		$result = $res[rand(0,$ccc-1)]["target"];
+		if ($result) {
+			echo "$result\r\n\t" ;
+		} else {
+			echo "0.0.0.0\r\n\t";
+		}
 		//echo nl2br();
 		//$r2 = dns_get_record($h2, DNS_A, $authns, $addtl);
 		//echo $result[0][class];
@@ -136,7 +144,7 @@ if (isSet($_GET["host"]) && isSet($_GET["type"])) {
                 //$result = dns_get_record($host, DNS_NS, $authns, $addtl);
                 $result = (dns_get_record($host, DNS_A, $authns, $addtl)) or print '0.0.0.0';
                 $ccc = sizeof($result);
-                print $result[rand(0,$ccc-1)][ip];
+                print $result[rand(0,$ccc-1)]["ip"];
 	} else {
 		print '0.0.0.0';
 	}
@@ -144,5 +152,4 @@ if (isSet($_GET["host"]) && isSet($_GET["type"])) {
 //        if ($ip != $host) die ($ip);
 //        $ip = gethostbyname($host);
 //        $mx = getmxrr($host);
-
-
+?>

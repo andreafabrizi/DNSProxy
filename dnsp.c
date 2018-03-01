@@ -821,10 +821,10 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
     CURLSH *curlsh;
     char *http_response,
          *script_url,
-	 *pointer ; //	 *proxy_host_char;
+	 *pointer ;
     char base[1];
 
-    int ret; //, proxy_port_int = 8118;
+    int ret;
     //struct curl_slist *hosting = NULL;
     struct curl_slist *list = NULL;
 
@@ -834,10 +834,6 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
     
     snprintf(script_url, URL_SIZE-1, "%s?host=%s&type=%s", lookup_script, host, typeq);
     //printf(http_response);
-
-    /* PROXY HOST INPUT VALIDATION ... to be improved for sanitisation */
-    //snprintf(proxy_host_char, URL_SIZE-1, "http://%s:%d", proxy_host, proxy_port);
-    //printf(proxy_host_char);
 
     /* HTTPS DETECTION CODE ... might be better :) */
     pointer = substring( script_url, 5, 1);
@@ -849,10 +845,10 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
     //printf("Result is \"%d\"\n", result);
 
     if(result == 0) {
-    	    //printf("USING HTTPS !! GOOD CHOICE :)\n");
+	    printf(" *** USING HTTPS :)\n *** GOOD CHOICE :)\n *** Proxy host: %s\n",proxy_host);
 	    wport=443;
     } else {
-    	    //printf("USING HTTP :( full anonymity not guaranteed (MITM attacks-prone)\n");
+	    printf(" *** USING HTTP  :(\n *** full DNS anonymity not guaranteed (MITM attacks-prone)\n");
 	    wport=80;
     }
 
@@ -871,23 +867,6 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
     //curl_easy_setopt(ch, CURLOPT_DNS_CACHE_TIMEOUT, 3600);
     //curl_easy_setopt(ch, CURLOPT_DNS_USE_GLOBAL_CACHE, 1);	/* DNS CACHE  */
     curl_easy_setopt(ch, CURLOPT_NOPROGRESS, 1L);		/* No progress meter */
-
-    //printf(proxy_host);
-    //printf(proxy_port);
-
-    //if ((proxy_host != NULL) && (proxy_port != NULL)) {
-    //if ((proxy_host_char != NULL) && (proxy_port_int > 0 && proxy_port_int < 65535)) {
-    	//curl_easy_setopt(ch, CURLOPT_PROXY, "http://192.168.3.93:8118");
-    	//curl_easy_setopt(ch, CURLOPT_PROXY, "http://127.0.0.1/"); //1080
-    	//curl_easy_setopt(ch, CURLOPT_PROXYPORT, proxy_port_int);	/* 1080, 8118, 8888, 9500, ... */
-    	//curl_easy_setopt(ch, CURLOPT_PROXYTYPE, CURLPROXY_HTTP);
-	//
-    	/* optional proxy username and password */
-    	if ((proxy_user != NULL) && (proxy_pass != NULL)) {
-    	    curl_easy_setopt(ch, CURLOPT_PROXYUSERNAME, proxy_user);
-    	    curl_easy_setopt(ch, CURLOPT_PROXYPASSWORD, proxy_pass);
-    	}
-    //}
 
     if (DEBUGCURL) {
 	    curl_easy_setopt(ch, CURLOPT_VERBOSE,  1);			/* Verbose ON  */
@@ -931,6 +910,23 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
     /* try to see if it works .. not sure anymore */
     //curl_easy_setopt(ch, CURLINFO_HEADER_OUT, "" );
     //curl_easy_setopt(ch, CURLOPT_HEADER, 1L);
+
+    /* PROXY HOST INPUT VALIDATION ... to be improved for sanitisation */
+    if (DEBUG) {
+	printf("\n\nUsing local HTTP proxy cache from http://%s:%d\n\n", proxy_host, proxy_port);
+    }
+    //if ((proxy_host != NULL) && (proxy_port != NULL)) {
+    //if ((proxy_host != "") && (proxy_port != NULL)) {
+
+    	curl_easy_setopt(ch, CURLOPT_PROXY, proxy_host); //127.0.0.1 by default
+    	curl_easy_setopt(ch, CURLOPT_PROXYPORT, proxy_port);	/* 1080, 8118, 8888, 9500, ... */
+    	curl_easy_setopt(ch, CURLOPT_PROXYTYPE, CURLPROXY_HTTP);
+	
+    	/* optional proxy username and password */
+    	if ((proxy_user != NULL) && (proxy_pass != NULL)) {
+    	    curl_easy_setopt(ch, CURLOPT_PROXYUSERNAME, proxy_user);
+    	    curl_easy_setopt(ch, CURLOPT_PROXYPASSWORD, proxy_pass);
+    	}
 
     /* OVERRIDE RESOLVER --> add resolver CURL header, work in progress */
     // in the form of CLI --resolve my.site.com:80:1.2.3.4, -H "Host: my.site.com"
@@ -1157,8 +1153,11 @@ int main(int argc, char *argv[])
     struct utsname uts;
     struct sockaddr_in serv_addr;
     struct hostent *local_address;
+    //struct hostent *proxy_address;
+    //char *bind_proxy = NULL;
     char *bind_address = NULL, *proxy_host = NULL, *proxy_user = NULL,
-         *proxy_pass = NULL, *typeq = NULL, *lookup_script = NULL, *httpsssl = NULL; 
+         *proxy_pass = NULL, *typeq = NULL, *lookup_script = NULL,
+	 *httpsssl = NULL; 
     
     opterr = 0;
     DEBUG = 0;
@@ -1296,6 +1295,15 @@ int main(int argc, char *argv[])
         abort ();
     }
 
+    if (proxy_host != NULL) {
+        fprintf(stderr, "Yay !! HTTP caching proxy configured, continuing with cache\n");
+        fprintf(stderr, "Bind proxy host: %s\n",proxy_host);
+	//proxy_address = proxy_host;
+        //fprintf(stderr, "Bind proxy string: %s\n",proxy_address);
+    } else {
+        fprintf(stderr, "No HTTP caching proxy configured, continuing without cache\n");
+    }	
+
     if (bind_address == NULL) {
 	bind_address = "127.0.0.1";
     }
@@ -1325,6 +1333,14 @@ int main(int argc, char *argv[])
     if (local_address == NULL)
       error("Error resolving local host");
     
+    /*
+    proxy_address = gethostbyname(proxy_host);
+
+    if (proxy_address != NULL)
+      //fprintf(stderr,"proxy configured as: %s",proxy_address);
+      fprintf(stderr,"proxy configured as: %s",proxy_host);
+    */
+
     serv_addr.sin_family = AF_INET;
     memcpy (&serv_addr.sin_addr.s_addr, local_address->h_addr,sizeof (struct in_addr));
     serv_addr.sin_port = htons(port);
@@ -1487,12 +1503,12 @@ int main(int argc, char *argv[])
 
 	    int ret;
 	    //int test = 42; // the answer, used in development
-	    int xwport = wport;
+	    int xwport = wport; // web port, deprecated
 	    int xsockfd;
 	    //char* str = "maxnumberone"; // another pun
 	    int xproxy_port = proxy_port;
-	    char* xproxy_user = NULL;
-	    char* xproxy_pass = NULL;
+	    char* xproxy_user = proxy_user;
+	    char* xproxy_pass = proxy_pass;
 	    char* xproxy_host = proxy_host;
 	    char* xlookup_script = lookup_script;
 	    char* xtypeq = typeq;
@@ -1501,12 +1517,16 @@ int main(int argc, char *argv[])
             struct sockaddr_in *xclient;
             struct sockaddr_in *yclient;
 	    struct readThreadParams *readParams = malloc(sizeof(*readParams));
+	    
+	    /* PLACEHOLDER FOR HTTP ?? */
 	    //	  readParams->max_req_client = 10;
 	    //	  readParams->random = 0;
 	    //	  readParams->ssl = 0;
 	    //	  readParams->uselogin = 1;
+
 	    readParams->xproxy_user = proxy_user;
 	    readParams->xproxy_pass = proxy_pass;
+	    //readParams->xproxy_host = proxy_address;
 	    readParams->xproxy_host = proxy_host;
 	    readParams->xproxy_port = proxy_port;
 	    readParams->xlookup_script = lookup_script;
@@ -1548,10 +1568,11 @@ int main(int argc, char *argv[])
 	    threadFunc(readParams);
 	    ret = pthread_create(&pth[i],&attr,threadFunc,readParams);
 
-	    // ONLY IF USING SEMAPHORES .... NOT WITH MUTEX
+	    /* ONLY IF USING SEMAPHORES .... NOT WITH MUTEX */
 	    sem_wait(&mutex);
 	    sem_post(&mutex);
 
+	    /* USEFUL WITH MULTIPATH DNS-over-HTTP */
 	    for(r=0; r < NUMT*NUM_THREADS; r++) {
 	    	if(0 != ret) {
 			fprintf(stderr, "Couldn't run thread number %d, errno %d\n", i, ret);
