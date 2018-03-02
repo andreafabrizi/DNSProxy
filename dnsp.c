@@ -72,7 +72,6 @@
 #define DEFAULT_LOCAL_PORT   53
 #define DEFAULT_WEB_PORT     80
 #define DEFAULT_PRX_PORT   1080
-//#define DEFAULT_PRX_PORT   8118
 
 /* for threaded model, experimental options, not in use at the moment */
 #define NUMT	              4
@@ -107,7 +106,6 @@ struct readThreadParams {
     int xwport;
     int sockfd;
     int xsockfd;
-    //char* xhostname;
     //int digit;
     //char* input;
     struct dns_request *xhostname;
@@ -131,6 +129,7 @@ void start_thread(pthread_t *mt)
     pthread_create(mt, NULL, do_work_son, data);
 }
 */
+
 /*
 void start_thread(pthread_t *mt)
 {
@@ -146,6 +145,7 @@ void start_thread(pthread_t *mt)
     //pthread_create(&pth[i],NULL,threadFunc,readParams);
 }
 */
+
 static void *
 thread_start(void *arg)
 {
@@ -228,14 +228,14 @@ void usage(void)
     exit(EXIT_FAILURE);
 }
 
-/* * Prints an error message and exit */
+/* Prints an error message and exit */
 void error(const char *msg)
 {
     fprintf(stderr," *** %s: %s\n", msg, strerror(errno));
     exit(EXIT_FAILURE);
 }
 
-/* * Prints debug messages */
+/* Prints debug messages */
 void debug_msg(const char* fmt, ...)
 {
     va_list ap;
@@ -248,7 +248,7 @@ void debug_msg(const char* fmt, ...)
     }
 }
 
-/* * Return the length of the pointed buffer */
+/* Return the length of the pointed buffer */
 size_t memlen(const char *buff)
 {
     size_t len = 0;
@@ -349,9 +349,8 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
          *response_ptr;
 	 //*ppch,
 	 //*typeq,
-    //int i, ppch;
-    //int ppch;
-    uint i,ppch;
+    //uint i,ppch;
+    int i,ppch;
     ssize_t bytes_sent;
 
 
@@ -780,7 +779,7 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
     //free(ip);
 }
 
-/* * libCurl write data callback */
+/* libCurl write data callback */
 static size_t write_data(void *ptr, size_t size, size_t nmemb, void *stream)
 {
     size_t stream_size;
@@ -814,13 +813,14 @@ char *substring(char *string, int position, int length)
    return pointer;
 }
 
-/* *  Hostname lookup *  Return: *   OK: Resolved IP *   KO: Null */
+/* Hostname lookup -> OK: Resolved IP, KO: Null */
 char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_port, const char *proxy_user, const char *proxy_pass, const char *lookup_script, const char *typeq, unsigned int wport)
 {
     CURL *ch;
     CURLSH *curlsh;
     char *http_response,
          *script_url,
+         *proxy_url,
 	 *pointer ;
     char base[1];
 
@@ -829,10 +829,17 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
     struct curl_slist *list = NULL;
 
     script_url = malloc(URL_SIZE);
+    proxy_url = malloc(URL_SIZE);
+    
     http_response = malloc(HTTP_RESPONSE_SIZE);
+
     bzero(script_url, URL_SIZE);
+    bzero(proxy_url, URL_SIZE);
     
     snprintf(script_url, URL_SIZE-1, "%s?host=%s&type=%s", lookup_script, host, typeq);
+    snprintf(proxy_url, URL_SIZE-1, "http://%s/", proxy_host);
+    fprintf(stderr, "Required substring is \"%s\"\n", proxy_url);
+
     //printf(http_response);
 
     /* HTTPS DETECTION CODE ... might be better :) */
@@ -845,10 +852,10 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
     //printf("Result is \"%d\"\n", result);
 
     if(result == 0) {
-	    printf(" *** USING HTTPS :)\n *** GOOD CHOICE :)\n *** Proxy host: %s\n",proxy_host);
+	    //printf(" *** USING HTTPS :)\n *** GOOD CHOICE :)\n *** Proxy host: %s\n",proxy_host);
 	    wport=443;
     } else {
-	    printf(" *** USING HTTP  :(\n *** full DNS anonymity not guaranteed (MITM attacks-prone)\n");
+	    printf(" *** USING HTTP means that DNS anonymity not guaranteed (MITM attacks-prone)\nchange to HTTPS lookup address ;)\n");
 	    wport=80;
     }
 
@@ -863,6 +870,16 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
     ch = curl_easy_init();
     curl_easy_setopt(ch, CURLOPT_URL, script_url);
     curl_easy_setopt(ch, CURLOPT_PORT, wport); /* 80, 443 */
+
+    curl_easy_setopt(ch, CURLOPT_PROXY, proxy_host);
+    curl_easy_setopt(ch, CURLOPT_PROXYPORT, proxy_port);	/* 1080, 8118, 8888, 9500, ... */
+    curl_easy_setopt(ch, CURLOPT_PROXYTYPE, CURLPROXY_HTTP);
+    
+    /* optional proxy username and password */
+    if ((proxy_user != NULL) && (proxy_pass != NULL)) {
+        curl_easy_setopt(ch, CURLOPT_PROXYUSERNAME, proxy_user);
+        curl_easy_setopt(ch, CURLOPT_PROXYPASSWORD, proxy_pass);
+    }
 
     //curl_easy_setopt(ch, CURLOPT_DNS_CACHE_TIMEOUT, 3600);
     //curl_easy_setopt(ch, CURLOPT_DNS_USE_GLOBAL_CACHE, 1);	/* DNS CACHE  */
@@ -895,7 +912,7 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
     //curl_setopt ($curl, CURLOPT_AUTOREFERER, 1);
     //curl_setopt( $curl, CURLOPT_RETURNTRANSFER, 1);
     
-    // cache with HTTP/1.1 304 Not Modified
+    /* cache with HTTP/1.1 304 Not Modified */
 
     /* OPTION --> FOLLOW-LOCATION, necessary if getting HTTP 301 */
     // HTTP/1.1 301 Moved Permanently
@@ -915,19 +932,6 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
     if (DEBUG) {
 	printf("\n\nUsing local HTTP proxy cache from http://%s:%d\n\n", proxy_host, proxy_port);
     }
-    //if ((proxy_host != NULL) && (proxy_port != NULL)) {
-    //if ((proxy_host != "") && (proxy_port != NULL)) {
-
-    	curl_easy_setopt(ch, CURLOPT_PROXY, proxy_host); //127.0.0.1 by default
-    	curl_easy_setopt(ch, CURLOPT_PROXYPORT, proxy_port);	/* 1080, 8118, 8888, 9500, ... */
-    	curl_easy_setopt(ch, CURLOPT_PROXYTYPE, CURLPROXY_HTTP);
-	
-    	/* optional proxy username and password */
-    	if ((proxy_user != NULL) && (proxy_pass != NULL)) {
-    	    curl_easy_setopt(ch, CURLOPT_PROXYUSERNAME, proxy_user);
-    	    curl_easy_setopt(ch, CURLOPT_PROXYPASSWORD, proxy_pass);
-    	}
-
     /* OVERRIDE RESOLVER --> add resolver CURL header, work in progress */
     // in the form of CLI --resolve my.site.com:80:1.2.3.4, -H "Host: my.site.com"
 
@@ -970,7 +974,6 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
     ret = curl_easy_perform(ch);
     //if (DEBUG) {printf("%s",ret);};
 
-    //if ((ret < 0) || (ret > 0)) {
     if (ret < 0) {
         debug_msg ("Error performing HTTP request (Error %d) - spot on !!!\n");
         printf("Error performing HTTP request (Error %d) - spot on !!!\n",ret);
@@ -982,7 +985,7 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
         return NULL;
     }
    
-    // Can't resolve host 
+    /* Can't resolve host or packet too big (up it to 4096) */
     if ((strlen(http_response) > 512) || (strncmp(http_response, "0.0.0.0", 7) == 0)) {
 	// insert error answers here, as NXDOMAIN, SERVFAIL etc
         printf("CORE: MALFORMED DNS, possible SERVFAIL from origin... \n");
@@ -1019,14 +1022,16 @@ void *threadFunc(void *arg)
 	//int test = params->digit;
 	//char* data = params->input;
 	int wport = params->xwport;
-	int proxy_port = params->xproxy_port;
-	char* proxy_user = params->xproxy_user;
-	char* proxy_pass = params->xproxy_pass;
-	char* proxy_host = params->xproxy_host;
+	int proxy_port_t = params->xproxy_port;
+	//char* proxy_user = params->xproxy_user;
+	char* proxy_host_t = params->xproxy_host;
+	char* proxy_user_t = params->xproxy_user;
+	char* proxy_pass_t = params->xproxy_pass;
 	char* lookup_script = params->xlookup_script;
 	char* typeq = params->xtypeq;
 	int xsockfd = params->xsockfd;
 	int sockfd = params->sockfd;
+
 	int ret;
 	char *rip = malloc(256 * sizeof(char));
 	char *ip = NULL;
@@ -1054,12 +1059,15 @@ void *threadFunc(void *arg)
 		printf("test: %s\n",(char *)params->xdns_req->hostname);
 		printf("test: %s\n",(char *)xdns_req->hostname);
 		printf("VARIABLE-RECV: %d\n", (uint32_t)(yclient->sin_addr).s_addr);
-		printf("VARIABLE-RECV: %s\n", s);
+		printf("VARIABLE-RECV-s: %s\n", s);
 		printf("VARIABLE-RECV: %s\n", lookup_script);
-		printf("VARIABLE-RECV: %s\n", yhostname);
+		printf("VARIABLE-proxy: %s\n", proxy_host_t);
+		printf("VARIABLE-proxy-params: %d\n", params->xproxy_port);
+		printf("VARIABLE-RECV-yhostname: %s\n", yhostname);
+		//printf("VARIABLE-RECV-xhostname: %s\n", xhostname);
 	}
 	
-        rip = lookup_host(yhostname, proxy_host, proxy_port, proxy_user, proxy_pass, lookup_script, typeq, wport);
+        rip = lookup_host(yhostname, proxy_host_t, proxy_port_t, proxy_user_t, proxy_pass_t, lookup_script, typeq, wport);
 
 	/* PTHREAD SET SPECIFIC GLOBAL VARIABLE ... */
 	pthread_setspecific(glob_var_key_ip, rip);
@@ -1081,13 +1089,19 @@ void *threadFunc(void *arg)
 		    printf("THREAD-V-type				: %s\n", typeq);
 		    printf("THREAD-V-size				: %u\n", (uint32_t)request_len);
 		    printf("THREAD-V-socket-sockfd			: %u\n", sockfd);
-		    printf("THREAD-V-socket-xsockfd			: %u\n", xsockfd);
-		    printf("THREAD-V-socket-xsockfd			: %d\n", xsockfd);
+		    printf("THREAD-V-socket-xsockfd-u			: %u\n", xsockfd);
+		    printf("THREAD-V-socket-xsockfd-d			: %d\n", xsockfd);
 		    printf("THREAD-V-MODE-ANSWER			: %d\n", DNS_MODE_ANSWER);
 		    printf("THREAD-V-xclient->sin_addr.s_addr	: %u\n", (uint32_t)(yclient->sin_addr).s_addr);
 		    printf("THREAD-V-xclient->sin_port		: %u\n", (uint32_t)(yclient->sin_port));
 		    printf("THREAD-V-xclient->sin_family		: %u\n", (uint32_t)(yclient->sin_family));
 		    printf("THREAD-V-answer				: %s\n", rip);
+
+		    printf("\nTHREAD-V-proxy-host			: %s\n", params->xproxy_host);
+		    printf("THREAD-V-proxy-port			: %d\n", params->xproxy_port);
+		    printf("\nTHREAD-V-proxy-host			: %s\n", proxy_host_t);
+		    printf("THREAD-V-proxy-port			: %d\n", proxy_port_t);
+
 		    /*
 		    printf("THREAD-V-xhostname				: %s\n", yhostname);
 		    printf("THREAD-V-dns-req->hostname			: %s\n", dns_req->hostname);
@@ -1142,26 +1156,25 @@ void *threadFunc(void *arg)
 	exit(EXIT_SUCCESS);
 }
 
-/* *   main */
+/* main */
 int main(int argc, char *argv[])
 {
+    //int sockfd, port = DEFAULT_LOCAL_PORT, wport = DEFAULT_WEB_PORT, proxy_port = DEFAULT_PRX_PORT, c;
     int sockfd, port = DEFAULT_LOCAL_PORT, wport = DEFAULT_WEB_PORT, proxy_port = DEFAULT_PRX_PORT, c;
     int r = 0;
-    char *stack;                    /* Start of stack buffer */
-    char *stackTop;                 /* End of stack buffer */
+    char *stack;            /* Start of stack buffer */
+    char *stackTop;         /* End of stack buffer */
     pid_t pid;
     struct utsname uts;
     struct sockaddr_in serv_addr;
     struct hostent *local_address;
     //struct hostent *proxy_address;
     //char *bind_proxy = NULL;
-    char *bind_address = NULL, *proxy_host = NULL, *proxy_user = NULL,
+    char *bind_address = NULL, *proxy_host = "", *proxy_user = NULL,
          *proxy_pass = NULL, *typeq = NULL, *lookup_script = NULL,
-	 *httpsssl = NULL; 
-    
+	 *httpsssl = NULL, *proxy_url = NULL;
+
     opterr = 0;
-    DEBUG = 0;
-    DEBUGCURL = 0;
        
     //sem_t mutex;
     sem_t sem;
@@ -1175,7 +1188,7 @@ int main(int argc, char *argv[])
     int thr = 0;
     int *ptr[2];
 
-    /* The "-s" option specifies a stack size for our threads, guess unlimited is not a good idea */
+    /* The "-s" option specifies a stack size for our threads, I guess unlimited is not a good idea */
     stack_size = -1;
 
     /*
@@ -1251,12 +1264,6 @@ int main(int argc, char *argv[])
             proxy_pass = (char *)optarg;
         break;
 
-	/*
-        case 'S':
-            httpsssl = (char *)optarg;
-        break;
-	*/
-
         case 's':
             lookup_script = (char *)optarg;
         break;
@@ -1264,6 +1271,12 @@ int main(int argc, char *argv[])
         case 'h':
             usage();
         break;
+
+	/*
+        case 'S':
+            httpsssl = (char *)optarg;
+        break;
+	*/
 
         case '?':
             if (optopt == 'p')
@@ -1281,12 +1294,9 @@ int main(int argc, char *argv[])
 	    if  (optopt == 't')
                 fprintf(stderr," *** Invalid stack size\n");
 	    else
-	    if  (optopt == 'h')
-	    	usage();
-	    else
             if (isprint(optopt))
                 fprintf(stderr," *** Invalid option -- '%c'\n", optopt);
-            usage();
+	    usage();
         break;
         
         default:
@@ -1296,6 +1306,8 @@ int main(int argc, char *argv[])
     }
 
     if (proxy_host != NULL) {
+        //snprintf(proxy_url, URL_SIZE-1, "http://%s", proxy_host);
+	//fprintf(stderr, "Required substring is \"%s\"\n", proxy_url);
         fprintf(stderr, "Yay !! HTTP caching proxy configured, continuing with cache\n");
         fprintf(stderr, "Bind proxy host: %s\n",proxy_host);
 	//proxy_address = proxy_host;
@@ -1507,6 +1519,7 @@ int main(int argc, char *argv[])
 	    int xsockfd;
 	    //char* str = "maxnumberone"; // another pun
 	    int xproxy_port = proxy_port;
+	    //char* xproxy_host = proxy_url;
 	    char* xproxy_user = proxy_user;
 	    char* xproxy_pass = proxy_pass;
 	    char* xproxy_host = proxy_host;
@@ -1526,9 +1539,8 @@ int main(int argc, char *argv[])
 
 	    readParams->xproxy_user = proxy_user;
 	    readParams->xproxy_pass = proxy_pass;
-	    //readParams->xproxy_host = proxy_address;
-	    readParams->xproxy_host = proxy_host;
-	    readParams->xproxy_port = proxy_port;
+	    readParams->xproxy_host = xproxy_host;
+	    readParams->xproxy_port = xproxy_port;
 	    readParams->xlookup_script = lookup_script;
 	    readParams->xtypeq = typeq;
 	    readParams->xwport = wport;

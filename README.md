@@ -57,6 +57,11 @@ makes no sense and WILL make ALL of your DNS queries leaking. Useful for TESTING
            no use of DNS or UDP whatsoever 
 ```
 
+Features:
+- FOLLOWLOCATION, dynamic
+- HTTP browser cache preemption
+- will pluigin HTTP/2
+
 ## Building
 
 Building is easy on Linux, Mac... On UNIX and Windows might be, didn't test much.
