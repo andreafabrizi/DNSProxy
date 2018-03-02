@@ -22,7 +22,7 @@ If you can't access "secured" VPN or tunnels  to resolve names externally (i.e.
 TOR users), DNSProxy is a rapid and efficient solution for you.
 
 In order to start resolving "anonymous DNS", all you need is a PHP-server 
-hosting the *nslookup.php* resolver script. This software is completeley  TOR-friendly,
+hosting the *nslookup.php* resolver script. This software is TOR-friendly and
 requires minimal resources. Examples are provided for ease of use.
 
 ## Headline: why DNSP ?
@@ -30,6 +30,9 @@ This is a new idea in terms of transport of DNS outside of it's original scope.
 This proxy project might well evolve in direction of having an IP protocol number 
 assignement, or something like that.
 DNS-over-HTTP is currently being evaluated by IETF as workgroup/proposal.
+(c.f. https://tools.ietf.org/html/draft-ietf-doh-dns-over-https-03)
+An header schema for HTTP/2 client has been outlined, WIP implementation.
+There is no showstopper, no roadmap on my side, just the burning desire to see D-o-H 
 
 ## Disclaimer
 WHEN FULL-ANONIMITY IS A CONCERN, make sure to host *nslookup.php* on a trustable server !
