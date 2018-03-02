@@ -165,14 +165,19 @@ The more DNSP resolvers around the world, the less DNS queries will be traceable
       -I		 Upgrade Insecure Requests, HSTS work in progress
       -R		 Enable CURL resolve mechanism, avoiding extra gethostbyname, work in progress
 
- Example DNS/HTTPS direct :  dnsp -s https://www.fantuz.net/nslookup.php
- Example DNS/HTTP w/cache :  dnsp -r 8118 -H 127.0.0.1 -s http://www.fantuz.net/nslookup.php
+ Example DNS/HTTPS direct : 
+	# dnsp -s https://www.fantuz.net/nslookup.php
+ Example DNS/HTTP w/cache : 
+	# dnsp -r 8118 -H 127.0.0.1 -s http://www.fantuz.net/nslookup.php
+ Example, debug situation : 
+	# dnsp -s http://www.fantuz.net/nslookup.php -H "http://192.168.1.93:1080/" -C
 ```
 ## Changelog:
 
 #### TODO and WIP:
 * get on DNSSEC
 * get on DOH and H2 in simple way (CURL)
+* use Warning headers to signal something
 * soon to add the arduino-ethernet library with the new select() function (sorry for delay, was easy)
 
 #### Version 1.6 - March 2018:

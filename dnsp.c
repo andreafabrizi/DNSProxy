@@ -62,10 +62,10 @@
 /* DELAY for CURL to wait ? do not remember, needs documentation */
 #define DELAY		      0
 /* how can it be influenced, this CURL parameter ? kept for historical reasons, will not be useful in threaded model */
-#define MAXCONN               1
+#define MAXCONN               4
 #define UDP_DATAGRAM_SIZE   256
 #define DNSREWRITE          256
-#define HTTP_RESPONSE_SIZE  256
+#define HTTP_RESPONSE_SIZE 4096
 #define URL_SIZE            256
 #define DNS_MODE_ANSWER       0
 #define DNS_MODE_ERROR        1
@@ -356,25 +356,29 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
 
 
     if (DEBUG) {
-	    //printf("BUILD-xhostname-int				: %u\n", (uint32_t)strlen(xhostname));
 	    /*
+	    printf("BUILD-xhostname-int				: %u\n", (uint32_t)strlen(xhostname));
 	    printf("BUILD-req-query				: %s\n", dns_req->query);
 	    */
+	    
 	    printf("BUILD-yclient->sin_addr.s_addr		: %u\n", (uint32_t)(yclient->sin_addr).s_addr);
 	    printf("BUILD-yclient->sin_port			: %u\n", (uint32_t)(yclient->sin_port));
 	    printf("BUILD-yclient->sin_family		: %d\n", (uint32_t)(yclient->sin_family));
 	    printf("BUILD-xrequestlen			: %d\n", (uint32_t)(xrequestlen));
-	
-	    //printf("BUILD-client->sa_family			: %u\n", (struct sockaddr)&xclient->sa_family);
-	    //printf("BUILD-client->sa_data			: %u\n", (uint32_t)client->sa_data);
 	    printf("BUILD-xsockfd				: %u\n", xsockfd);
 	    printf("BUILD-sockfd				: %d\n", sockfd);
-	    //printf("BUILD-hostname				: %s\n", qhostname);
-	    //printf("build-qry =%s\n",(xdns_req->query));
 	    printf("BUILD-hostname				: %s\n", dns_req->hostname);
-    	    ////printf("build-host=%s\n",(char *)(xdns_req->hostname));
-    	    ////printf("build-answ=%s\n", rip);
-    	    ////printf("build-anmd=%d\n", DNS_MODE_ANSWER);
+	
+	    /*
+	    printf("BUILD-client->sa_family			: %u\n", (struct sockaddr)&xclient->sa_family);
+	    printf("BUILD-client->sa_data			: %u\n", (uint32_t)client->sa_data);
+	    printf("BUILD-hostname				: %s\n", qhostname);
+	    printf("build-qry = %s\n",(xdns_req->query));
+    	    printf("build-host %s\n",(char *)(xdns_req->hostname));
+    	    printf("build-answer %s\n", rip);
+    	    printf("build-answer-mode %d\n", DNS_MODE_ANSWER);
+	    */
+	    printf("\n");
     }
 
     response = malloc (UDP_DATAGRAM_SIZE);
@@ -390,7 +394,6 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
     response[0] = (uint8_t)(dns_req->transaction_id >> 8);
     response[1] = (uint8_t)dns_req->transaction_id;
     response+=2;
-    
     /*
 
     TXT, SRV, SOA, PTR, NS, MX, DS, DNSKEY, AAAA, A, unused
@@ -486,7 +489,6 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
 
     /* Query */
     strncat(response, dns_req->query, dns_req->hostname_len);
-    //printf("BUILD-INSIDE-dns_req->query			: %s\n",(dns_req->query));
     response+=dns_req->hostname_len+1;
     
     /* Type */
@@ -728,23 +730,22 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
 	memset(&(yclient->sin_zero), 0, sizeof(yclient->sin_zero)); // zero the rest of the struct 
 	//memset(yclient, 0, 0);
 
-	
     	if (DEBUG) {
-	    	printf("BUILD-INSIDE-response				: %s\n", response);
-		printf("BUILD-INSIDE-yclient->sin_addr.s_addr         	: %u\n", (uint32_t)(yclient->sin_addr).s_addr);
-		printf("BUILD-INSIDE-yclient->sin_port                	: %u\n", (uint32_t)(yclient->sin_port));
-		printf("BUILD-INSIDE-yclient->sin_port                	: %u\n", htons(yclient->sin_port));
-		printf("BUILD-INSIDE-yclient->sin_family		: %d\n", (uint32_t)(yclient->sin_family));
-		printf("BUILD-INSIDE-dns-req->hostname			: %s\n", dns_req->hostname);
+	    	printf("INSIDE-raw-datagram			: %s\n", response);
+		printf("INSIDE-yclient->sin_addr.s_addr        	: %u\n", (uint32_t)(yclient->sin_addr).s_addr);
+		printf("INSIDE-yclient->sin_port               	: %u\n", (uint32_t)(yclient->sin_port));
+		printf("INSIDE-yclient->sin_port               	: %u\n", htons(yclient->sin_port));
+		printf("INSIDE-yclient->sin_family		: %d\n", (uint32_t)(yclient->sin_family));
+		printf("INSIDE-dns-req->hostname		: %s\n", dns_req->hostname);
+		printf("INSIDE-xrequestlen			: %u\n", (uint16_t)xrequestlen);
 		/*
-		printf("BUILD-INSIDE-dns_req->query			: %s\n", dns_req->query);
+		printf("INSIDE-dns_req->query			: %s\n", dns_req->query);
+		printf("INSIDE-xdns_req->query			: %s\n", xdns_req->query);
+		printf("INSIDE-xdns_req->hostname-to-char		: %s\n", (char *)(xdns_req->hostname));
+		printf("INSIDE-xdns_req->hostname			: %s\n", xdns_req->hostname);
+		printf("INSIDE-xdns_req->query			: %s\n", xdns_req->query);
 		*/
-		printf("BUILD-INSIDE-xrequestlen			: %u\n", (uint16_t)xrequestlen);
-		
-	//	printf("BUILD-INSIDE-xdns_req->query			: %s\n", xdns_req->query);
-	//	printf("BUILD-INSIDE-xdns_req->hostname-to-char		: %s\n", (char *)(xdns_req->hostname));
-	//	printf("BUILD-INSIDE-xdns_req->hostname			: %s\n", xdns_req->hostname);
-	//	printf("BUILD-INSIDE-xdns_req->query			: %s\n", xdns_req->query);
+		printf("\n");	
 	}
         
 	/* example kept for educational purposes, to show how the response packet is built, tailored for the client */
@@ -780,14 +781,41 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
     //free(ip);
 }
 
+/* new */
+struct MemoryStruct {
+  char *memory;
+  size_t size;
+};
+ 
+/* new libCurl callback */
+static size_t WriteMemoryCallback(void *contents, size_t size, size_t nmemb, void *userp)
+{
+  size_t realsize = size * nmemb;
+  struct MemoryStruct *mem = (struct MemoryStruct *)userp;
+ 
+  mem->memory = realloc(mem->memory, mem->size + realsize + 1);
+  if(mem->memory == NULL) {
+    /* out of memory! */ 
+    printf("not enough memory (realloc returned NULL)\n");
+    return 0;
+  }
+ 
+  memcpy(&(mem->memory[mem->size]), contents, realsize);
+  mem->size += realsize;
+  mem->memory[mem->size] = 0;
+ 
+  return realsize;
+}
+
 /* libCurl write data callback */
 static size_t write_data(void *ptr, size_t size, size_t nmemb, void *stream)
 {
-    size_t stream_size;
-    stream_size = size * nmemb + 1;
-    bzero(stream, HTTP_RESPONSE_SIZE);
-    memcpy(stream, ptr, stream_size);
-    return 0;
+  size_t stream_size;
+  stream_size = size * nmemb + 1;
+  bzero(stream, HTTP_RESPONSE_SIZE);
+  memcpy(stream, ptr, stream_size);
+  //return 0;
+  return stream_size-1;
 }
 
 char *substring(char *string, int position, int length) 
@@ -819,27 +847,29 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
 {
     CURL *ch;
     CURLSH *curlsh;
+    //CURLcode res;
+
     char *http_response,
          *script_url,
-         *proxy_url,
 	 *pointer ;
     char base[1];
 
     int ret;
     //struct curl_slist *hosting = NULL;
     struct curl_slist *list = NULL;
+    //struct MemoryStruct chunk;
+    //chunk.memory = malloc(1);  /* will be grown as needed by the realloc above */ 
+    //chunk.size = 0;    /* no data at this point */ 
 
     script_url = malloc(URL_SIZE);
-    proxy_url = malloc(URL_SIZE);
     
     http_response = malloc(HTTP_RESPONSE_SIZE);
 
     bzero(script_url, URL_SIZE);
-    bzero(proxy_url, URL_SIZE);
     
     snprintf(script_url, URL_SIZE-1, "%s?host=%s&type=%s", lookup_script, host, typeq);
-    snprintf(proxy_url, URL_SIZE-1, "http://%s/", proxy_host);
-    fprintf(stderr, "Required substring is \"%s\"\n", proxy_url);
+    //snprintf(proxy_url, URL_SIZE-1, "http://%s/", proxy_host);
+    //fprintf(stderr, "Required substring is \"%s\"\n", proxy_url);
 
     //printf(http_response);
 
@@ -853,20 +883,14 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
     //printf("Result is \"%d\"\n", result);
 
     if(result == 0) {
-	    //printf(" *** USING HTTPS :)\n *** GOOD CHOICE :)\n *** Proxy host: %s\n",proxy_host);
 	    wport=443;
     } else {
-	    printf(" *** USING HTTP means that DNS anonymity not guaranteed (MITM attacks-prone)\nchange to HTTPS lookup address ;)\n");
+	    printf(" *** HTTP does NOT guarantee against MITM attacks. Consider switching to HTTPS webservice\n");
 	    wport=80;
     }
 
     free(pointer);
   
-    // LOAD YOUR CA/CERT HERE
-    //static const char *pCertFile = "testcert.pem";
-    //static const char *pCACertFile="fantuznet.pem";
-    //static const char *pHeaderFile = "dumpit";
-
     /* curl setup */
     ch = curl_easy_init();
 
@@ -881,22 +905,60 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
 	CURLOPT_URL, "http://example.com/file.txt"
 	CURLOPT_PROXY, "http://proxy:80"
     */ 
+
     curl_easy_setopt(ch, CURLOPT_URL, script_url);
     curl_easy_setopt(ch, CURLOPT_PORT, wport); /* 80, 443 */
 
+    /* Proxy configuration section */
     curl_easy_setopt(ch, CURLOPT_PROXY, proxy_host);
     curl_easy_setopt(ch, CURLOPT_PROXYPORT, proxy_port);	/* 1080, 8118, 8888, 9500, ... */
     curl_easy_setopt(ch, CURLOPT_PROXYTYPE, CURLPROXY_HTTP);
     
+    curl_easy_setopt(ch, CURLOPT_MAXCONNECTS, MAXCONN);
+    //curl_easy_setopt(ch, CURLOPT_FRESH_CONNECT, 0);
+    curl_easy_setopt(ch, CURLOPT_FRESH_CONNECT, 1);
+    curl_easy_setopt(ch, CURLOPT_FORBID_REUSE, 0);
+    //curl_setopt($curl, CURLOPT_AUTOREFERER, 1);
+
+    /* send all data to this function */
+    //curl_easy_setopt(ch, CURLOPT_WRITEFUNCTION, WriteMemoryCallback);
+    curl_easy_setopt(ch, CURLOPT_WRITEFUNCTION, write_data);
+
+    /* we pass our 'chunk' struct to the callback function */ 
+    //curl_easy_setopt(ch, CURLOPT_WRITEDATA, (void *)&chunk);
+    curl_easy_setopt(ch, CURLOPT_WRITEDATA, http_response);
+    
+    /* cache with HTTP/1.1 304 Not Modified */
+
+    /* OPTION --> FOLLOW-LOCATION, necessary if getting HTTP 301 */
+    // HTTP/1.1 301 Moved Permanently
+    // Location: http://www.example.org/index.asp
+    curl_easy_setopt(ch, CURLOPT_FOLLOWLOCATION, 1);
+
     /* optional proxy username and password */
     if ((proxy_user != NULL) && (proxy_pass != NULL)) {
         curl_easy_setopt(ch, CURLOPT_PROXYUSERNAME, proxy_user);
         curl_easy_setopt(ch, CURLOPT_PROXYPASSWORD, proxy_pass);
     }
 
-    //curl_easy_setopt(ch, CURLOPT_DNS_CACHE_TIMEOUT, 3600);
-    //curl_easy_setopt(ch, CURLOPT_DNS_USE_GLOBAL_CACHE, 1);	/* DNS CACHE  */
+    // LOAD YOUR CA/CERT HERE
+    //static const char *pCertFile = "testcert.pem";
+    //static const char *pCACertFile="fantuznet.pem";
+    //static const char *pHeaderFile = "dumpit";
+
+    //curl_easy_setopt(ch, CURLOPT_CAINFO, pCACertFile);
+    curl_easy_setopt(ch, CURLOPT_SSL_VERIFYPEER, 0L);
+    curl_easy_setopt(ch, CURLOPT_SSL_VERIFYHOST, 0L);;
+    curl_easy_setopt(ch, CURLOPT_SSL_VERIFYSTATUS, 0L);
+    //curl_easy_setopt(ch, CURLOPT_SSLVERSION, CURL_SSLVERSION_DEFAULT); //CURL_SSLVERSION_TLSv1
+
+    curl_easy_setopt(ch, CURLOPT_TIMEOUT, 3);
+    curl_easy_setopt(ch, CURLOPT_DNS_CACHE_TIMEOUT, 3600);
+    curl_easy_setopt(ch, CURLOPT_DNS_USE_GLOBAL_CACHE, 1);	/* DNS CACHE  */
     curl_easy_setopt(ch, CURLOPT_NOPROGRESS, 1L);		/* No progress meter */
+
+    /* disable Nagle with 0, for bigger packets (full MSS) */
+    curl_easy_setopt(ch, CURLOPT_TCP_NODELAY, 1L);
 
     if (DEBUGCURL) {
 	    curl_easy_setopt(ch, CURLOPT_VERBOSE,  1);			/* Verbose ON  */
@@ -904,54 +966,28 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
 	    curl_easy_setopt(ch, CURLOPT_VERBOSE,  0);			/* Verbose OFF */
     }
 
-    /*
-     curl -s -H "Host: www.fantuz.net" -H "Remote Address:104.27.133.199:80" -H "User-Agent:Mozilla/5.0 (Macintosh; Intel Mac OS X 10_6_8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36" 'http://www.fantuz.net/nslookup.php?host=fantuz.net&type=NS' | xxd
-     curl -s -H "Host: php-dns.appspot.com" -H "User-Agent:Mozilla/5.0 (Macintosh; Intel Mac OS X 10_6_8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36" 'http://php-dns.appspot.com/helloworld.php?host=fantuz.net&type=NS' | xxd
-    */
+    /* test for HTTP */
+    //curl -s -H "Host: www.fantuz.net" -H "Remote Address:104.27.133.199:80" -H "User-Agent:Mozilla/5.0 (Macintosh; Intel Mac OS X 10_6_8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36" 'http://www.fantuz.net/nslookup.php?host=fantuz.net&type=NS' | xxd
+    //curl -s -H "Host: php-dns.appspot.com" -H "User-Agent:Mozilla/5.0 (Macintosh; Intel Mac OS X 10_6_8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36" 'http://php-dns.appspot.com/helloworld.php?host=fantuz.net&type=NS' | xxd
 
-    curl_easy_setopt(ch, CURLOPT_SSL_VERIFYPEER, 0L);
-    curl_easy_setopt(ch, CURLOPT_SSL_VERIFYHOST, 0L);;
-    curl_easy_setopt(ch, CURLOPT_SSL_VERIFYSTATUS, 0L);
-    //curl_easy_setopt(ch, CURLOPT_SSLVERSION, CURL_SSLVERSION_DEFAULT);
-    //CURL_SSLVERSION_TLSv1);
-    //curl_easy_setopt(ch, CURLOPT_CAINFO, pCACertFile);
-
-    /* HOW DOES A NEW TCP INFLUENCE WEB CACHE ?? */
     /* polipo likes pipelining, reuse, pretty powerful */
     /* how about squid/nginx et al. ?? */
-    curl_easy_setopt(ch, CURLOPT_MAXCONNECTS, MAXCONN);
-    curl_easy_setopt(ch, CURLOPT_FRESH_CONNECT, 0);
-    curl_easy_setopt(ch, CURLOPT_FORBID_REUSE, 0);
-    //curl_setopt ($curl, CURLOPT_AUTOREFERER, 1);
-    //curl_setopt( $curl, CURLOPT_RETURNTRANSFER, 1);
-    
-    /* cache with HTTP/1.1 304 Not Modified */
-
-    /* OPTION --> FOLLOW-LOCATION, necessary if getting HTTP 301 */
-    // HTTP/1.1 301 Moved Permanently
-    // Location: http://www.example.org/index.asp
-    //curl_setopt ($curl, CURLOPT_FOLLOWLOCATION, 1);
-    curl_easy_setopt(ch, CURLOPT_FOLLOWLOCATION, 1);
-
-    /* Problem in performing the http request ?? */
-    curl_easy_setopt(ch, CURLOPT_WRITEFUNCTION, write_data);	/* Set write function */
-    curl_easy_setopt(ch, CURLOPT_WRITEDATA, http_response);
+    /* anyway all will change with H2 */
 
     /* PROXY HOST INPUT VALIDATION ... to be improved for sanitisation */
     if (DEBUG) {
-	printf("\n\nUsing local HTTP proxy cache from http://%s:%d\n\n", proxy_host, proxy_port);
+	printf(" *** Fetching cache from HTTP proxy at http://%s:%d\n\n", proxy_host, proxy_port);
     }
+
     /* OVERRIDE RESOLVER --> add resolver CURL header, work in progress */
     // in the form of CLI --resolve my.site.com:80:1.2.3.4, -H "Host: my.site.com"
 
     /* OPTIONAL HEADERS, set with curl_slist_append */
      
-    //list = curl_slist_append(list, "Host: www.fantuz.net");
     //list = curl_slist_append(list, "Request URL: http://www.fantuz.net/nslookup.php");
-    
-    //    list = curl_slist_append(list, "Remote Address: 217.114.216.51:80");
-    //    list = curl_slist_append(list, "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_6_8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36");
-    //    curl_easy_setopt(ch, CURLOPT_HTTPHEADER, list);
+    //list = curl_slist_append(list, "Remote Address: 217.114.216.51:80");
+    //list = curl_slist_append(list, "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_6_8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36");
+    //curl_easy_setopt(ch, CURLOPT_HTTPHEADER, list);
 
     //hosting = curl_slist_append(hosting, "www.fantuz.net:80:217.114.216.51");
     //curl_easy_setopt(ch, CURLOPT_RESOLVE, hosting);
@@ -965,6 +1001,7 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
     list = curl_slist_append(list, "User-Agent:Mozilla/5.0 (Macintosh; Intel Mac OS X 10_6_8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36");
     //list = curl_slist_append(list, "User-Agent:Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/50.0.2661.94 Safari/537.36");
     list = curl_slist_append(list, "Connection:keep-alive");
+    //list = curl_slist_append(list, "Connection:close");
     list = curl_slist_append(list, "Upgrade-Insecure-Requests:0");
     
     //list = curl_slist_append(list, "If-None-Match: *");
@@ -973,20 +1010,40 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
     //list = curl_slist_append(list, "Accept-Language:en-US,en;q=0.8,fr;q=0.6,it;q=0.4");
 
     curl_easy_setopt(ch, CURLOPT_HTTPHEADER, list);
-    //curl_easy_setopt(ch, CURLOPT_HEADER, 1L);
+    curl_easy_setopt(ch, CURLOPT_HEADER, 1L);
 
     /* try to see if it works .. not sure anymore */
     //curl_easy_setopt(ch, CURLINFO_HEADER_OUT, "" );
 
+    /*
     // CURL_LOCK_DATA_SHARE, quite advanced and criptic
     curlsh = curl_share_init();
     curl_easy_setopt(ch, CURLOPT_SHARE, curlsh);
     curl_share_setopt(curlsh, CURLSHOPT_SHARE, CURL_LOCK_DATA_COOKIE);
     curl_share_setopt(curlsh, CURLSHOPT_SHARE, CURL_LOCK_DATA_DNS); 
+    */
 
     ret = curl_easy_perform(ch);
-    //if (DEBUG) {printf("%s",ret);};
+    /* get it! */
+    //res = curl_easy_perform(ch);
 
+    /* check for errors */ 
+    /*
+    if(res != CURLE_OK) {
+      fprintf(stderr, "curl_easy_perform() failed: %s\n",
+              curl_easy_strerror(res));
+    } else {
+      printf("%lu bytes retrieved\n", (long)chunk.size);
+    }
+    */
+    /*
+     * Now, our chunk.memory points to a memory block that is chunk.size
+     * bytes big and contains the remote file.
+     *
+     * Do something nice with it!
+     */ 
+   
+    /* Problem in performing the http request ?? */
     if (ret < 0) {
         debug_msg ("Error performing HTTP request (Error %d) - spot on !!!\n");
         printf("Error performing HTTP request (Error %d) - spot on !!!\n",ret);
@@ -1010,11 +1067,14 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
     }
    
     if (DEBUG) {
-        printf("---\n%s\n---\n",http_response);
+        printf("[%s]",http_response);
     }
 
     curl_easy_cleanup(ch);
     free(script_url);
+    //free(chunk.memory);
+    /* we're done with libcurl, so clean it up */ 
+    curl_global_cleanup();
     curl_slist_free_all(list);
     //curl_slist_free_all(hosting);
     return http_response;
@@ -1036,7 +1096,6 @@ void *threadFunc(void *arg)
 	//char* data = params->input;
 	int wport = params->xwport;
 	int proxy_port_t = params->xproxy_port;
-	//char* proxy_user = params->xproxy_user;
 	char* proxy_host_t = params->xproxy_host;
 	char* proxy_user_t = params->xproxy_user;
 	char* proxy_pass_t = params->xproxy_pass;
@@ -1068,16 +1127,16 @@ void *threadFunc(void *arg)
     	if (DEBUG) {
 		//char *p = &xclient->sin_addr.s_addr;
 		char *s = inet_ntoa(yclient->sin_addr);
-		printf("test: %s\n",(char *)params->xhostname->hostname);
-		printf("test: %s\n",(char *)params->xdns_req->hostname);
-		printf("test: %s\n",(char *)xdns_req->hostname);
-		printf("VARIABLE-RECV: %d\n", (uint32_t)(yclient->sin_addr).s_addr);
-		printf("VARIABLE-RECV-s: %s\n", s);
-		printf("VARIABLE-RECV: %s\n", lookup_script);
-		printf("VARIABLE-proxy: %s\n", proxy_host_t);
-		printf("VARIABLE-proxy-params: %d\n", params->xproxy_port);
-		printf("VARIABLE-RECV-yhostname: %s\n", yhostname);
-		//printf("VARIABLE-RECV-xhostname: %s\n", xhostname);
+		printf("params->xhostname->hostname		: %s\n",(char *)params->xhostname->hostname);
+		printf("params->xdns_req->hostname		: %s\n",(char *)params->xdns_req->hostname);
+		printf("xdns_req->hostname			: %s\n",(char *)xdns_req->hostname);
+		printf("VARIABLE sin_addr			: %d\n", (uint32_t)(yclient->sin_addr).s_addr);
+		printf("VARIABLE sin_addr human-readable	: %s\n", s);
+		printf("VARIABLE script				: %s\n", lookup_script);
+		printf("VARIABLE proxy				: %s\n", proxy_host_t);
+		printf("VARIABLE proxy-port			: %d\n", params->xproxy_port);
+		printf("VARIABLE yhostname			: %s\n", yhostname);
+		printf("\n");
 	}
 	
         rip = lookup_host(yhostname, proxy_host_t, proxy_port_t, proxy_user_t, proxy_pass_t, lookup_script, typeq, wport);
@@ -1086,8 +1145,8 @@ void *threadFunc(void *arg)
 	pthread_setspecific(glob_var_key_ip, rip);
 
 	if (DEBUG) {	
-		printf("VARIABLE-RET-HTTP: %d\n", ret);
-		printf("VARIABLE-RET-HTTP: %s\n", rip);
+		printf("\nTHREAD CURL-CODE			: %d", ret);
+		printf("\nTHREAD CURL-RESULT			: [%s]\n", rip);
 		//pthread_setspecific(glob_var_key_ip, rip);
 		//pthread_getspecific(glob_var_key_ip);
 // MOD 2016	printf("VARIABLE-RET-HTTP-GLOBAL: %x\n", glob_var_key_ip);
@@ -1097,33 +1156,33 @@ void *threadFunc(void *arg)
 
 	if ((rip != NULL) && (strncmp(rip, "0.0.0.0", 7) != 0)) {
 	    if (DEBUG) {
-		    printf("THREAD-V-ret				: [%d]\n",ret);
-		    printf("THREAD-V-type				: %d\n", dns_req->qtype);
-		    printf("THREAD-V-type				: %s\n", typeq);
-		    printf("THREAD-V-size				: %u\n", (uint32_t)request_len);
-		    printf("THREAD-V-socket-sockfd			: %u\n", sockfd);
-		    printf("THREAD-V-socket-xsockfd-u			: %u\n", xsockfd);
-		    printf("THREAD-V-socket-xsockfd-d			: %d\n", xsockfd);
-		    printf("THREAD-V-MODE-ANSWER			: %d\n", DNS_MODE_ANSWER);
-		    printf("THREAD-V-xclient->sin_addr.s_addr	: %u\n", (uint32_t)(yclient->sin_addr).s_addr);
-		    printf("THREAD-V-xclient->sin_port		: %u\n", (uint32_t)(yclient->sin_port));
-		    printf("THREAD-V-xclient->sin_family		: %u\n", (uint32_t)(yclient->sin_family));
-		    printf("THREAD-V-answer				: %s\n", rip);
+		printf("THREAD-V-ret				: [%d]\n",ret);
+		printf("THREAD-V-type				: %d\n", dns_req->qtype);
+		printf("THREAD-V-type				: %s\n", typeq);
+		printf("THREAD-V-size				: %u\n", (uint32_t)request_len);
+		printf("THREAD-V-socket-sockfd			: %u\n", sockfd);
+		printf("THREAD-V-socket-xsockfd-u		: %u\n", xsockfd);
+		printf("THREAD-V-socket-xsockfd-d		: %d\n", xsockfd);
+		printf("THREAD-V-MODE-ANSWER			: %d\n", DNS_MODE_ANSWER);
+		printf("THREAD-V-xclient->sin_addr.s_addr	: %u\n", (uint32_t)(yclient->sin_addr).s_addr);
+		printf("THREAD-V-xclient->sin_port		: %u\n", (uint32_t)(yclient->sin_port));
+		printf("THREAD-V-xclient->sin_family		: %u\n", (uint32_t)(yclient->sin_family));
+		printf("THREAD-V-answer				: [%s]\n", rip);
+		printf("THREAD-V-proxy-host			: %s\n", params->xproxy_host);
+		printf("THREAD-V-proxy-port			: %d\n", params->xproxy_port);
+		printf("THREAD-V-proxy-host			: %s\n", proxy_host_t);
+		printf("THREAD-V-proxy-port			: %d\n", proxy_port_t);
+		printf("\n");
 
-		    printf("\nTHREAD-V-proxy-host			: %s\n", params->xproxy_host);
-		    printf("THREAD-V-proxy-port			: %d\n", params->xproxy_port);
-		    printf("\nTHREAD-V-proxy-host			: %s\n", proxy_host_t);
-		    printf("THREAD-V-proxy-port			: %d\n", proxy_port_t);
-
-		    /*
-		    printf("THREAD-V-xhostname				: %s\n", yhostname);
-		    printf("THREAD-V-dns-req->hostname			: %s\n", dns_req->hostname);
-		    printf("THREAD-V-dns_req->query			: %s\n", dns_req->query);
-		    printf("THREAD-V-dns_req->query			: %s\n", xdns_req->query);
-		    printf("THREAD-V-xdns_req->hostname-to-char		: %s\n", (char *)(xdns_req->hostname));
-		    printf("THREAD-V-xdns_req->hostname			: %s\n", xdns_req->hostname);
-		    printf("THREAD-V-xdns_req->query			: %s\n", xdns_req->query);
-		    */
+		/*
+		printf("THREAD-V-xhostname				: %s\n", yhostname);
+		printf("THREAD-V-dns-req->hostname			: %s\n", dns_req->hostname);
+		printf("THREAD-V-dns_req->query			: %s\n", dns_req->query);
+		printf("THREAD-V-dns_req->query			: %s\n", xdns_req->query);
+		printf("THREAD-V-xdns_req->hostname-to-char		: %s\n", (char *)(xdns_req->hostname));
+		printf("THREAD-V-xdns_req->hostname			: %s\n", xdns_req->hostname);
+		printf("THREAD-V-xdns_req->query			: %s\n", xdns_req->query);
+		*/
 	    }
 
             build_dns_response(sockfd, yclient, xhostname, rip, DNS_MODE_ANSWER, request_len);
@@ -1185,7 +1244,7 @@ int main(int argc, char *argv[])
     //char *bind_proxy = NULL;
     char *bind_address = NULL, *proxy_host = "", *proxy_user = NULL,
          *proxy_pass = NULL, *typeq = NULL, *lookup_script = NULL,
-	 *httpsssl = NULL, *proxy_url = NULL;
+	 *httpsssl = NULL;
 
     opterr = 0;
        
@@ -1244,7 +1303,6 @@ int main(int argc, char *argv[])
 
         case 'r':
             proxy_port = atoi(optarg);
-            //if ((proxy_port <= 0) || (proxy_port >= 65536) || (proxy_port == NULL)) {
             if ((proxy_port <= 0) || (proxy_port >= 65536)) {
                 fprintf(stdout," *** Invalid proxy port\n");
                 exit(EXIT_FAILURE);
@@ -1444,20 +1502,24 @@ int main(int argc, char *argv[])
         stack = malloc(STACK_SIZE);
         if (stack == NULL)
             errExit("malloc");
+
 	/* Assume stack grows downward */
         stackTop = stack + STACK_SIZE;
 
         /* Create child that has its own UTS namespace; child commences execution in childFunc() */
+	/* Clone function */
 
-        //pid = clone(parse_dns_request, stackTop, CLONE_NEWUTS | SIGCHLD, argv[1]);
-        ////pid = clone(parse_dns_request, stackTop, CLONE_VM | SIGCHLD, argv[1]);
-        ////if (pid == -1)
-        ////    errExit("clone");
-        ////printf("clone() returned %ld\n", (long) pid);
-        //sleep(1);           /* Give child time to change its hostname */
+	/*
+        pid = clone(parse_dns_request, stackTop, CLONE_NEWUTS | SIGCHLD, argv[1]);
+        //pid = clone(parse_dns_request, stackTop, CLONE_VM | SIGCHLD, argv[1]);
+        //if (pid == -1)
+        //    errExit("clone");
+        //printf("clone() returned %ld\n", (long) pid);
+        sleep(1);           
+	*/
+	/* Give child time to change its hostname */
 
-
-	// CLONE, process
+	/* CLONE, process */
 	// pid = clone(fn, stack_aligned, CLONE_VM | SIGCHLD, arg);
 	// pid = clone(childFunc, stackTop, CLONE_NEWUTS | SIGCHLD, argv[1]);
 	// posix_spawn()
@@ -1468,7 +1530,6 @@ int main(int argc, char *argv[])
 	//if (clone(parse_dns_request, stack_aligned, CLONE_VM | SIGCHLD, request, request_len)) {
 	
 	/* still monolithic, but it suffice to take millions query load */
-	//if (fork() == 0) {
 	if (vfork() == 0) {
 
 	    /* LEFT FOR HOUSEKEEPING, SEMAPHORE LOGIC */
@@ -1532,7 +1593,6 @@ int main(int argc, char *argv[])
 	    int xsockfd;
 	    //char* str = "maxnumberone"; // another pun
 	    int xproxy_port = proxy_port;
-	    //char* xproxy_host = proxy_url;
 	    char* xproxy_user = proxy_user;
 	    char* xproxy_pass = proxy_pass;
 	    char* xproxy_host = proxy_host;
@@ -1544,7 +1604,7 @@ int main(int argc, char *argv[])
             struct sockaddr_in *yclient;
 	    struct readThreadParams *readParams = malloc(sizeof(*readParams));
 	    
-	    /* PLACEHOLDER FOR HTTP ?? */
+	    /* PLACEHOLDER FOR HTTP/DOH/CLOUD */
 	    //	  readParams->max_req_client = 10;
 	    //	  readParams->random = 0;
 	    //	  readParams->ssl = 0;
@@ -1648,24 +1708,31 @@ int main(int argc, char *argv[])
 	    continue;
 	    //break; // sometimes you just need to take a break
 
-////	    for(nnn=0; nnn< NUMT; nnn++) {
-////	        //struct sockaddr_in *xclient = (struct sockaddr_in *)params->xclient;
-////	    	//pthread_join(tid[i],(void**)&(ptr[i])); //, (void**)&(ptr[i]));
-////	    	//printf("\n return value from last thread is [%d]\n", *ptr[i]);
+	    /* Span N number of threads */
+	    /*
+   	    for(nnn=0; nnn< NUMT; nnn++) {
+	        //struct sockaddr_in *xclient = (struct sockaddr_in *)params->xclient;
+	    	//pthread_join(tid[i],(void**)&(ptr[i])); //, (void**)&(ptr[i]));
+	    	//printf("\n return value from last thread is [%d]\n", *ptr[i]);
             	//pthread_join(pth[i],NULL);
-////	    }
+	    }
+	    */
 
-/* LOCKS AND MUTEXES */
-////	    pthread_mutex_lock(&mutex);
-////	    if (pthread_mutex_unlock(&mutex)) {
-////	        //printf("unlock OK.. but no RET\n");
-////		continue;
-////	    } else {
-////	        printf("unlock NOT OK.. and no RET\n");
-////	    } 
+	    /* LOCKS AND MUTEXES */
+	    /*
+	    pthread_mutex_lock(&mutex);
+	    if (pthread_mutex_unlock(&mutex)) {
+	        //printf("unlock OK.. but no RET\n");
+		continue;
+	    } else {
+	        printf("unlock NOT OK.. and no RET\n");
+	    } 
+	    */
+
+	    /* Semaphores section */
             //sem_destroy(&mutex);
 
-	    /* JOIN THREADS */
+	    /* JOIN THREADS, for threads section */
 	    /*
 	    if(pthread_join(pth[i], NULL)) {
 	    	//fprintf(stderr, "Finished serving client %s on socket %u \n",(struct sockaddr_in *)&client->sin_addr.s_addr,sockfd);
