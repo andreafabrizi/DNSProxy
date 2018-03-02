@@ -186,6 +186,9 @@ The more DNSP resolvers around the world, the less DNS queries will be traceable
 #### Version 1.6 - March 2018:
 * sneak peak: REDIS ready _via https://github.com/redis/hiredis_
 * more community = more test
+* finally fixed infamous proxy settings (not hardcoded they were stopped by mutex leftover).
+* removed and commented references to different DNSP modes (threaded/forked, mutex, semaphores).
+* finally will update informations to strongly suggest SQUID in place of POLIPO (I loved it, but is EOL)
 
 #### Version 1.5 - February 2018:
 * added IETF references and talk about DOH (wich does HTTP2, so single connection multiple streams)

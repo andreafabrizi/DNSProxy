@@ -74,8 +74,8 @@
 #define DEFAULT_PRX_PORT   1080
 
 /* for threaded model, experimental options, not in use at the moment */
-#define NUMT	              4
-#define NUM_THREADS           4
+#define NUMT	              2
+#define NUM_THREADS           2
 #define NUM_HANDLER_THREADS   1
 
 //#define TYPEQ	    	    2
@@ -851,8 +851,9 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
 
     char *http_response,
          *script_url,
-	 *pointer ;
-    char base[1];
+	 *pointer;
+         //*proxy_url,
+    char base[2];
 
     int ret;
     //struct curl_slist *hosting = NULL;
@@ -862,19 +863,24 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
     //chunk.size = 0;    /* no data at this point */ 
 
     script_url = malloc(URL_SIZE);
-    
     http_response = malloc(HTTP_RESPONSE_SIZE);
-
     bzero(script_url, URL_SIZE);
-    
     snprintf(script_url, URL_SIZE-1, "%s?host=%s&type=%s", lookup_script, host, typeq);
-    //snprintf(proxy_url, URL_SIZE-1, "http://%s/", proxy_host);
-    //fprintf(stderr, "Required substring is \"%s\"\n", proxy_url);
 
+    //proxy_url = malloc(URL_SIZE);
+    //bzero(proxy_url, URL_SIZE);
+    //snprintf(proxy_url, URL_SIZE-1, "http://%s/", proxy_host);
+
+    /*
+    if (proxy_host != NULL) {
+        fprintf(stderr, "Required substring is \"%s\"\n", proxy_url);
+    }
+    */
+    
     //printf(http_response);
 
     /* HTTPS DETECTION CODE ... might be better :) */
-    pointer = substring( script_url, 5, 1);
+    pointer = substring(script_url, 5, 1);
     strcpy(base, "s");
 
     int result = strcmp(pointer, base);
@@ -899,24 +905,31 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
 	CURLOPT_MAXREDIRS, 2
 	CURLOPT_COOKIEJAR, "cookies.txt"
 	CURLOPT_COOKIEFILE, "cookies.txt"
-	CURLOPT_ENCODING, "gzip"
-	CURLOPT_TIMEOUT, 5
+	CURLOPT_ENCODING, "gzip"			check, is DEFLATE mostly
+	CURLOPT_TIMEOUT, 5				choosen 5 as value
 	CURLOPT_HEADER, 1
-	CURLOPT_URL, "http://example.com/file.txt"
-	CURLOPT_PROXY, "http://proxy:80"
     */ 
 
     curl_easy_setopt(ch, CURLOPT_URL, script_url);
     curl_easy_setopt(ch, CURLOPT_PORT, wport); /* 80, 443 */
 
     /* Proxy configuration section */
+    //curl_easy_setopt(ch, CURLOPT_PROXY, proxy_host);
+    //curl_easy_setopt(ch, CURLOPT_PROXY, "http://127.0.0.1/");
+    //curl_easy_setopt(ch, CURLOPT_PROXYPORT, 3128);	/* 1080, 8118, 8888, 9500, ... */
     curl_easy_setopt(ch, CURLOPT_PROXY, proxy_host);
-    curl_easy_setopt(ch, CURLOPT_PROXYPORT, proxy_port);	/* 1080, 8118, 8888, 9500, ... */
+    curl_easy_setopt(ch, CURLOPT_PROXYPORT, proxy_port);	/* 1080, 3128, 8118, 8888, 9500, ... */
     curl_easy_setopt(ch, CURLOPT_PROXYTYPE, CURLPROXY_HTTP);
-    
+
+    /* optional proxy username and password */
+    if ((proxy_user != NULL) && (proxy_pass != NULL)) {
+        curl_easy_setopt(ch, CURLOPT_PROXYUSERNAME, proxy_user);
+        curl_easy_setopt(ch, CURLOPT_PROXYPASSWORD, proxy_pass);
+    }
+
     curl_easy_setopt(ch, CURLOPT_MAXCONNECTS, MAXCONN);
     //curl_easy_setopt(ch, CURLOPT_FRESH_CONNECT, 0);
-    curl_easy_setopt(ch, CURLOPT_FRESH_CONNECT, 1);
+    curl_easy_setopt(ch, CURLOPT_FRESH_CONNECT, 0);
     curl_easy_setopt(ch, CURLOPT_FORBID_REUSE, 0);
     //curl_setopt($curl, CURLOPT_AUTOREFERER, 1);
 
@@ -934,12 +947,6 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
     // HTTP/1.1 301 Moved Permanently
     // Location: http://www.example.org/index.asp
     curl_easy_setopt(ch, CURLOPT_FOLLOWLOCATION, 1);
-
-    /* optional proxy username and password */
-    if ((proxy_user != NULL) && (proxy_pass != NULL)) {
-        curl_easy_setopt(ch, CURLOPT_PROXYUSERNAME, proxy_user);
-        curl_easy_setopt(ch, CURLOPT_PROXYPASSWORD, proxy_pass);
-    }
 
     // LOAD YOUR CA/CERT HERE
     //static const char *pCertFile = "testcert.pem";
@@ -975,9 +982,12 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
     /* anyway all will change with H2 */
 
     /* PROXY HOST INPUT VALIDATION ... to be improved for sanitisation */
+    /*
     if (DEBUG) {
-	printf(" *** Fetching cache from HTTP proxy at http://%s:%d\n\n", proxy_host, proxy_port);
+	printf(" *** Fetching cache from HTTP proxy at http://%s:%d\n", proxy_host, proxy_port);
+	//printf(" *** Fetching cache from HTTP proxy at %s:%d\n", proxy_url);
     }
+    */
 
     /* OVERRIDE RESOLVER --> add resolver CURL header, work in progress */
     // in the form of CLI --resolve my.site.com:80:1.2.3.4, -H "Host: my.site.com"
@@ -997,18 +1007,31 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
     //list = curl_slist_append(list, "Request Method:GET");
     //list = curl_slist_append(list, "Remote Address: 217.114.216.51:443");
 
-    //list = curl_slist_append(list, "Host: www.fantuz.net");
-    list = curl_slist_append(list, "User-Agent:Mozilla/5.0 (Macintosh; Intel Mac OS X 10_6_8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36");
-    //list = curl_slist_append(list, "User-Agent:Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/50.0.2661.94 Safari/537.36");
+    list = curl_slist_append(list, "Accept:text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8");
+    list = curl_slist_append(list, "Accept-Encoding:deflate");
+    //list = curl_slist_append(list, "Accept-Encoding:gzip, deflate, sdch");
+    list = curl_slist_append(list, "Accept-Language:en-US,en;q=0.8,fr;q=0.6,it;q=0.4");
+    list = curl_slist_append(list, "Cache-Control:max-age=300");
     list = curl_slist_append(list, "Connection:keep-alive");
-    //list = curl_slist_append(list, "Connection:close");
-    list = curl_slist_append(list, "Upgrade-Insecure-Requests:0");
-    
+
+    //list = curl_slist_append(list, "Host:XYZ");
     //list = curl_slist_append(list, "If-None-Match: *");
     //list = curl_slist_append(list, "Accept:text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8");
-    //list = curl_slist_append(list, "Accept-Encoding:gzip, deflate, sdch");
-    //list = curl_slist_append(list, "Accept-Language:en-US,en;q=0.8,fr;q=0.6,it;q=0.4");
 
+    //list = curl_slist_append(list, "Host: www.fantuz.net");
+    //list = curl_slist_append(list, "User-Agent:Mozilla/5.0 (Macintosh; Intel Mac OS X 10_6_8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36");
+    //list = curl_slist_append(list, "User-Agent:Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/50.0.2661.94 Safari/537.36");
+    list = curl_slist_append(list, "Upgrade-Insecure-Requests:1");
+    list = curl_slist_append(list, "User-Agent:Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Ubuntu Chromium/64.0.3282.167 Chrome/64.0.3282.167 Safari/537.36");
+
+    /*
+Cookie:__cfduid=d5e9da110544f36f002a7d6ff3e7d96951518545176; gsScrollPos-1505=0; gsScrollPos-1568=0; __utmc=47044144; __utmz=47044144.1519169656.1.1.utmcsr=(direct)|utmccn=(direct)|utmcmd=(none); __utma=47044144.1144654312.1519169656.1519498523.1519564542.5; gsScrollPos-2056=; gsScrollPos-2122=
+
+If-Modified-Since:Fri, 02 Mar 2018 13:25:57 GMT
+If-None-Match:352d3e68703dce365ec4cda53f420f4a
+Upgrade-Insecure-Requests:1
+User-Agent:Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Ubuntu Chromium/64.0.3282.167 Chrome/64.0.3282.167 Safari/537.36
+    */
     curl_easy_setopt(ch, CURLOPT_HTTPHEADER, list);
     curl_easy_setopt(ch, CURLOPT_HEADER, 1L);
 
@@ -1072,6 +1095,7 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
 
     curl_easy_cleanup(ch);
     free(script_url);
+    //free(proxy_url);
     //free(chunk.memory);
     /* we're done with libcurl, so clean it up */ 
     curl_global_cleanup();
@@ -1094,12 +1118,16 @@ void *threadFunc(void *arg)
 	//char *str;
 	//int test = params->digit;
 	//char* data = params->input;
+
 	int wport = params->xwport;
+
 	int proxy_port_t = params->xproxy_port;
 	char* proxy_host_t = params->xproxy_host;
 	char* proxy_user_t = params->xproxy_user;
 	char* proxy_pass_t = params->xproxy_pass;
+
 	char* lookup_script = params->xlookup_script;
+
 	char* typeq = params->xtypeq;
 	int xsockfd = params->xsockfd;
 	int sockfd = params->sockfd;
@@ -1133,8 +1161,10 @@ void *threadFunc(void *arg)
 		printf("VARIABLE sin_addr			: %d\n", (uint32_t)(yclient->sin_addr).s_addr);
 		printf("VARIABLE sin_addr human-readable	: %s\n", s);
 		printf("VARIABLE script				: %s\n", lookup_script);
-		printf("VARIABLE proxy				: %s\n", proxy_host_t);
-		printf("VARIABLE proxy-port			: %d\n", params->xproxy_port);
+		//printf("VARIABLE proxy-host			: %s\n", proxy_host_t);
+		//printf("VARIABLE proxy-port			: %s\n", proxy_port_t);
+		//printf("VARIABLE proxy-host			: %d\n", (char *)params->xproxy_host);
+		//printf("VARIABLE proxy-port			: %d\n", (char *)params->xproxy_port);
 		printf("VARIABLE yhostname			: %s\n", yhostname);
 		printf("\n");
 	}
@@ -1149,8 +1179,8 @@ void *threadFunc(void *arg)
 		printf("\nTHREAD CURL-RESULT			: [%s]\n", rip);
 		//pthread_setspecific(glob_var_key_ip, rip);
 		//pthread_getspecific(glob_var_key_ip);
-// MOD 2016	printf("VARIABLE-RET-HTTP-GLOBAL: %x\n", glob_var_key_ip);
-		//..printf("VARIABLE-HTTP: %x\n", pthread_getspecific(glob_var_key_ip));
+		//printf("VARIABLE-RET-HTTP-GLOBAL: %x\n", glob_var_key_ip);
+		//printf("VARIABLE-HTTP: %x\n", pthread_getspecific(glob_var_key_ip));
 		//printf("build: %s", inet_ntop(AF_INET, &ip_header->saddr, ipbuf, sizeof(ipbuf)));
 	}
 
@@ -1168,10 +1198,12 @@ void *threadFunc(void *arg)
 		printf("THREAD-V-xclient->sin_port		: %u\n", (uint32_t)(yclient->sin_port));
 		printf("THREAD-V-xclient->sin_family		: %u\n", (uint32_t)(yclient->sin_family));
 		printf("THREAD-V-answer				: [%s]\n", rip);
+		/*
 		printf("THREAD-V-proxy-host			: %s\n", params->xproxy_host);
 		printf("THREAD-V-proxy-port			: %d\n", params->xproxy_port);
 		printf("THREAD-V-proxy-host			: %s\n", proxy_host_t);
 		printf("THREAD-V-proxy-port			: %d\n", proxy_port_t);
+		*/
 		printf("\n");
 
 		/*
@@ -1232,7 +1264,7 @@ void *threadFunc(void *arg)
 int main(int argc, char *argv[])
 {
     //int sockfd, port = DEFAULT_LOCAL_PORT, wport = DEFAULT_WEB_PORT, proxy_port = DEFAULT_PRX_PORT, c;
-    int sockfd, port = DEFAULT_LOCAL_PORT, wport = DEFAULT_WEB_PORT, proxy_port = DEFAULT_PRX_PORT, c;
+    int sockfd, port = DEFAULT_LOCAL_PORT, wport = DEFAULT_WEB_PORT, proxy_port = 0, c;
     int r = 0;
     char *stack;            /* Start of stack buffer */
     char *stackTop;         /* End of stack buffer */
@@ -1242,15 +1274,19 @@ int main(int argc, char *argv[])
     struct hostent *local_address;
     //struct hostent *proxy_address;
     //char *bind_proxy = NULL;
-    char *bind_address = NULL, *proxy_host = "", *proxy_user = NULL,
+    char *bind_address = NULL, *proxy_host, *proxy_user = NULL,
          *proxy_pass = NULL, *typeq = NULL, *lookup_script = NULL,
 	 *httpsssl = NULL;
 
     opterr = 0;
        
+    /* 20180301: test */
+    /*
     //sem_t mutex;
     sem_t sem;
     sem_t *mutex;
+    */
+
     int s, tnum, opt, num_threads;
     struct thread_info *tinfo;
     pthread_attr_t attr;
@@ -1377,11 +1413,11 @@ int main(int argc, char *argv[])
     }
 
     if (proxy_host != NULL) {
-        //snprintf(proxy_url, URL_SIZE-1, "http://%s", proxy_host);
-	//fprintf(stderr, "Required substring is \"%s\"\n", proxy_url);
         fprintf(stderr, "Yay !! HTTP caching proxy configured, continuing with cache\n");
         fprintf(stderr, "Bind proxy host: %s\n",proxy_host);
-	//proxy_address = proxy_host;
+	fprintf(stderr, "Required HTTP proxy: \"%s\"\n", proxy_host);
+	//fprintf(stderr, "Required URL is \"%s\"\n", proxy_url);
+	//proxy_host = proxy_address;
         //fprintf(stderr, "Bind proxy string: %s\n",proxy_address);
     } else {
         fprintf(stderr, "No HTTP caching proxy configured, continuing without cache\n");
@@ -1408,7 +1444,8 @@ int main(int argc, char *argv[])
     if (sockfd < 0) 
         error("Error opening socket");
 
-    if ((socketid = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) < 0) err(1, "socket(2) failed");
+    //if ((socketid = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) < 0) err(1, "socket(2) failed");
+    if ((socketid = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) < 0) error("socket(2) failed");
 
     bzero((char *) &serv_addr, sizeof(serv_addr));
     local_address = gethostbyname(bind_address);
@@ -1416,14 +1453,6 @@ int main(int argc, char *argv[])
     if (local_address == NULL)
       error("Error resolving local host");
     
-    /*
-    proxy_address = gethostbyname(proxy_host);
-
-    if (proxy_address != NULL)
-      //fprintf(stderr,"proxy configured as: %s",proxy_address);
-      fprintf(stderr,"proxy configured as: %s",proxy_host);
-    */
-
     serv_addr.sin_family = AF_INET;
     memcpy (&serv_addr.sin_addr.s_addr, local_address->h_addr,sizeof (struct in_addr));
     serv_addr.sin_port = htons(port);
@@ -1432,21 +1461,24 @@ int main(int argc, char *argv[])
     if (bind(sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0) 
       error("Error opening socket (bind)");
 
-    //if(sem_init(*sem_t,1,1) < 0) {
-    //  perror("semaphore initilization");
-    //  exit(2);
-    //}
+    /* semaphores section, if ever needed */
+    /*
+    if(sem_init(*sem_t,1,1) < 0) {
+      perror("semaphore initilization");
+      exit(2);
+    }
 
-    //if(sem_init(&mutex,1,1) < 0) {
-    //  perror("semaphore initilization");
-    //  exit(2);
-    //}
+    if(sem_init(&mutex,1,1) < 0) {
+      perror("semaphore initilization");
+      exit(2);
+    }
 
-    //if ((mutex = sem_open("/tmp/semaphore", O_CREAT, 0644, 1)) == SEM_FAILED ) {
-    //  perror("sem_open");
-    //  exit(EXIT_FAILURE);
-    //}
-    
+    if ((mutex = sem_open("/tmp/semaphore", O_CREAT, 0644, 1)) == SEM_FAILED ) {
+      perror("sem_open");
+      exit(EXIT_FAILURE);
+    }
+    */
+
     if(pthread_mutex_init(&mutex, &MAttr))
     {
         printf("Unable to initialize a mutex while threading\n");
@@ -1455,11 +1487,13 @@ int main(int argc, char *argv[])
 
     while (1) {
 
-    pthread_mutexattr_init(&MAttr);
-    //pthread_mutexattr_settype(&MAttr, PTHREAD_MUTEX_ERRORCHECK);
-    pthread_mutexattr_settype(&MAttr, PTHREAD_MUTEX_RECURSIVE);
+	pthread_mutexattr_init(&MAttr);
+	//pthread_mutexattr_settype(&MAttr, PTHREAD_MUTEX_ERRORCHECK);
+	pthread_mutexattr_settype(&MAttr, PTHREAD_MUTEX_RECURSIVE);
 
-	wait(NULL);
+	/* 20180301: test */
+	//wait(NULL);
+
 	int nnn = 0;
 	uint i = 0;
 	int s, tnum, opt;
@@ -1495,6 +1529,7 @@ int main(int argc, char *argv[])
    	request_len = recvfrom(sockfd,request,UDP_DATAGRAM_SIZE,0,(struct sockaddr *)&client,&client_len);
 
     	//wait(NULL);
+
         /* Child */
 
         /* Allocate stack for child */
@@ -1532,10 +1567,13 @@ int main(int argc, char *argv[])
 	/* still monolithic, but it suffice to take millions query load */
 	if (vfork() == 0) {
 
+	    /* 20180301: test */
 	    /* LEFT FOR HOUSEKEEPING, SEMAPHORE LOGIC */
+	    /*
 	    sem_wait(&mutex);
+	    */
 
-	    /* DNS/UDP PARSE */
+	    /* DNS UDP datagram PARSE */
    	    dns_req = parse_dns_request(request, request_len);
 
 	    if (DEBUG) {
@@ -1592,10 +1630,7 @@ int main(int argc, char *argv[])
 	    int xwport = wport; // web port, deprecated
 	    int xsockfd;
 	    //char* str = "maxnumberone"; // another pun
-	    int xproxy_port = proxy_port;
-	    char* xproxy_user = proxy_user;
-	    char* xproxy_pass = proxy_pass;
-	    char* xproxy_host = proxy_host;
+
 	    char* xlookup_script = lookup_script;
 	    char* xtypeq = typeq;
 
@@ -1604,7 +1639,14 @@ int main(int argc, char *argv[])
             struct sockaddr_in *yclient;
 	    struct readThreadParams *readParams = malloc(sizeof(*readParams));
 	    
-	    /* PLACEHOLDER FOR HTTP/DOH/CLOUD */
+	    /*
+	    int xproxy_port = proxy_port;
+	    char* xproxy_user = proxy_user;
+	    char* xproxy_pass = proxy_pass;
+	    char* xproxy_host = proxy_host;
+	    */
+
+	    /* PLACEHOLDER FOR HTTP options, DoH full-spec, CLOUD deploys */
 	    //	  readParams->max_req_client = 10;
 	    //	  readParams->random = 0;
 	    //	  readParams->ssl = 0;
@@ -1612,8 +1654,9 @@ int main(int argc, char *argv[])
 
 	    readParams->xproxy_user = proxy_user;
 	    readParams->xproxy_pass = proxy_pass;
-	    readParams->xproxy_host = xproxy_host;
-	    readParams->xproxy_port = xproxy_port;
+	    readParams->xproxy_host = proxy_host;
+	    readParams->xproxy_port = proxy_port;
+
 	    readParams->xlookup_script = lookup_script;
 	    readParams->xtypeq = typeq;
 	    readParams->xwport = wport;
@@ -1641,21 +1684,23 @@ int main(int argc, char *argv[])
 	    if (pthread_mutex_trylock(&mutex)) {
 		//ret = pthread_create(&pth[i],NULL,threadFunc,readParams);
 		if (DEBUG) {
-		    printf("lock OK ...\n");
+		    printf("PTHREAD lock OK ...\n");
 		}
 	    } else {
 		if (DEBUG) {
-		    printf("lock NOT OK ...\n");
+		    printf("PTHREAD lock NOT OK ...\n");
 		}
 	    }
 	    */
 
+	    /* Spin the thread ! */
 	    threadFunc(readParams);
 	    ret = pthread_create(&pth[i],&attr,threadFunc,readParams);
 
+	    /* 20180301: test */
 	    /* ONLY IF USING SEMAPHORES .... NOT WITH MUTEX */
-	    sem_wait(&mutex);
-	    sem_post(&mutex);
+	    //sem_wait(&mutex);
+	    //sem_post(&mutex);
 
 	    /* USEFUL WITH MULTIPATH DNS-over-HTTP */
 	    for(r=0; r < NUMT*NUM_THREADS; r++) {
@@ -1682,6 +1727,7 @@ int main(int argc, char *argv[])
 	   	    //printf("OUTSIDE-THREAD-log: pid [%u] - hostname %s - size %d ip %s\r\n", ret, dns_req->hostname, request_len, ip);
 		    printf("OUTSIDE-THREAD-log: size %d\n",request_len);
 		    fprintf(stderr, "Finished joining thread i-> %d, nnn-> %d, r-> %d \n",i,nnn,r);
+		    //printf("Finished joining thread i-> %d, nnn-> %d, r-> %d \n",i,nnn,r);
 		}
 
 	        i++;
