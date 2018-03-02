@@ -222,8 +222,9 @@ void usage(void)
                        "      -I\t\t Upgrade Insecure Requests, HSTS work in progress\n"
                        "      -R\t\t Enable CURL resolve mechanism, avoiding extra gethostbyname, work in progress\n"
                        "\n"
-		       " Example DNS/HTTPS direct :  dnsp -s https://www.fantuz.net/nslookup.php\n"
-                       " Example DNS/HTTP w/cache :  dnsp -p 53 -l 127.0.0.1 -r 8118 -H 127.0.0.1 -s http://www.fantuz.net/nslookup.php\n\n"
+		       " Example HTTPS direct :  dnsp -s https://php-dns.appspot.com/\n"
+		       " Example HTTP direct  :  dnsp -s http://www.fantuz.net/nslookup.php\n"
+                       " Example HTTP w/cache :  dnsp -r 8118 -H http://myproxy.example.com/ -s http://www.fantuz.net/nslookup.php\n\n"
     ,VERSION);
     exit(EXIT_FAILURE);
 }
@@ -868,6 +869,18 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
 
     /* curl setup */
     ch = curl_easy_init();
+
+    /* to add soon */
+    /*
+	CURLOPT_MAXREDIRS, 2
+	CURLOPT_COOKIEJAR, "cookies.txt"
+	CURLOPT_COOKIEFILE, "cookies.txt"
+	CURLOPT_ENCODING, "gzip"
+	CURLOPT_TIMEOUT, 5
+	CURLOPT_HEADER, 1
+	CURLOPT_URL, "http://example.com/file.txt"
+	CURLOPT_PROXY, "http://proxy:80"
+    */ 
     curl_easy_setopt(ch, CURLOPT_URL, script_url);
     curl_easy_setopt(ch, CURLOPT_PORT, wport); /* 80, 443 */
 
@@ -924,10 +937,6 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
     curl_easy_setopt(ch, CURLOPT_WRITEFUNCTION, write_data);	/* Set write function */
     curl_easy_setopt(ch, CURLOPT_WRITEDATA, http_response);
 
-    /* try to see if it works .. not sure anymore */
-    //curl_easy_setopt(ch, CURLINFO_HEADER_OUT, "" );
-    //curl_easy_setopt(ch, CURLOPT_HEADER, 1L);
-
     /* PROXY HOST INPUT VALIDATION ... to be improved for sanitisation */
     if (DEBUG) {
 	printf("\n\nUsing local HTTP proxy cache from http://%s:%d\n\n", proxy_host, proxy_port);
@@ -964,6 +973,10 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
     //list = curl_slist_append(list, "Accept-Language:en-US,en;q=0.8,fr;q=0.6,it;q=0.4");
 
     curl_easy_setopt(ch, CURLOPT_HTTPHEADER, list);
+    //curl_easy_setopt(ch, CURLOPT_HEADER, 1L);
+
+    /* try to see if it works .. not sure anymore */
+    //curl_easy_setopt(ch, CURLINFO_HEADER_OUT, "" );
 
     // CURL_LOCK_DATA_SHARE, quite advanced and criptic
     curlsh = curl_share_init();

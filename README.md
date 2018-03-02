@@ -5,12 +5,25 @@ interface (UDP only) and resolves such queries by using an external PHP
 script, using standard HTTP(S) requests. It will then recreate the well-formed
 UDP packet on 127.0.0.1 and send it back to the client.
 
+DNS proxy generally listens on local UDP port 53. When it receives a query,
+it will forward such DNS request via HTTP, towards the PHP script (nslookup.php).
+Eventually, DNSP can be configure to cross through (and receiving Via) 
+additional HTTP proxies (i.e. TOR, enterprise-proxy, locked-down country, etc).
+
+Should you be willing to perform "response caching" (and sharing), you can rely 
+on your favourite HTTP/HTTPS proxy server, as any of polipo, squid, nginx, 
+Varnish, charles, SOCKS, TOR, will work properly with DNSP.
+
+You can also run DNSP through HTTP(S) without any caching or extra proxy, 
+directly attaching the DNSP server to the remote resolver webservice (the PHP
+script can be hosted anywhere, i.e. on Google Cloud Platform).
+
 If you can't access "secured" VPN or tunnels  to resolve names externally (i.e.
 TOR users), DNSProxy is a rapid and efficient solution for you.
 
-In order to resolving "anonymous DNS", all you need is a PHP-server hosting the
-*nslookup.php* resolver script. This software is completeley  TOR-friendly,
-requires minimal resources.
+In order to start resolving "anonymous DNS", all you need is a PHP-server 
+hosting the *nslookup.php* resolver script. This software is completeley  TOR-friendly,
+requires minimal resources. Examples are provided for ease of use.
 
 ## Headline: why DNSP ?
 This is a new idea in terms of transport of DNS outside of it's original scope.
@@ -21,14 +34,15 @@ DNS-over-HTTP is currently being evaluated by IETF as workgroup/proposal.
 ## Disclaimer
 WHEN FULL-ANONIMITY IS A CONCERN, make sure to host *nslookup.php* on a trustable server !
 
-To be clear, the PHP script DOES DO the underlying (infamously leaking) "system call", the
-"classic DNS request". Such system call relies on different mechanisms to resolve DNS, and in
-case of hosting providers, such mechanism are managed by the hosting provider.
-Hence, supposedly optimised for best speed and caching. Such system calls are therefore outside
-the control of DNSP as a software: all DNSP does is tunneling **and** avoids leakage of UDP qry.
+To be clear, the PHP script DOES DO the underlying (infamously leaking) "system call",
+the "classic DNS request". Such system call relies on different mechanisms to resolve DNS,
+and in case of hosting providers, such mechanism are managed by the hosting provider.
+Hence, supposedly optimised for best speed and caching. Such system calls are therefore
+outside the control of DNSP as a software: all DNSP does is tunneling **and** avoids leakage
+of UDP queries.
 
-That said, you MUST use an external server that you trust and you can deploy on !
-And do not forget to check that 127.0.0.1 becomes your unique system-wide resolver.
+That said, you **MUST** use an external server that you trust and you can deploy stuff on !
+**Do not forget to ensure that 127.0.0.1 is your unique system resolver (/etc/resolv.conf)**.
 
 Beware, having the PHP script running on the same local machine (not using a remote webservice)
 makes no sense and WILL make ALL of your DNS queries leaking. Useful for TESTING purposes only !!
@@ -102,31 +116,24 @@ Tested on CloudFlare, Google Cloud Platform, Docker, NGINX, Apache, etc
 
 ## Usage examples
 
-
  # You want just to surf anonymously, using the HTTPS/DNS service without HTTP caching proxy
  # but still want DNS traffic to be to be encrypted (simplest mode):
 ```bash
-dnsp -p 53 -s https://www.fantuz.net/nslookup.php
+dnsp -s https://www.fantuz.net/nslookup.php
+dnsp -s https://php-dns.appspot.com/
 ```
-# If you can leverage the use of local HTTP caching proxy running on non-default port (!=1080):
+# Leverage the use of a local HTTP caching proxy . Option "-H" to specify proxy's URI (URI!=URL)
+As per port, DNSP assumes 1080 (I'm an old SOCKS user). Use "-r" option to changes that.
 ```bash
-dnsp -p 53 -l 127.0.0.1 -h 127.0.0.1 -r 8118 -s https://www.fantuz.net/nslookup.php
+dnsp -p 53 -l 127.0.0.1 -H http://192.168.3.93/ -r 8118 -s https://www.fantuz.net/nslookup.php
+dnsp -p 53 -l 127.0.0.1 -H http://aremoteproxyservice/ -r 3128 -s https://www.fantuz.net/nslookup.php
 ```
- # HTTP vs HTTPS modes
+ # HTTP vs HTTPS modes, no cache (OK, cache might nowadays be on a CDN, so an intermediate 
+cache layer will still be present somewher, unless forbidden by headers or expiry...).
 ```bash
 dnsp -s http://www.fantuz.net/nslookup.php
 dnsp -s https://www.fantuz.net/nslookup.php
 ```
-
-In this example, DNS proxy listens on local UDP port 53, and reuests the PHP script, eventually through
-additional proxy (i.e. TOR, enterprise-proxy, locked-down country, etc).
-
-Should you be willing to perform "response caching" (and sharing), you can rely on your favourite
-HTTP/HTTPS proxy server, as any of polipo, squid, nginx, Varnish, charles, SOCKS, TOR, will work 
-properly with DNSP.
-
-You can also run DNSP through HTTP(S) without any caching or extra proxy, directly attaching the DNSP server to
-the remote resolver webservice (the nslookup.php can be hosted anywhere, i.e. on Google Cloud Platform).
 
 **IMPORTANT:** Please, don't use the script hosted on my server(s) as they serve as demo-only.
 They might be subject to unpredicted change, offlining, defacing.... Trust your own servers, and 
@@ -170,7 +177,6 @@ The more DNSP resolvers around the world, the less DNS queries will be traceable
 
 #### Version 1.6 - March 2018:
 * sneak peak: REDIS ready _via https://github.com/redis/hiredis_
-* 
 * more community = more test
 
 #### Version 1.5 - February 2018:
