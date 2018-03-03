@@ -9,14 +9,16 @@ LIBS+=-lcurl -lpthread -lrt -DTLS
 # threads
 # gcc dnsp.c -DTLS -W -lcurl -g -lpthread -rdynamic -lrt -o dnsp
 
-all : dnsp
-
+all : dnsp h2
 dnsp : dnsp.o
 	${CC} dnsp.o ${CFLAGS} ${LIBS} -w -o dnsp
-
+h2 : dnsp-h2.c
+	#${CC} dnsp-h2.o ${CFLAGS} -lcurl -lpthread -lrt -w -o dnsp-h2
+	gcc dnsp-h2.c -O2 -g -DTLS -rdynamic -lcurl -lpthread -lrt -o dnsp-h2
+	#gcc dnsp-h2.c -O2 -g -DTLS -rdynamic -lcurl -lpthread -lrt -o dnsp-h2
 dnsp.o : dnsp.c
 	${CC} -w -c dnsp.c
-
+dnsp-h2.o : dnsp-h2.c
+	${CC} -w -c dnsp-h2.c
 clean :
-	rm -fr *.o
-	rm -fr dnsp
+	rm *.o dnsp dnsp-h2

@@ -183,6 +183,14 @@ The more DNSP resolvers around the world, the less DNS queries will be traceable
 * use Warning headers to signal something
 * soon to add the arduino-ethernet library with the new select() function (sorry for delay, was easy)
 
+#### Version 2 - March 2018:
+* adding NGHTTP2 along with CURL, the correct way to support H2 (WIP)
+* pre-emptive HTTP cache population as option (useful for CDN or local 
+squid/polipo proxies). based on Location header, will force the same DNS server
+software to issue a GET on the remote domain, in order to preemptively populate 
+HTTP caches in between. Not always useful, used to help in high-delay satellite browsing.
+* DNSP for HTTP/1 version freeze, development on H2 only (by now).
+
 #### Version 1.6 - March 2018:
 * sneak peak: REDIS ready _via https://github.com/redis/hiredis_
 * more community = more test

@@ -1085,8 +1085,9 @@ User-Agent:Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko
 	printf("from %s\n",script_url);
 	//curl_slist_free_all(hosting);
     	printf("Here inside curl, %s\n",http_response);
-        //http_response = "0.0.0.0";
-        return NULL;
+        http_response = "0.0.0.0";
+        //return NULL;
+        return http_response;
     }
    
     if (DEBUG) {
@@ -1141,8 +1142,9 @@ void *threadFunc(void *arg)
         pthread_key_create(&key_i, NULL);
 	//str=(char*)arg;
 
-	if (pthread_mutex_trylock(&mutex)) {
+	/* shall I use trylock or lock ? */
 	//if (pthread_mutex_lock(&mutex)) {
+	if (pthread_mutex_trylock(&mutex)) {
 	    if (DEBUG) {
 	    	printf("init lock OK ... \n");
 	    }
@@ -1218,8 +1220,8 @@ void *threadFunc(void *arg)
 	    }
 
             build_dns_response(sockfd, yclient, xhostname, rip, DNS_MODE_ANSWER, request_len);
-
 	    //printf("THREAD-V-xclient->sin_addr.s_addr		: %s\n",(char *)(xclient->sin_family));
+	    
         } else if ( strstr(dns_req->hostname, "hamachi.cc") != NULL ) {
             printf("BALCKLIST: pid [%d] - name %s - host %s - size %d \r\n", getpid(), dns_req->hostname, rip, (uint32_t)request_len);
 	    printf("BLACKLIST: xsockfd %d - hostname %s \r\n", xsockfd, xdns_req->hostname);
@@ -1230,6 +1232,7 @@ void *threadFunc(void *arg)
 	    printf("ERROR: xsockfd %d - hostname %s \r\n", xsockfd, yhostname);
 	    printf("Generic resolution problem \n");
             build_dns_response(sockfd, yclient, xhostname, rip, DNS_MODE_ERROR, request_len);
+	    //exit(EXIT_SUCCESS);
 	}
 
 	//char *s = inet_ntoa(xclient->sin_addr);
@@ -1256,6 +1259,7 @@ void *threadFunc(void *arg)
 	    }
 	}
 	
+	/* Again, quit the thread */
 	//pthread_exit(NULL);
 	exit(EXIT_SUCCESS);
 }
@@ -1564,7 +1568,7 @@ int main(int argc, char *argv[])
 	//if (pid == 0) {
 	//if (clone(parse_dns_request, stack_aligned, CLONE_VM | SIGCHLD, request, request_len)) {
 	
-	/* still monolithic, but it suffice to take millions query load */
+	/* still monolithic, but can take millions of queries */
 	if (vfork() == 0) {
 
 	    /* 20180301: test */
@@ -1675,8 +1679,8 @@ int main(int argc, char *argv[])
 	    //tinfo = calloc(NUMT, sizeof(struct thread_info));
 	    //if (tinfo == NULL) handle_error("calloc");
 	
-	    /* ISSUES IN CREATING SUCH A THREAD ? NO I DID NOT */
 	    /* AS DISCUSSED, we stick to monolithic/vfork */
+	    /* Here just checking if any issue in creating a new THREAD ? NO issuses BTW */
 	    //errore = pthread_create(&tid[i], NULL, threadFunc, &data_array[i]);
 	    //if (i=sizeof(pth)) { i = 0 ;}
 
@@ -1693,7 +1697,7 @@ int main(int argc, char *argv[])
 	    }
 	    */
 
-	    /* Spin the thread ! */
+	    /* Spin the well-instructed thread ! */
 	    threadFunc(readParams);
 	    ret = pthread_create(&pth[i],&attr,threadFunc,readParams);
 
@@ -1702,7 +1706,7 @@ int main(int argc, char *argv[])
 	    //sem_wait(&mutex);
 	    //sem_post(&mutex);
 
-	    /* USEFUL WITH MULTIPATH DNS-over-HTTP */
+	    /* USEFUL in future with QUIC (multipath DNS-over-HTTP as well) I believe so */
 	    for(r=0; r < NUMT*NUM_THREADS; r++) {
 	    	if(0 != ret) {
 			fprintf(stderr, "Couldn't run thread number %d, errno %d\n", i, ret);
@@ -1744,8 +1748,8 @@ int main(int argc, char *argv[])
 	    pthread_setspecific(glob_var_key_ip, NULL);
 
 	}
-	    //exit(EXIT_SUCCESS);
 	else {
+	    //exit(EXIT_SUCCESS);
 
 	    nnn++;
 	    // RECOVER FROM THREAD BOMB SITUATION
