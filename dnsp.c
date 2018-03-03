@@ -78,6 +78,7 @@
 #define NUM_THREADS           2
 #define NUM_HANDLER_THREADS   1
 
+//#define LOC_PREEMPT_DLD     1
 //#define TYPEQ	    	    2
 //#define DEBUG	    	    0
 
@@ -178,7 +179,7 @@ thread_start(void *arg)
 //	char password[256];
 //};
 
-int DEBUG, DEBUGCURL;
+int DEBUG, DEBUGCURL, LOC_PREEMPT_DLD;
 char* substring(char*, int, int);
 
 struct dns_request
@@ -947,6 +948,7 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
     // HTTP/1.1 301 Moved Permanently
     // Location: http://www.example.org/index.asp
     curl_easy_setopt(ch, CURLOPT_FOLLOWLOCATION, 1);
+    //LOC_PREEMPT_DLD
 
     // LOAD YOUR CA/CERT HERE
     //static const char *pCertFile = "testcert.pem";
@@ -954,9 +956,9 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
     //static const char *pHeaderFile = "dumpit";
 
     //curl_easy_setopt(ch, CURLOPT_CAINFO, pCACertFile);
-    curl_easy_setopt(ch, CURLOPT_SSL_VERIFYPEER, 0L);
-    curl_easy_setopt(ch, CURLOPT_SSL_VERIFYHOST, 0L);;
-    curl_easy_setopt(ch, CURLOPT_SSL_VERIFYSTATUS, 0L);
+    curl_easy_setopt(ch, CURLOPT_SSL_VERIFYHOST, 2L);;
+    curl_easy_setopt(ch, CURLOPT_SSL_VERIFYPEER, 1L);
+    curl_easy_setopt(ch, CURLOPT_SSL_VERIFYSTATUS, 2L);
     //curl_easy_setopt(ch, CURLOPT_SSLVERSION, CURL_SSLVERSION_DEFAULT); //CURL_SSLVERSION_TLSv1
 
     curl_easy_setopt(ch, CURLOPT_TIMEOUT, 3);
@@ -1316,7 +1318,7 @@ int main(int argc, char *argv[])
     // while ((c = getopt_long(argc, argv, short_opt, long_opt, NULL)) != -1)
 
     /* Command line args */
-    while ((c = getopt (argc, argv, "s:p:l:r:H:t:w:u:k:hvC")) != -1)
+    while ((c = getopt (argc, argv, "s:p:l:r:H:t:w:u:k:hvCL")) != -1)
     switch (c)
      {
         case 't':
@@ -1351,12 +1353,17 @@ int main(int argc, char *argv[])
                 
         case 'C':
             DEBUGCURL = 1;
-            fprintf(stderr," *** verbose CURL ON\n");
+            fprintf(stderr," *** CURL verbose:			ON\n");
+        break;
+
+        case 'L':
+            LOC_PREEMPT_DLD = 1;
+            fprintf(stderr," *** Location Header pre-emption:	ON\n");
         break;
 
         case 'v':
             DEBUG = 1;
-            fprintf(stderr," *** DEBUG ON\n");
+            fprintf(stderr," *** DEBUG:				ON\n");
         break;
         
         case 'l':
