@@ -119,23 +119,23 @@ Tested on CloudFlare, Google Cloud Platform, Docker, NGINX, Apache, etc
 
 ## Usage examples
 
- # You want just to surf anonymously, using the HTTPS/DNS service without HTTP caching proxy
- # but still want DNS traffic to be to be encrypted (simplest mode):
+#### You want just to surf anonymously using HTTPS/DNS service without HTTP caching proxy (simplest mode):
 ```bash
 dnsp -s https://www.fantuz.net/nslookup.php
 dnsp -s https://php-dns.appspot.com/
 ```
-# Leverage the use of a local HTTP caching proxy . Option "-H" to specify proxy's URI (URI!=URL)
-As per port, DNSP assumes 1080 (I'm an old SOCKS user). Use "-r" option to changes that.
+#### Leverage the use of local HTTP caching proxy. Option "-H" to specify proxy's URI (URI!=URL)
 ```bash
 dnsp -p 53 -l 127.0.0.1 -H http://192.168.3.93/ -r 8118 -s https://www.fantuz.net/nslookup.php
 dnsp -p 53 -l 127.0.0.1 -H http://aremoteproxyservice/ -r 3128 -s https://www.fantuz.net/nslookup.php
 ```
- # HTTP vs HTTPS modes, no cache (OK, cache might nowadays be on a CDN, so an intermediate 
-cache layer will still be present somewher, unless forbidden by headers or expiry...).
+#### HTTP vs HTTPS modes, "no cache mode" 
 ```bash
 dnsp -s http://www.fantuz.net/nslookup.php
 dnsp -s https://www.fantuz.net/nslookup.php
+
+NB: Some parts of this cache might be on a CDN. An intermediate cache layer is present somewhere, unless forbidden by headers or expiry are set.
+Headers are your friends.
 ```
 
 **IMPORTANT:** Please, don't use the script hosted on my server(s) as they serve as demo-only.
