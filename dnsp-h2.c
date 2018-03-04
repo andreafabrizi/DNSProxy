@@ -1516,13 +1516,19 @@ do {
     curl_easy_setopt(hnd, CURLOPT_HTTPHEADER, slist1);
     curl_easy_setopt(hnd, CURLOPT_USERAGENT, "curl/7.59.0-DEV");
     curl_easy_setopt(hnd, CURLOPT_MAXREDIRS, 50L);
-    curl_easy_setopt(hnd, CURLOPT_HTTP_VERSION, (long)CURL_HTTP_VERSION_2TLS);
-    curl_easy_setopt(hnd, CURLOPT_SSL_VERIFYPEER, 0L);
-    curl_easy_setopt(hnd, CURLOPT_SSL_VERIFYHOST, 0L);
+    //curl_easy_setopt(hnd, CURLOPT_HTTP_VERSION, (long)CURL_HTTP_VERSION_2TLS);
+    curl_easy_setopt(hnd, CURLOPT_HTTP_VERSION, (long)CURL_HTTP_VERSION_2_PRIOR_KNOWLEDGE);
+    /* OCSP not always available on clouds */
+    curl_easy_setopt(ch, CURLOPT_SSL_ENABLE_ALPN, 1L);
+    curl_easy_setopt(ch, CURLOPT_SSL_ENABLE_NPN, 1L);
+    curl_easy_setopt(hnd, CURLOPT_SSL_VERIFYPEER, 2L);
+    curl_easy_setopt(hnd, CURLOPT_SSL_VERIFYHOST, 2L);
+    curl_easy_setopt(hnd, CURLOPT_SSL_VERIFYSTATUS, 0L);
     curl_easy_setopt(hnd, CURLOPT_FILETIME, 1L);
     curl_easy_setopt(hnd, CURLOPT_TCP_KEEPALIVE, 1L);
     curl_easy_setopt(hnd, CURLOPT_ENCODING, "deflate");
     curl_easy_setopt(hnd, CURLOPT_VERBOSE, 1L);
+
     /* send all data to this function */
     //curl_easy_setopt(ch, CURLOPT_WRITEFUNCTION, WriteMemoryCallback);
     curl_easy_setopt(hnd, CURLOPT_WRITEFUNCTION, write_data);
