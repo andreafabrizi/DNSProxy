@@ -1221,7 +1221,7 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
     /* Cloudflare CDN does well with terminated frontend-SSL certificate */
     curl_easy_setopt(ch, CURLOPT_SSL_VERIFYPEER, 0L);
     curl_easy_setopt(ch, CURLOPT_SSL_VERIFYHOST, 0L);;
-    //curl_easy_setopt(ch, CURLOPT_SSL_VERIFYSTATUS, 0L);
+    curl_easy_setopt(ch, CURLOPT_SSL_VERIFYSTATUS, 0L);
 
     /* SSL engine config */
     //static const char *pCertFile = "testcert.pem";
@@ -1773,7 +1773,7 @@ int main(int argc, char *argv[])
     struct hostent *local_address;
     //struct hostent *proxy_address;
     //char *bind_proxy = NULL;
-    char *bind_address = NULL, *proxy_host, *proxy_user = NULL,
+    char *bind_address = NULL, *proxy_host = NULL, *proxy_user = NULL,
          *proxy_pass = NULL, *typeq = NULL, *lookup_script = NULL,
 	 *httpsssl = NULL;
 

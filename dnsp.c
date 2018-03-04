@@ -958,7 +958,7 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
     //curl_easy_setopt(ch, CURLOPT_CAINFO, pCACertFile);
     curl_easy_setopt(ch, CURLOPT_SSL_VERIFYHOST, 2L);;
     curl_easy_setopt(ch, CURLOPT_SSL_VERIFYPEER, 1L);
-    curl_easy_setopt(ch, CURLOPT_SSL_VERIFYSTATUS, 2L);
+    curl_easy_setopt(ch, CURLOPT_SSL_VERIFYSTATUS, 0L);
     //curl_easy_setopt(ch, CURLOPT_SSLVERSION, CURL_SSLVERSION_DEFAULT); //CURL_SSLVERSION_TLSv1
 
     curl_easy_setopt(ch, CURLOPT_TIMEOUT, 3);
@@ -1280,7 +1280,7 @@ int main(int argc, char *argv[])
     struct hostent *local_address;
     //struct hostent *proxy_address;
     //char *bind_proxy = NULL;
-    char *bind_address = NULL, *proxy_host, *proxy_user = NULL,
+    char *bind_address = NULL, *proxy_host = NULL, *proxy_user = NULL,
          *proxy_pass = NULL, *typeq = NULL, *lookup_script = NULL,
 	 *httpsssl = NULL;
 
