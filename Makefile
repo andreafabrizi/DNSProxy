@@ -33,7 +33,7 @@ dnsp-h2 : dnsp-h2.c
 #	${CC} -w -c dnsp-h2.c
 
 clean :
-	rm dnsp dnsp-h2 dnsp.o dnsp-h2.o
+	rm dnsp dnsp-h2 dnsp.o
 
 #$(TARGET): $(TARGET).c
 #	@echo "In Makefile: FLAG = <$(FLAG)>"
