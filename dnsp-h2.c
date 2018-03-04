@@ -36,21 +36,22 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <errno.h>
-//#include <spawn.h>
 #include <netdb.h>
 #include <ctype.h>
 #include <curl/curl.h>
 #include <curl/easy.h>
 #include <signal.h>
-#include <semaphore.h>
 #include <pthread.h>
-//#include <omp.h>
-
+/*
+#include <semaphore.h>
+#include <spawn.h>
+#include <omp.h>
+*/
 #ifndef SIGCLD
 #   define SIGCLD SIGCHLD
 #endif
  
-#define NUM_HANDLES 8
+#define NUM_HANDLES 4
  
 static void *curl_hnd[NUM_HANDLES];
 static int num_transfers = 1;
@@ -86,7 +87,7 @@ static int num_transfers = 1;
 
 /* use nghttp2 library to establish, no ALPN/NPN */
 /* not yet ready */
-//#define USE_NGHTTP2		    1
+#define USE_NGHTTP2		    1
 
 #ifndef CURLPIPE_MULTIPLEX
 #error "too old libcurl, can't do HTTP/2 server push!"
@@ -957,13 +958,14 @@ static int my_trace(CURL *handle, curl_infotype type, char *data, size_t size, v
 //static void setup(CURL *hnd, int num)
 static void setup(CURL *hnd, char *script_target) {
   //FILE *out;
-  FILE *out = fopen(OUTPUTFILE, "wb");
+  FILE *out; // = fopen(OUTPUTFILE, "wb");
   char filename[128];
+  int num = 1;
  
-  char q[512];
   //char *q = ( char * ) malloc( 80 * sizeof( char ) );
+  char q[512];
   
-  //snprintf(filename, 128, "dl-%d", num);
+  snprintf(filename, 128, "dl-%d", num);
  
   out = fopen(filename, "wb");
  
@@ -971,15 +973,9 @@ static void setup(CURL *hnd, char *script_target) {
   curl_easy_setopt(hnd, CURLOPT_WRITEDATA, out);
  
   /* set the same URL ... or not !! with multiple threads/verification possible */ 
-  //fprintf(stderr, "%s", script_target);
-  //snprintf(q, sizeof(q), "%s%s", "https://php-dns.appspot.com/", script_target);
-  //printf(q);
-  //char *script_get == "https://php-dns.appspot.com/";
-  snprintf(q, sizeof(q), "https://php-dns.appspot.com/%s", script_target);
-  //curl_easy_setopt(hnd, CURLOPT_URL, q);
-  //return NULL;
+  snprintf(q, sizeof(q)-1, "https://php-dns.appspot.com/%s", script_target);
   curl_easy_setopt(hnd, CURLOPT_URL, q);
-  fprintf(stderr, "%s", q);
+  fprintf(stderr, "%s\n", q);
  
   /* please be verbose */ 
   curl_easy_setopt(hnd, CURLOPT_VERBOSE, 1L);
@@ -988,13 +984,12 @@ static void setup(CURL *hnd, char *script_target) {
   /* HTTP/2 please */ 
   curl_easy_setopt(hnd, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_2_0);
  
-//  /* we use a self-signed test server, skip verification during debugging */ 
-  curl_easy_setopt(hnd, CURLOPT_CAPATH, "/usr/share/ca-certificates");
+  /* we use a self-signed test server, skip verification during debugging */ 
+  curl_easy_setopt(hnd, CURLOPT_CAPATH, "/usr/share/ca-certificates/mozilla");
   curl_easy_setopt(hnd, CURLOPT_SSL_VERIFYPEER, 2L);
-  curl_easy_setopt(hnd, CURLOPT_SSL_VERIFYHOST, 0L);
+  curl_easy_setopt(hnd, CURLOPT_SSL_VERIFYHOST, 2L);
 
   /* OCSP not always available on clouds */
-  //curl_easy_setopt(hnd, CURLOPT_SSL_VERIFYSTATUS, 2L);
   curl_easy_setopt(hnd, CURLOPT_SSL_VERIFYSTATUS, 0L);
  
 #if (CURLPIPE_MULTIPLEX > 0)
@@ -1047,9 +1042,12 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
     CURL *ch;
     //CURL *easy[NUM_HANDLES];
     CURL *easy;
-    CURLSH *curlsh;
+    //CURLSH *curlsh;
+    //CURLSH *shobject = curl_share_init();
     CURLcode res;
-    CURLM *multi_handle;
+    //CURLM *multi_handle;
+    CURL *hnd;
+
 
     /* keep number of running handles */ 
     int still_running;
@@ -1067,7 +1065,10 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
 
     /* CURL structs, different needs/interfaces */
     //struct curl_slist *hosting = NULL;
-    struct curl_slist *list = NULL;
+    //struct curl_slist *list = NULL;
+    struct curl_slist *list;
+    struct curl_slist *slist1;
+
     struct CURLMsg *m;
 
     /* hold result in memory */
@@ -1098,7 +1099,6 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
     }
     */
     
-    //printf(http_response);
 
     /* HTTPS DETECTION CODE ... might be better :) */
     pointer = substring(script_url, 5, 1);
@@ -1125,7 +1125,7 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
     //num_transfers = 3; /* a suitable low default */ 
 
     /* init a multi stack */ 
-    multi_handle = curl_multi_init();
+    //multi_handle = curl_multi_init();
 
     /* curl setup */
     /* read: https://curl.haxx.se/libcurl/c/threadsafe.html */
@@ -1140,41 +1140,58 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
 	CURLOPT_COOKIEFILE, "cookies.txt"
     */
 
+    /*
     easy = curl_easy_init();
 
-    /* set options */ 
+    // set options
     //setup(easy);
     //setup(easy, lookup_script);
     setup(easy, n);
  
-    /* add the easy transfer */ 
+    // add the easy transfer
     curl_multi_add_handle(multi_handle, easy);
  
     curl_multi_setopt(multi_handle, CURLMOPT_PIPELINING, CURLPIPE_MULTIPLEX);
     curl_multi_setopt(multi_handle, CURLMOPT_PUSHFUNCTION, server_push_callback);
     curl_multi_setopt(multi_handle, CURLMOPT_PUSHDATA, &transfers);
+
+    */
  
+    /*
+    curl_setopt($ch,CURLOPT_POST,1);
+    curl_setopt($ch,CURLOPT_POSTFIELDS,'customer_id='.$cid.'&password='.$pass);
+    */
+
     curl_easy_setopt(ch, CURLOPT_URL, script_url);
     curl_easy_setopt(ch, CURLOPT_PORT, wport); /* 80, 443 */
-    //curl_easy_setopt(ch, CURLOPT_DEBUGFUNCTION, my_trace);
+
+    /* HTTP/2 prohibits connection-specific header fields. The following header fields must not appear */
+    /* “Connection”, “Keep-Alive”, “Proxy-Connection”, “Transfer-Encoding” and “Upgrade”.*/
+
+    /* Additionally, “TE” header field must not include any value other than “trailers”.*/
 
     /* HTTP/2 please */ 
-    curl_easy_setopt(ch, CURLOPT_SSL_ENABLE_ALPN, 0L);
-    curl_easy_setopt(ch, CURLOPT_SSL_ENABLE_NPN, 2L);
+    curl_easy_setopt(ch, CURLOPT_HTTP_VERSION, (long)CURL_HTTP_VERSION_2TLS);
     //curl_easy_setopt(ch, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_2_0);
     //curl_easy_setopt(ch, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_2TLS);
+    //curl_easy_setopt(ch, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_2_PRIOR_KNOWLEDGE);
+    //curl_easy_setopt(ch, CURLOPT_SSL_ENABLE_ALPN, 1L);
+    curl_easy_setopt(ch, CURLOPT_SSL_ENABLE_NPN, 1L);
     //curl_easy_setopt(ch, CURLOPT_SSLVERSION, CURL_SSLVERSION_TLSv1_2);
     //curl_easy_setopt(ch, CURLOPT_SSLVERSION, CURL_SSLVERSION_TLSv1_3);
     //curl_easy_setopt(ch, CURLOPT_SSLVERSION, CURL_SSLVERSION_SSLv3);
-    //curl_easy_setopt(ch, CURLOPT_SSLVERSION, CURL_SSLVERSION_LAST);
-    //curl_easy_setopt(ch, CURLOPT_SSLVERSION, CURL_SSLVERSION_DEFAULT); //CURL_SSLVERSION_TLSv1, CURL_SSLVERSION_DEFAULT
+    //curl_easy_setopt(ch, CURLOPT_SSLVERSION, CURL_SSLVERSION_DEFAULT); //CURL_SSLVERSION_TLSv1
+    //curl_easy_setopt(ch, CURLOPT_SSLENGINE, "dynamic");
+    //curl_easy_setopt(ch, CURLOPT_SSLENGINE_DEFAULT, 1L);
+    curl_easy_setopt(ch, CURLOPT_FILETIME, 1L);
+    curl_easy_setopt(ch, CURLOPT_TCP_KEEPALIVE, 1L);
 
     /* Proxy configuration section */
+    /* port 1080, 3128, 8118, 8888, 9500, ... */
     curl_easy_setopt(ch, CURLOPT_PROXY, proxy_host);
-    curl_easy_setopt(ch, CURLOPT_PROXYPORT, proxy_port);	/* 1080, 3128, 8118, 8888, 9500, ... */
+    curl_easy_setopt(ch, CURLOPT_PROXYPORT, proxy_port);	
     curl_easy_setopt(ch, CURLOPT_PROXYTYPE, CURLPROXY_HTTP);
 
-    /* optional proxy username and password */
     if ((proxy_user != NULL) && (proxy_pass != NULL)) {
         curl_easy_setopt(ch, CURLOPT_PROXYUSERNAME, proxy_user);
         curl_easy_setopt(ch, CURLOPT_PROXYPASSWORD, proxy_pass);
@@ -1182,8 +1199,7 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
 
     //curl_easy_setopt(ch, CURLOPT_MAXCONNECTS, MAXCONN);
     //curl_easy_setopt(ch, CURLOPT_FRESH_CONNECT, 0);
-    curl_easy_setopt(ch, CURLOPT_FRESH_CONNECT, 0);
-    curl_easy_setopt(ch, CURLOPT_FORBID_REUSE, 0);
+    //curl_easy_setopt(ch, CURLOPT_FORBID_REUSE, 0);
     //curl_setopt($curl, CURLOPT_AUTOREFERER, 1);
 
     /* send all data to this function */
@@ -1194,40 +1210,43 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
     //curl_easy_setopt(ch, CURLOPT_WRITEDATA, (void *)&chunk);
     curl_easy_setopt(ch, CURLOPT_WRITEDATA, http_response);
     
+    //curl_easy_setopt(ch, CURLOPT_DEBUGFUNCTION, my_trace);
+    
     /* cache with HTTP/1.1 304 "Not Modified" */
     /* set curlopt --> FOLLOW-LOCATION, necessary if getting 301 "Moved Permanently" */
     // Location: http://www.example.org/index.asp
     //curl_easy_setopt(ch, CURLOPT_FOLLOWLOCATION, 1);
 
+    /* OCSP validation, avoided in the test phase, as some cloud including Google GCP do not provide it */
+    /* Cloudflare CDN does well with terminated frontend-SSL certificate */
+    curl_easy_setopt(ch, CURLOPT_SSL_VERIFYPEER, 0L);
+    curl_easy_setopt(ch, CURLOPT_SSL_VERIFYHOST, 0L);;
+    //curl_easy_setopt(ch, CURLOPT_SSL_VERIFYSTATUS, 0L);
+
     /* SSL engine config */
-    /* LOAD YOUR CA/CERT HERE IF NO VALID SSL CERT + OCSP */
     //static const char *pCertFile = "testcert.pem";
     //static const char *pCACertFile="fantuznet.pem";
     //static const char *pHeaderFile = "dumpit";
     //curl_easy_setopt(ch, CURLOPT_CAINFO, pCACertFile);
     //curl_easy_setopt(ch, CURLOPT_CAPATH, pCACertDir);
-    curl_easy_setopt(ch, CURLOPT_CAPATH, "/usr/share/ca-certificates");
-    // /usr/share/ca-certificates
-    // /usr/local/share/ca-certificates
+    //curl_easy_setopt(ch, CURLOPT_CAPATH, "/usr/share/ca-certificates/mozilla");
+    //curl_easy_setopt(ch, CURLOPT_CAPATH, "/usr/share/ca-certificates/mozilla");
+    //curl_easy_setopt(ch, CURLOPT_CAINFO, "/etc/ssl/certs/Comodo_AAA_Services_root.pem");
 
-    curl_easy_setopt(ch, CURLOPT_SSL_VERIFYPEER, 2L);
-    curl_easy_setopt(ch, CURLOPT_SSL_VERIFYHOST, 1L);;
-
-    /* OCSP validation, avoided in the test phase, as some cloud including Google GCP do not provide it */
-    /* Cloudflare CDN does well with terminated frontend-SSL certificate */
-    curl_easy_setopt(ch, CURLOPT_SSL_VERIFYSTATUS, 2L);
+    /* Cloudflare is using COMODO CA */
 
     /* needed to avoid gzip during the test phase as it clashes with OCSP validation */
-    curl_easy_setopt(ch, CURLOPT_ENCODING, "gzip, deflate, br, sdch");
-    //curl_easy_setopt(ch, CURLOPT_ENCODING, "deflate");
+    //curl_easy_setopt(ch, CURLOPT_ENCODING, "gzip, deflate, br, sdch");
+    //curl_easy_setopt(ch, CURLOPT_ENCODING, "br");
 
-    curl_easy_setopt(ch, CURLOPT_TIMEOUT, 5);
-    curl_easy_setopt(ch, CURLOPT_DNS_CACHE_TIMEOUT, 3600);
-    curl_easy_setopt(ch, CURLOPT_DNS_USE_GLOBAL_CACHE, 1);	/* DNS CACHE  */
+    //curl_easy_setopt(ch, CURLOPT_TIMEOUT, 5);
+    //curl_easy_setopt(ch, CURLOPT_DNS_CACHE_TIMEOUT, 3600);
+    //curl_easy_setopt(ch, CURLOPT_DNS_USE_GLOBAL_CACHE, 1);	/* DNS CACHE  */
     curl_easy_setopt(ch, CURLOPT_NOPROGRESS, 1L);		/* No progress meter */
+    curl_easy_setopt(ch, CURLOPT_BUFFERSIZE, 102400L);
 
     /* disable Nagle with 0, for bigger packets (full MSS) */
-    curl_easy_setopt(ch, CURLOPT_TCP_NODELAY, 1L);
+    //curl_easy_setopt(ch, CURLOPT_TCP_NODELAY, 0L);
 
     if (DEBUGCURL) {
 	    curl_easy_setopt(ch, CURLOPT_VERBOSE,  1);			/* Verbose ON  */
@@ -1235,10 +1254,12 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
 	    curl_easy_setopt(ch, CURLOPT_VERBOSE,  0);			/* Verbose OFF */
     }
 
+    /* wait for pipe connection to confirm */
+    /*
     #if (CURLPIPE_MULTIPLEX > 0)
-    	/* wait for pipe connection to confirm */
     	curl_easy_setopt(ch, CURLOPT_PIPEWAIT, 1L);
     #endif
+    */
 
     /* need test for HTTP/2*/
     /* test for HTTP */
@@ -1254,12 +1275,13 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
 
     /* OPTIONAL HEADERS, set with curl_slist_append */
      
+
     //list = curl_slist_append(list, "Remote Address: 217.114.216.51:80");
-    //curl_easy_setopt(ch, CURLOPT_HTTPHEADER, list);
 
     //hosting = curl_slist_append(hosting, "www.fantuz.net:80:217.114.216.51");
     //curl_easy_setopt(ch, CURLOPT_RESOLVE, hosting);
     //list = curl_slist_append(list, ":host:www.fantuz.net");
+    list = curl_slist_append(list, "content-type: text/plain");
 
     //list = curl_slist_append(list, "Request URL:http://www.fantuz.net/nslookup.php?host=news.google.fr.&type=A");
     //list = curl_slist_append(list, "Request URL:http://www.fantuz.net/nslookup.php");
@@ -1269,16 +1291,26 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
     
     //list = curl_slist_append(list, "Request URL: http://www.fantuz.net/nslookup.php");
 
-    list = curl_slist_append(list, "accept: */*");
+	/*
+	*/
+
+    //list = curl_slist_append(list, "accept: */*");
     //list = curl_slist_append(list, "Accept:text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8");
     //list = curl_slist_append(list, "Accept-Language:en-US,en;q=0.8,fr;q=0.6,it;q=0.4");
     //list = curl_slist_append(list, "Cache-Control:max-age=300");
     //list = curl_slist_append(list, "Connection:keep-alive");
 
     //list = curl_slist_append(list, "If-None-Match: *");
+   
+    //list = curl_slist_append(list, "user-agent: nghttp2/1.21.90");
+    //list = curl_slist_append(list, "User-Agent: curl/7.59.0-DEV");
 
-    //list = curl_slist_append(list, "Upgrade-Insecure-Requests:1");
-    list = curl_slist_append(list, "user-agent: nghttp2/1.21.90");
+    /*
+    list = curl_slist_append(list, "Connection: Upgrade, HTTP2-Settings");
+    list = curl_slist_append(list, "Upgrade: h2c");
+    list = curl_slist_append(list, "HTTP2-Settings: AAMAAABkAAQAAP__");
+    */
+
     //list = curl_slist_append(list, "User-Agent:Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Ubuntu Chromium/64.0.3282.167 Chrome/64.0.3282.167 Safari/537.36");
 
     //gzip, deflate, sdch
@@ -1314,26 +1346,45 @@ User-Agent:Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko
     */
     
     /* see if H2 comes no ALPN with no headers set ... */
-    //curl_easy_setopt(ch, CURLOPT_HTTPHEADER, list);
-    //curl_easy_setopt(ch, CURLOPT_HEADER, 1L);
+    curl_easy_setopt(ch, CURLOPT_HEADER, 1L);
+    curl_easy_setopt(ch, CURLOPT_HTTPHEADER, list);
 
     /* try to see if it works .. not sure anymore */
-    //curl_easy_setopt(ch, CURLINFO_HEADER_OUT, "" );
+    //curl_easy_setopt(ch, CURLINFO_HEADER_OUT, 1L );
+     
+    /* get us the resource without a body! */
+    curl_easy_setopt(ch, CURLOPT_NOBODY, 0L);
+
+    curl_easy_setopt(ch, CURLOPT_USERAGENT, "curl/7.59.0-DEV");
 
     /* CURL_LOCK_DATA_SHARE, quite advanced and criptic, useful in H2 */
-    //curlsh = curl_share_init();
-    //curl_easy_setopt(ch, CURLOPT_SHARE, curlsh);
-    //curl_share_setopt(curlsh, CURLSHOPT_SHARE, CURL_LOCK_DATA_COOKIE);
-    //curl_share_setopt(curlsh, CURLSHOPT_SHARE, CURL_LOCK_DATA_DNS); 
+    /*
+    curlsh = curl_share_init();
+    curl_easy_setopt(ch, CURLOPT_SHARE, curlsh);
+    curl_share_setopt(curlsh, CURLSHOPT_SHARE, CURL_LOCK_DATA_COOKIE);
+    curl_share_setopt(curlsh, CURLSHOPT_SHARE, CURL_LOCK_DATA_DNS);
+    //curl_share_setopt(shobject, CURLSHOPT_SHARE, CURL_LOCK_DATA_COOKIE);
+    */
+/*
+    curl_easy_setopt(curl2, CURLOPT_URL, "https://example.com/second");
+    curl_easy_setopt(curl2, CURLOPT_COOKIEFILE, "");
+    curl_easy_setopt(curl2, CURLOPT_SHARE, shobject);
 
-    /* we start some action by calling perform right away */ 
-    curl_multi_perform(multi_handle, &still_running); 
+*/
 
+/*
+    // we start some action by calling perform right away
+    // curl_multi_perform(multi_handle, &still_running);
+
+// as long as we have transfers going
 do {
     struct timeval timeout;
-    int rc; /* select() return code */ 
-    CURLMcode mc; /* curl_multi_fdset() return code */ 
- 
+
+    // select() return code
+    int rc;
+    // curl_multi_fdset() return code
+    CURLMcode mc;
+
     fd_set fdread;
     fd_set fdwrite;
     fd_set fdexcep;
@@ -1345,7 +1396,7 @@ do {
     FD_ZERO(&fdwrite);
     FD_ZERO(&fdexcep);
  
-    /* set a suitable timeout to play around with */ 
+    // set a suitable timeout to play around with
     timeout.tv_sec = 1;
     timeout.tv_usec = 0;
  
@@ -1358,7 +1409,7 @@ do {
         timeout.tv_usec = (curl_timeo % 1000) * 1000;
     }
  
-    /* get file descriptors from the transfers */ 
+    // get file descriptors from the transfers
     mc = curl_multi_fdset(multi_handle, &fdread, &fdwrite, &fdexcep, &maxfd);
  
     if(mc != CURLM_OK) {
@@ -1366,44 +1417,43 @@ do {
       break;
     }
  
-    /* On success the value of maxfd is guaranteed to be >= -1. We call
-       select(maxfd + 1, ...); specially in case of (maxfd == -1) there are
-       no fds ready yet so we call select(0, ...) --or Sleep() on Windows--
-       to sleep 100ms, which is the minimum suggested value in the
-       curl_multi_fdset() doc. */ 
+    // On success the value of maxfd is guaranteed to be >= -1. We call
+    // select(maxfd + 1, ...); specially in case of (maxfd == -1) there are
+    // no fds ready yet so we call select(0, ...) --or Sleep() on Windows--
+    // to sleep 100ms, which is the minimum suggested value in the
+    // curl_multi_fdset() doc.
  
     if(maxfd == -1) {
 #ifdef _WIN32
       Sleep(100);
       rc = 0;
 #else
-      /* Portable sleep for platforms other than Windows. */ 
-      struct timeval wait = { 0, 100 * 1000 }; /* 100ms */ 
+      // Portable sleep for platforms other than Windows
+      struct timeval wait = { 0, 100 * 1000 };
+      // 100ms
       rc = select(0, NULL, NULL, NULL, &wait);
 #endif
     }
     else {
-      /* Note that on some platforms 'timeout' may be modified by select().
-         If you need access to the original value save a copy beforehand. */ 
+      // Note that on some platforms 'timeout' may be modified by select().
+      // If you need access to the original value save a copy beforehand.
       rc = select(maxfd + 1, &fdread, &fdwrite, &fdexcep, &timeout);
     }
  
     switch(rc) {
     case -1:
-      /* select error */ 
+      // select error
       break;
     case 0:
     default:
-      /* timeout or readable/writable sockets */ 
+      // timeout or readable/writable sockets
       curl_multi_perform(multi_handle, &still_running);
       break;
     }
  
-    /*
-     * A little caution when doing server push is that libcurl itself has
-     * created and added one or more easy handles but we need to clean them up
-     * when we are done.
-     */ 
+    // A little caution when doing server push is that libcurl itself has
+    // created and added one or more easy handles but we need to clean them up
+    // when we are done.
  
     do {
       int msgq = 0;;
@@ -1416,10 +1466,11 @@ do {
       }
     } while(m);
  
-  } while(transfers); /* as long as we have transfers going */ 
- 
+  } while(transfers);
+
   curl_multi_cleanup(multi_handle);
  
+*/
     /* multiple transfers */
 //    for(i = 0; i<num_transfers; i++) {
 //      easy[i] = curl_easy_init();
@@ -1442,6 +1493,7 @@ do {
       printf("%lu bytes retrieved\n", (long)chunk.size);
     }
     */
+
     /*
      * Now, our chunk.memory points to a memory block that is chunk.size
      * bytes big and contains the remote file.
@@ -1449,18 +1501,57 @@ do {
      * Do something nice with it!
      */ 
 
-    ret = curl_easy_perform(ch);
-   
+    //ret = curl_easy_perform(ch);
+
+    slist1 = NULL;
+    //slist1 = curl_slist_append(slist1, "User-Agent:");
+    slist1 = curl_slist_append(slist1, "content-type: text/plain");
+  
+    hnd = curl_easy_init();
+    curl_easy_setopt(hnd, CURLOPT_BUFFERSIZE, 102400L);
+    curl_easy_setopt(hnd, CURLOPT_URL, script_url);
+    curl_easy_setopt(hnd, CURLOPT_NOPROGRESS, 1L);
+    curl_easy_setopt(hnd, CURLOPT_NOBODY, 0L);
+    curl_easy_setopt(hnd, CURLOPT_HEADER, 1L);
+    curl_easy_setopt(hnd, CURLOPT_HTTPHEADER, slist1);
+    curl_easy_setopt(hnd, CURLOPT_USERAGENT, "curl/7.59.0-DEV");
+    curl_easy_setopt(hnd, CURLOPT_MAXREDIRS, 50L);
+    curl_easy_setopt(hnd, CURLOPT_HTTP_VERSION, (long)CURL_HTTP_VERSION_2TLS);
+    curl_easy_setopt(hnd, CURLOPT_SSL_VERIFYPEER, 0L);
+    curl_easy_setopt(hnd, CURLOPT_SSL_VERIFYHOST, 0L);
+    curl_easy_setopt(hnd, CURLOPT_FILETIME, 1L);
+    curl_easy_setopt(hnd, CURLOPT_TCP_KEEPALIVE, 1L);
+    curl_easy_setopt(hnd, CURLOPT_ENCODING, "deflate");
+    curl_easy_setopt(hnd, CURLOPT_VERBOSE, 1L);
+    /* send all data to this function */
+    //curl_easy_setopt(ch, CURLOPT_WRITEFUNCTION, WriteMemoryCallback);
+    curl_easy_setopt(hnd, CURLOPT_WRITEFUNCTION, write_data);
+
+    /* we pass our 'chunk' struct to the callback function */ 
+    //curl_easy_setopt(hnd, CURLOPT_WRITEDATA, (void *)&chunk);
+    curl_easy_setopt(hnd, CURLOPT_WRITEDATA, http_response);
+    
+    curl_easy_setopt(hnd, CURLOPT_DEBUGFUNCTION, my_trace);
+    ret = curl_easy_perform(hnd);
+
+    /*
+    if(ret != CURLE_OK) {
+      fprintf(stderr, "curl_setopt() failed: %s\n", curl_easy_strerror(ret));
+    } 
+    */
+    
     /* Problem in performing the http request ?? */
     if (ret < 0) {
         debug_msg ("Error performing HTTP request (Error %d) - spot on !!!\n");
         printf("Error performing HTTP request (Error %d) - spot on !!!\n",ret);
         curl_easy_cleanup(ch);
-	//curl_share_cleanup(curlsh);
         free(script_url);
 	curl_slist_free_all(list);
+	//curl_share_cleanup(curlsh);
+	
 	//curl_slist_free_all(hosting);
-	curl_share_cleanup(curlsh);
+	//curl_share_cleanup(curlsh);
+	
         /*this will satisfy the client, with a SERVFAIL at least */
 	http_response = "0.0.0.0";
         return http_response;
@@ -1474,7 +1565,11 @@ do {
 	printf("from %s\n",script_url);
 	//curl_slist_free_all(hosting);
     	printf("Here inside curl, %s\n",http_response);
-	curl_share_cleanup(curlsh);
+	
+        curl_easy_cleanup(ch);
+	curl_slist_free_all(list);
+	//curl_share_cleanup(curlsh);
+	
         /*this will satisfy the client, with a SERVFAIL at least */
         http_response = "0.0.0.0";
         return http_response;
@@ -1493,7 +1588,8 @@ do {
     curl_global_cleanup();
     curl_slist_free_all(list);
     //curl_slist_free_all(hosting);
-    curl_share_cleanup(curlsh);
+    //curl_share_cleanup(curlsh);
+
     /* CURL answer, from DNSP v1, not for H2 */
     return http_response;
 }

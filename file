@@ -1,0 +1,4 @@
+GET / HTTP/2
+Host: php-dns.appspot.com
+content-type: text/plain
+Accept: */*

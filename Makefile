@@ -1,6 +1,10 @@
-CC=gcc
-CFLAGS=-O2 -g -rdynamic
-LIBS+=-lcurl -lpthread -lrt -DTLS
+CC      = gcc
+CFLAGS  = -O2 -Wall -W -pedantic -g -rdynamic
+FLAG    = -DTLS
+CFLAGS += $(FLAG)
+LIBS   += -L/usr/local/lib -lcurl -lpthread -lrt -lnghttp2
+
+TARGET = testflag
 
 # mutex
 # gcc dnsp.c -W -lcurl -g -lpthread -rdynamic -lrt -o dnsp
@@ -20,3 +24,11 @@ dnsp : dnsp.c
 
 clean :
 	rm dnsp dnsp-h2
+
+#$(TARGET): $(TARGET).c
+#	@echo "In Makefile: FLAG = <$(FLAG)>"
+#	$(CC) $(CFLAGS) $< -o $@
+#
+#clean:
+#	rm -f $(TARGET)
+
