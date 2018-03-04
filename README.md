@@ -1,54 +1,37 @@
-# DNS Proxy
+# DNS Proxy over HTTP(S)
 
-DNS proxy listens for incoming DNS requests (A,NS,MX,TXT,SRV..) on the local
-interface (UDP only) and resolves such queries by using an external PHP
-script, using standard HTTP(S) requests. It will then recreate the well-formed
-UDP packet on 127.0.0.1 and send it back to the client.
-
-DNS proxy generally listens on local UDP port 53. When it receives a query,
-it will forward such DNS request via HTTP, towards the PHP script (nslookup.php).
-Eventually, DNSP can be configure to cross through (and receiving Via) 
-additional HTTP proxies (i.e. TOR, enterprise-proxy, locked-down country, etc).
-
-Should you be willing to perform "response caching" (and sharing), you can rely 
-on your favourite HTTP/HTTPS proxy server, as any of polipo, squid, nginx, 
-Varnish, charles, SOCKS, TOR, will work properly with DNSP.
-
-You can also run DNSP through HTTP(S) without any caching or extra proxy, 
-directly attaching the DNSP server to the remote resolver webservice (the PHP
-script can be hosted anywhere, i.e. on Google Cloud Platform).
-
-If you can't access "secured" VPN or tunnels  to resolve names externally (i.e.
-TOR users), DNSProxy is a rapid and efficient solution for you.
-
-In order to start resolving "anonymous DNS", all you need is a PHP-server 
-hosting the *nslookup.php* resolver script. This software is TOR-friendly and
-requires minimal resources. Examples are provided for ease of use.
-
-## Headline: why DNSP ?
-This is a new idea in terms of transport of DNS outside of it's original scope.
-This proxy project might well evolve in direction of having an IP protocol number 
-assignement, or something like that.
+## Why DNSP ?
+This is a new idea in terms of transport of DNS outside of it's original design.
 DNS-over-HTTP is currently being evaluated by IETF as workgroup/proposal.
 (c.f. https://tools.ietf.org/html/draft-ietf-doh-dns-over-https-03)
 An header schema for HTTP/2 client has been outlined, WIP implementation.
-There is no showstopper, no roadmap on my side, just the burning desire to see D-o-H 
 
-## Disclaimer
-WHEN FULL-ANONIMITY IS A CONCERN, make sure to host *nslookup.php* on a trustable server !
+There is no roadmap on my side, just the burning desire to see DoH being 
+implemented and deployed. 
 
-To be clear, the PHP script DOES DO the underlying (infamously leaking) "system call",
-the "classic DNS request". Such system call relies on different mechanisms to resolve DNS,
-and in case of hosting providers, such mechanism are managed by the hosting provider.
-Hence, supposedly optimised for best speed and caching. Such system calls are therefore
-outside the control of DNSP as a software: all DNSP does is tunneling **and** avoids leakage
-of UDP queries.
+## How does it work ?
+DNS proxy listens for incoming DNS requests (A,NS,MX,TXT,SRV..) on any
+local interface. It will parse and start resolving such queries, by using 
+an external PHP script and standardised HTTP requests (D-o-H compatible).
+DNSP will take care to recreate a well-formed UDP packet in reply to client.
 
-That said, you **MUST** use an external server that you trust and you can deploy stuff on !
-**Do not forget to ensure that 127.0.0.1 is your unique system resolver (/etc/resolv.conf)**.
+The core PHP-script can be hosted anywhere, i.e. on Google Cloud Platform.
 
-Beware, having the PHP script running on the same local machine (not using a remote webservice)
-makes no sense and WILL make ALL of your DNS queries leaking. Useful for TESTING purposes only !!
+Should you be willing to perform "response caching and sharing" you can rely 
+on your favourite HTTP/HTTPS proxy server, as any of polipo, squid, nginx, 
+Varnish, charles, SOCKS, TOR, *any HTTP proxy* will work properly with DNSP.
+
+Infact DNSP can be configured to cross through (and receiving Via)
+additional HTTP proxies (i.e. TOR, enterprise-proxy, locked-down countries).
+
+Most of you will run DNSP directly through HTTPS w/out caching or extra proxy.
+The DNSP server will just talk to remote resolver webservice, w/out any cache.
+
+If you can't access "secured" VPN tunnels to resolve names externally (i.e.
+TOR users, Chinese walls), DNSProxy is a rapid and efficient solution for you.
+
+This software is TOR-friendly and requires minimal resources.
+Examples are provided for ease of use.
 
 ## Architecture
 ```
@@ -79,6 +62,27 @@ Features:
 - HTTP browser cache preemption
 - will pluigin HTTP/2
 
+
+## Disclaimer
+WHEN FULL-ANONIMITY IS A CONCERN, make sure to host *nslookup.php* on a trustable server !
+
+To be clear, the PHP script DOES DO the underlying (infamously leaking) "system call",
+the "classic DNS request". Such system call relies on different mechanisms to resolve DNS,
+and in case of hosting providers, such mechanism are managed by the hosting provider.
+Hence, supposedly optimised for best speed and caching. Such system calls are therefore
+outside the control of DNSP as a software: all DNSP does is tunneling **and** avoids leakage
+of UDP queries.
+
+That said, you **MUST** use an external server that you trust and you can deploy stuff on !
+**Do not forget to ensure that 127.0.0.1 is your unique system resolver (/etc/resolv.conf)**.
+
+Beware, having the PHP script running on the same local machine (not using a remote webservice)
+makes no sense and WILL make ALL of your DNS queries leaking. Useful for TESTING purposes only !!
+
+To recap, in order to start resolving "anonymous DNS" over HTTP, all you need is:
+- a PHP-server hosting the *nslookup.php* resolver script
+- the C software, available in source or compiled (all libs linked within).
+
 ## Building
 
 Building is easy on Linux, Mac... On UNIX and Windows might be, didn't test much.
@@ -89,8 +93,6 @@ For debian/ubuntu users:
 
 Once done installing pre-requisites, compile with:
 `make all`
-or manually
-`gcc dnsp.c -W -lcurl -g -lpthread -DTLS -rdynamic -lrt -w -o dnsp`
 
 ## Installing
 
@@ -117,7 +119,7 @@ after the first recursive resolution done eventually on the remote webservice...
 
 Tested on CloudFlare, Google Cloud Platform, Docker, NGINX, Apache, etc
 
-## Usage examples
+## Practical use cases:
 
 #### You want just to surf anonymously using HTTPS/DNS service without HTTP caching proxy (simplest mode):
 ```bash
@@ -129,13 +131,14 @@ dnsp -s https://php-dns.appspot.com/
 dnsp -p 53 -l 127.0.0.1 -H http://192.168.3.93/ -r 8118 -s https://www.fantuz.net/nslookup.php
 dnsp -p 53 -l 127.0.0.1 -H http://aremoteproxyservice/ -r 3128 -s https://www.fantuz.net/nslookup.php
 ```
-#### HTTP vs HTTPS modes, "no cache mode" 
+#### HTTP mode w/out caching proxies and w/out HTTPS
 ```bash
 dnsp -s http://www.fantuz.net/nslookup.php
-dnsp -s https://www.fantuz.net/nslookup.php
 
-NB: Some parts of this cache might be on a CDN. An intermediate cache layer is present somewhere, unless forbidden by headers or expiry are set.
+NB: Some parts of this "distributed cache" might be held on a CDN for a transient period.
+An intermediate cache layer is often present nowadays, unless forbidden by headers or expiry.
 Headers are your friends.
+
 ```
 
 **IMPORTANT:** Please, don't use the script hosted on my server(s) as they serve as demo-only.
@@ -146,7 +149,7 @@ The more DNSP resolvers around the world, the less DNS queries will be traceable
 
 ```bash
 
- dnsp 1.5, copyright @ 2018 Massimiliano Fantuzzi, HB3YOE, MIT License
+ dnsp 2, copyright @ 2018 Massimiliano Fantuzzi, HB3YOE, MIT License
 
  usage: dnsp [-l [local_host]] [-p [local_port:53,5353,..]] [-H [proxy_host]] [-r [proxy_port:8118,8888,3128,9500..]] 
 		 [-w [lookup_port:80,443,..]] [-s [lookup_script]]
@@ -175,13 +178,13 @@ The more DNSP resolvers around the world, the less DNS queries will be traceable
  Example, debug situation : 
 	# dnsp -s http://www.fantuz.net/nslookup.php -H "http://192.168.1.93:1080/" -C
 ```
+
 ## Changelog:
 
 #### TODO and WIP:
 * get on DNSSEC
-* get on DOH and H2 in simple way (CURL)
+* DOH-ready, implementing request/response headers in C and PHP
 * use Warning headers to signal something
-* soon to add the arduino-ethernet library with the new select() function (sorry for delay, was easy)
 
 #### Version 2 - March 2018:
 * adding NGHTTP2 along with CURL, the correct way to support H2 (WIP)
@@ -189,6 +192,7 @@ The more DNSP resolvers around the world, the less DNS queries will be traceable
 squid/polipo proxies). based on Location header, will force the same DNS server
 software to issue a GET on the remote domain, in order to preemptively populate 
 HTTP caches in between. Not always useful, used to help in high-delay satellite browsing.
+* added the arduino-ethernet library with the new select() function (sorry for delay, was easy)
 * DNSP for HTTP/1 version freeze, development on H2 only (by now).
 
 #### Version 1.6 - March 2018:
