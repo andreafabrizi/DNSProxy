@@ -11,11 +11,6 @@ header("Connection: keep-alive");
 header("Cache-control: public, max-age=14400, s-maxage=14400");
 $host = rtrim($_GET["host"],'.');
 
-// POOR-MAN PREMPTIVE HTTP CACHE. Implement only if needed to cache HTTP browser request (i.e. enterprise proxy makes sense, single user no sense)
-//this will force the CURL to follow location, as instructed into dnsp.c
-//as result, the page would then be in cache BEFORE the user can complete his first request (towards local proxy)
-//header("Location: http://" . $host);
-
 $lastModified=filemtime(__FILE__);
 $etagFile = md5_file(__FILE__);
 
@@ -63,7 +58,7 @@ if (isSet($_GET["host"]) && isSet($_GET["type"])) {
                 print_r($authns);
                 print_r($addtl);
                 //$ccc = sizeof($result);
-                //print $result[rand(0,$ccc-1)]["mname"];
+                //print $result[rand(0,$ccc-1)][mname];
     }
     if ($_GET["type"] == "SOA"){
                 $result = dns_get_record($host, DNS_SOA, $authns, $addtl);
@@ -77,7 +72,7 @@ if (isSet($_GET["host"]) && isSet($_GET["type"])) {
                 $result = $res[rand(0,$ccc-1)]["txt"];
                 print $result . '</br>';
                 
-				$ddd = sizeof($res["entries"]);
+				$ddd = sizeof($res[entries]);
 				
 				$rx = $res[rand(0,$ddd-1)]["entries"][0];
                 print_r($rx);
@@ -108,13 +103,13 @@ if (isSet($_GET["host"]) && isSet($_GET["type"])) {
 		print $result;
 		//$r2 = dns_get_record($h2, DNS_A, $authns, $addtl);
 		//$ddd = sizeof($r2);
-		//print $r2[rand(0,$ddd-1)][ip];
+		//print $r2[rand(0,$ddd-1)]["ip"];
 	}
     if ($_GET["type"] == "NS"){
         $res = dns_get_record($host, DNS_NS, $authns, $addtl);
 		$ccc = sizeof($res);
 		print $res[rand(0,$ccc-1)]["target"];
-		//$result = $res[rand(0,$ccc-1)][target];
+		//$result = $res[rand(0,$ccc-1)]["target"];
 		//echo "$result\r\n";
     }
 	if ($_GET["type"] == "A"){
@@ -122,15 +117,21 @@ if (isSet($_GET["host"]) && isSet($_GET["type"])) {
 		$ccc = sizeof($result);
 		print $result[rand(0,$ccc-1)]["ip"];
 		//print_r(array_keys($result[0]));
-    }
+		/*
+		// POOR-MAN PREMPTIVE HTTP CACHE. Implement only if needed to cache HTTP browser request (i.e. enterprise proxy makes sense, single user no sense)
+		//this will force the CURL to follow location, as instructed into dnsp.c
+		//as result, the page would then be in cache BEFORE the user can complete his first request (towards local proxy)
+		header("Location: http://" . $host);
+		*/
+	}
     if ($_GET["type"] == "CNAME"){
         $res = dns_get_record($host, DNS_CNAME, $authns, $addtl) or print '0.0.0.0';
 		$ccc = sizeof($res);
 		$result = $res[rand(0,$ccc-1)]["target"];
 		print $result;
 		//$r2 = dns_get_record($h2, DNS_A, $authns, $addtl);
-		//echo $result[0][class];
-		//echo $result[0][ttl];
+		//echo $result[0]["class"];
+		//echo $result[0]["ttl"];
     }
 } else {
 	if (isSet($_GET["host"])) {
@@ -147,5 +148,5 @@ if (isSet($_GET["host"]) && isSet($_GET["type"])) {
 //        $ip = gethostbyname($host);
 //        $mx = getmxrr($host);
 
+	print ("\r\n");
 ?>
-
