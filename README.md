@@ -189,7 +189,8 @@ The more DNSP resolvers around the world, the less DNS queries will be traceable
 
 #### TODO and WIP:
 * get on DNSSEC
-* DOH-ready, implementing request/response headers in C and PHP
+* DOH-ready in C: implemented raw DNS request, base64 encoding of hostname
+* implementing request/response headers PHP, according to new content type "dns"
 * use Warning headers to signal something
 
 #### Version 2 - March 2018:
@@ -225,7 +226,7 @@ HTTP caches in between. Not always useful, used to help in high-delay satellite 
 * want to implement DNSSEC somehow
 * having few issues caching on ClouFlare-alike caches (304 not showing anymore ? want more of them).
 * done more crashtest, memleak, timing tests
-* it really works with millions query !
+* it really works with millions query
 * published and improved a Varnish configuration as well
 
 #### Version 1.01 - April 2015:

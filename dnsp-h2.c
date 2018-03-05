@@ -42,6 +42,11 @@
 #include <curl/easy.h>
 #include <signal.h>
 #include <pthread.h>
+//#include <base64.h>
+//#include "base64.c"
+//#include "base64.h"
+//#include "hexdump.h"
+
 /*
 #include <semaphore.h>
 #include <spawn.h>
@@ -50,9 +55,98 @@
 #ifndef SIGCLD
 #   define SIGCLD SIGCHLD
 #endif
+
+#ifndef HEXDUMP_COLS
+#define HEXDUMP_COLS 8
+#endif
  
 #define NUM_HANDLES 4
+
+static char encoding_table[] = {'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H',
+                                'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P',
+                                'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X',
+                                'Y', 'Z', 'a', 'b', 'c', 'd', 'e', 'f',
+                                'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n',
+                                'o', 'p', 'q', 'r', 's', 't', 'u', 'v',
+                                'w', 'x', 'y', 'z', '0', '1', '2', '3',
+                                '4', '5', '6', '7', '8', '9', '+', '/'};
+static char *decoding_table = NULL;
+static int mod_table[] = {0, 2, 1};
  
+char *base64_encode(const unsigned char *data, size_t input_length, size_t *output_length) {
+ 
+    *output_length = 4 * ((input_length + 2) / 3);
+ 
+    char *encoded_data = malloc(*output_length);
+    if (encoded_data == NULL) return NULL;
+ 
+    for (int i = 0, j = 0; i < input_length;) {
+ 
+        uint32_t octet_a = i < input_length ? (unsigned char)data[i++] : 0;
+        uint32_t octet_b = i < input_length ? (unsigned char)data[i++] : 0;
+        uint32_t octet_c = i < input_length ? (unsigned char)data[i++] : 0;
+ 
+        uint32_t triple = (octet_a << 0x10) + (octet_b << 0x08) + octet_c;
+ 
+        encoded_data[j++] = encoding_table[(triple >> 3 * 6) & 0x3F];
+        encoded_data[j++] = encoding_table[(triple >> 2 * 6) & 0x3F];
+        encoded_data[j++] = encoding_table[(triple >> 1 * 6) & 0x3F];
+        encoded_data[j++] = encoding_table[(triple >> 0 * 6) & 0x3F];
+    }
+ 
+    for (int i = 0; i < mod_table[input_length % 3]; i++)
+        encoded_data[*output_length - 1 - i] = '=';
+ 
+    return encoded_data;
+}
+ 
+unsigned char *base64_decode(const char *data,
+                             size_t input_length,
+                             size_t *output_length) {
+ 
+    if (decoding_table == NULL) build_decoding_table();
+ 
+    if (input_length % 4 != 0) return NULL;
+ 
+    *output_length = input_length / 4 * 3;
+    if (data[input_length - 1] == '=') (*output_length)--;
+    if (data[input_length - 2] == '=') (*output_length)--;
+ 
+    unsigned char *decoded_data = malloc(*output_length);
+    if (decoded_data == NULL) return NULL;
+ 
+    for (int i = 0, j = 0; i < input_length;) {
+ 
+        uint32_t sextet_a = data[i] == '=' ? 0 & i++ : decoding_table[data[i++]];
+        uint32_t sextet_b = data[i] == '=' ? 0 & i++ : decoding_table[data[i++]];
+        uint32_t sextet_c = data[i] == '=' ? 0 & i++ : decoding_table[data[i++]];
+        uint32_t sextet_d = data[i] == '=' ? 0 & i++ : decoding_table[data[i++]];
+ 
+        uint32_t triple = (sextet_a << 3 * 6)
+        + (sextet_b << 2 * 6)
+        + (sextet_c << 1 * 6)
+        + (sextet_d << 0 * 6);
+ 
+        if (j < *output_length) decoded_data[j++] = (triple >> 2 * 8) & 0xFF;
+        if (j < *output_length) decoded_data[j++] = (triple >> 1 * 8) & 0xFF;
+        if (j < *output_length) decoded_data[j++] = (triple >> 0 * 8) & 0xFF;
+    }
+ 
+    return decoded_data;
+}
+ 
+void build_decoding_table() {
+ 
+    decoding_table = malloc(256);
+ 
+    for (int i = 0; i < 64; i++)
+        decoding_table[(unsigned char) encoding_table[i]] = i;
+}
+ 
+void base64_cleanup() {
+    free(decoding_table);
+}
+
 static void *curl_hnd[NUM_HANDLES];
 static int num_transfers = 1;
 
@@ -69,10 +163,10 @@ static int num_transfers = 1;
 /* how can it be influenced, this CURL MAXCONN parameter ? */
 /* kept for historical reasons, will not be useful in threaded model but comes back with H2 */
 #define MAXCONN          	    2
-#define UDP_DATAGRAM_SIZE	  256
-#define DNSREWRITE       	  256
+#define UDP_DATAGRAM_SIZE	  512
+#define DNSREWRITE       	  512
 #define HTTP_RESPONSE_SIZE	 4096
-#define URL_SIZE		  256
+#define URL_SIZE		  512
 #define DNS_MODE_ANSWER  	    0
 #define DNS_MODE_ERROR   	    1
 #define TYPEQ		    	    2
@@ -92,6 +186,9 @@ static int num_transfers = 1;
 #ifndef CURLPIPE_MULTIPLEX
 #error "too old libcurl, can't do HTTP/2 server push!"
 #endif
+
+//#define for_each_item(item, list) \
+//	    for(T * item = list->head; item != NULL; item = item->next)
 
 /* This little trick will just make sure that we don't enable pipelining for
    libcurls old enough to not have this symbol. It is _not_ defined to zero in
@@ -165,9 +262,7 @@ void start_thread(pthread_t *mt)
 }
 */
 
-static void *
-thread_start(void *arg)
-{
+static void * thread_start(void *arg) {
    struct thread_info *tinfo = arg;
    char *uargv, *p;
 
@@ -182,6 +277,51 @@ thread_start(void *arg)
         *p = toupper(*p);
 
    return uargv;
+}
+
+//static void hexdump(void *mem, unsigned int len) {
+static void * hexdump(void *mem, unsigned int len) {
+        unsigned int i, j;
+        
+        for(i = 0; i < len + ((len % HEXDUMP_COLS) ? (HEXDUMP_COLS - len % HEXDUMP_COLS) : 0); i++)
+        {
+                /* print offset */
+                if(i % HEXDUMP_COLS == 0)
+                {
+                        printf("0x%06x: ", i);
+                }
+ 
+                /* print hex data */
+                if(i < len)
+                {
+                        printf("%02x ", 0xFF & ((char*)mem)[i]);
+                }
+                else /* end of block, just aligning for ASCII dump */
+                {
+                        printf("   ");
+                }
+                
+                /* print ASCII dump */
+                if(i % HEXDUMP_COLS == (HEXDUMP_COLS - 1))
+                {
+                        for(j = i - (HEXDUMP_COLS - 1); j <= i; j++)
+                        {
+                                if(j >= len) /* end of block, not really printing */
+                                {
+                                        putchar(' ');
+                                }
+                                else if(isprint(((char*)mem)[j])) /* printable char */
+                                {
+                                        putchar(0xFF & ((char*)mem)[j]);        
+                                }
+                                else /* other char */
+                                {
+                                        putchar('.');
+                                }
+                        }
+                        putchar('\n');
+                }
+        }
 }
 
 //struct thread_data{
@@ -366,18 +506,19 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
          *token,
          *pch,
 	 *maxim,
+	 *rr,
+	 *tt,
          *response_ptr;
 	 //*ppch,
 	 //*typeq,
     //uint i,ppch;
     int i,ppch;
     ssize_t bytes_sent;
-
+    ssize_t bytes_encoded;
 
     if (DEBUG) {
 	    /*
 	    printf("BUILD-xhostname-int				: %u\n", (uint32_t)strlen(xhostname));
-	    printf("BUILD-req-query				: %s\n", dns_req->query);
 	    */
 	    
 	    printf("BUILD-yclient->sin_addr.s_addr		: %u\n", (uint32_t)(yclient->sin_addr).s_addr);
@@ -387,18 +528,30 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
 	    printf("BUILD-xsockfd				: %u\n", xsockfd);
 	    printf("BUILD-sockfd				: %d\n", sockfd);
 	    printf("BUILD-hostname				: %s\n", dns_req->hostname);
+
+	    //printf("build-qry = 				: %s\n",(xdns_req->query));
+	    //printf("build-req-query				: %s\n", dns_req->query);
+	    //printf("hexdump-qry = 				: %s\n",(xdns_req->query));
+	    //printf("ff						: %s\n", hexdump(dns_req->query[0], 512));
 	
 	    /*
 	    printf("BUILD-client->sa_family			: %u\n", (struct sockaddr)&xclient->sa_family);
 	    printf("BUILD-client->sa_data			: %u\n", (uint32_t)client->sa_data);
 	    printf("BUILD-hostname				: %s\n", qhostname);
 	    printf("build-qry = %s\n",(xdns_req->query));
-    	    printf("build-host %s\n",(char *)(xdns_req->hostname));
-    	    printf("build-answer %s\n", rip);
+    	    printf("build-host = %s\n",(char *)(xdns_req->hostname));
+    	    printf("build-answer = %s\n", rip);
     	    printf("build-answer-mode %d\n", DNS_MODE_ANSWER);
 	    */
+
+	    //char *xx = base64_encode(response_ptr, 64, 64);
+	    //char xx = base64_encode(dns_req->hostname, (uint8_t)(xrequestlen)-1, NULL);
+	    //printf("base64-hostname				: %s\n", base64_encode(tt, sizeof(dns_req->hostname), 512));
+	    //printf("base64-hostname				: %s\n", xx); 
+    	    //printf("base64-hostname				: %s\n", Base64encode(rr, dns_req->hostname, (uint8_t)(xrequestlen)));
 	    printf("\n");
     }
+    
 
     response = malloc (UDP_DATAGRAM_SIZE);
     bzero(response, UDP_DATAGRAM_SIZE);
@@ -413,8 +566,10 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
     response[0] = (uint8_t)(dns_req->transaction_id >> 8);
     response[1] = (uint8_t)dns_req->transaction_id;
     response+=2;
-    /*
 
+    //fprintf(stdout, "FIRST-DNS-hex:\n%x\n",response);
+    
+    /*
     TXT, SRV, SOA, PTR, NS, MX, DS, DNSKEY, AAAA, A, unused
     
     A IPv4 host address 0x0001
@@ -751,6 +906,8 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
 
     	if (DEBUG) {
 	    	printf("INSIDE-raw-datagram			: %s\n", response);
+	    	printf("INSIDE-raw-datagram			: %x\n", response);
+	    	printf("INSIDE-raw-datagram			: %d\n", response);
 		printf("INSIDE-yclient->sin_addr.s_addr        	: %u\n", (uint32_t)(yclient->sin_addr).s_addr);
 		printf("INSIDE-yclient->sin_port               	: %u\n", (uint32_t)(yclient->sin_port));
 		printf("INSIDE-yclient->sin_port               	: %u\n", htons(yclient->sin_port));
@@ -758,21 +915,87 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
 		printf("INSIDE-dns-req->hostname		: %s\n", dns_req->hostname);
 		printf("INSIDE-xrequestlen			: %u\n", (uint16_t)xrequestlen);
 		/*
-		printf("INSIDE-dns_req->query			: %s\n", dns_req->query);
 		printf("INSIDE-xdns_req->query			: %s\n", xdns_req->query);
 		printf("INSIDE-xdns_req->hostname-to-char		: %s\n", (char *)(xdns_req->hostname));
 		printf("INSIDE-xdns_req->hostname			: %s\n", xdns_req->hostname);
 		printf("INSIDE-xdns_req->query			: %s\n", xdns_req->query);
 		*/
+		//printf("INSIDE-xdns_req->query			: %s\n", xdns_req->query);
 		printf("\n");	
 	}
         
-	/* example kept for educational purposes, to show how the response packet is built, tailored for the client */
-	//bytes_sent = sendto(3, "\270\204\205\200\0\1\0\1\0\0\0\0\6google\2jp\0\0\1\0\1\300\f\0\1\0"..., 43, 0, {sa_family=0x0002 /* AF_??? */, sa_data="\365\366\374\177\0\0\1\0\0\0\3\0\0\0"}, 16)
-	//bytes_sent = sendto(sd, response_ptr, response - response_ptr, 0, (struct sockaddr *)(&yclient), sizeof(yclient));
-        bytes_sent = sendto(sd, response_ptr, response - response_ptr, 0, (struct sockaddr *)yclient, 16);
-
-    } else if (mode == DNS_MODE_ERROR) {
+		/* example kept for educational purposes, to show how the response packet is built, tailored for the client */
+		//bytes_sent = sendto(3, "\270\204\205\200\0\1\0\1\0\0\0\0\6google\2jp\0\0\1\0\1\300\f\0\1\0"..., 43, 0, {sa_family=0x0002 /* AF_??? */, sa_data="\365\366\374\177\0\0\1\0\0\0\3\0\0\0"}, 16)
+		//bytes_sent = sendto(sd, response_ptr, response - response_ptr, 0, (struct sockaddr *)(&yclient), sizeof(yclient));
+		
+	/*
+	        #define MAX_LENGTH 512
+	    
+	        FILE *fout = fopen("out.txt", "w");
+	    
+	        if(ferror(fout))
+	        {
+	            fprintf(stderr, "Error opening output file");
+	            return 1;
+	        }
+	        char init_line[]  = {"char hex_array[] = { "};
+	        const int offset_length = strlen(init_line);
+	    
+	        char offset_spc[offset_length];
+	    
+	        unsigned char buff[1024];
+	        char curr_out[1024];
+	        //char curr_out[64];
+	    
+	        int count, i;
+	        int line_length = 0;
+	    
+	        memset((void*)offset_spc, (char)32, sizeof(char) * offset_length - 1);
+	        offset_spc[offset_length - 1] = '\0';
+	    
+	        fprintf(fout, "%s", init_line);
+	    
+	        //while(!feof(stdin))
+	        //{
+	            //count = fread(buff, sizeof(char), sizeof(buff) / sizeof(char), stdin);
+	        	count = sizeof(response);
+	    
+	            for(i = 0; i < count; i++)
+	            {
+	                line_length += sprintf(curr_out, "%#x, ", buff[i]);
+	    
+	                fprintf(fout, "%s", curr_out);
+	                if(line_length >= MAX_LENGTH - offset_length)
+	                {
+	                    fprintf(fout, "\n%s", offset_spc);
+	                    line_length = 0;
+	                }
+	            }
+	        //}
+	        fseek(fout, -2, SEEK_CUR);
+	        fprintf(fout, " };\n");
+	    
+	        fclose(fout);
+	*/
+		//fprintf(stdout, "DNS-digit:\n%d\n",response);
+		//fprintf(stdout, "DNS-str:\n%s\n",response_ptr);
+		//fprintf(stdout, "DNS-digit:\n%d\n",response_ptr);
+		fprintf(stdout, "DNS-hex:\n%x\n",response_ptr);
+		//fprintf(stdout, "DNS-len:\n%d\n",sizeof(response_ptr));
+		//fprintf(stdout, "req-len:\n%d\n",(uint16_t)xrequestlen);
+		
+		/*
+		for (int i = 0; i < sizeof(response); i++)
+        	{
+        	    //j = (j << 4) | (i + 6);
+        	    //printf("0x%.8X = %#08X = %#.8X = %#010x\n", j, j, j, j);
+		    fprintf(stderr, "%02hhx %02hhx\n", response[i] >> 8, response[i]);
+        	}
+		*/
+    		hexdump(response_ptr, 256);
+        	bytes_sent = sendto(sd, response_ptr, response - response_ptr, 0, (struct sockaddr *)yclient, 16);
+    
+        } else if (mode == DNS_MODE_ERROR) {
         fprintf(stdout, "DNS_MODE_ERROR\n");
 	//(struct sockaddr *)xclient->sin_family = AF_INET;
 	int yclient_len = sizeof(yclient);
@@ -978,7 +1201,13 @@ static void setup(CURL *hnd, char *script_target) {
   fprintf(stderr, "%s\n", q);
  
   /* please be verbose */ 
-  curl_easy_setopt(hnd, CURLOPT_VERBOSE, 1L);
+  if (DEBUGCURL) {
+          curl_easy_setopt(hnd, CURLOPT_VERBOSE,  1);			/* Verbose ON  */
+  } else {
+          curl_easy_setopt(hnd, CURLOPT_VERBOSE,  0);			/* Verbose OFF */
+  }
+
+  //curl_easy_setopt(hnd, CURLOPT_VERBOSE, 1L);
   curl_easy_setopt(hnd, CURLOPT_DEBUGFUNCTION, my_trace);
  
   /* HTTP/2 please */ 
@@ -1281,7 +1510,8 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
     //hosting = curl_slist_append(hosting, "www.fantuz.net:80:217.114.216.51");
     //curl_easy_setopt(ch, CURLOPT_RESOLVE, hosting);
     //list = curl_slist_append(list, ":host:www.fantuz.net");
-    list = curl_slist_append(list, "content-type: text/plain");
+    //list = curl_slist_append(list, "content-type: text/plain");
+    list = curl_slist_append(list, "content-type: application/dns-udpwireformat");
 
     //list = curl_slist_append(list, "Request URL:http://www.fantuz.net/nslookup.php?host=news.google.fr.&type=A");
     //list = curl_slist_append(list, "Request URL:http://www.fantuz.net/nslookup.php");
@@ -1527,7 +1757,14 @@ do {
     curl_easy_setopt(hnd, CURLOPT_FILETIME, 1L);
     curl_easy_setopt(hnd, CURLOPT_TCP_KEEPALIVE, 1L);
     curl_easy_setopt(hnd, CURLOPT_ENCODING, "deflate");
-    curl_easy_setopt(hnd, CURLOPT_VERBOSE, 1L);
+    /* please be verbose */ 
+    if (DEBUGCURL) {
+            curl_easy_setopt(hnd, CURLOPT_VERBOSE,  1);			/* Verbose ON  */
+    } else {
+            curl_easy_setopt(hnd, CURLOPT_VERBOSE,  0);			/* Verbose OFF */
+    }
+
+    //curl_easy_setopt(hnd, CURLOPT_VERBOSE, 1L);
 
     /* send all data to this function */
     //curl_easy_setopt(ch, CURLOPT_WRITEFUNCTION, WriteMemoryCallback);
@@ -2072,6 +2309,7 @@ int main(int argc, char *argv[])
 	    sem_wait(&mutex);
 	    */
 
+	    fprintf(stderr, "WHAT: %x - %d",request, request_len);
 	    /* DNS UDP datagram PARSE */
    	    dns_req = parse_dns_request(request, request_len);
 
