@@ -67,21 +67,27 @@ Features:
 WHEN FULL-ANONIMITY IS A CONCERN, make sure to host *nslookup.php* on a trustable server !
 
 To be clear, the PHP script DOES DO the underlying (infamously leaking) "system call",
-the "classic DNS request". Such system call relies on different mechanisms to resolve DNS,
-and in case of hosting providers, such mechanism are managed by the hosting provider.
-Hence, supposedly optimised for best speed and caching. Such system calls are therefore
-outside the control of DNSP as a software: all DNSP does is tunneling **and** avoids leakage
-of UDP queries.
+the "classic UDP/DNS request" (or TCP but mostly not). Such system call relies on different
+mechanisms to resolve DNS, depending on the operating system; in the case of an hosting
+provider, such mechanism and operating systems are said to be "managed" hence not in full
+control of the user. In the context of hosting, we can probably assume that _everythin_ has
+been optimised for serving at the fastest speed with the most of caching made possible.
+Such system calls are therefore outside the control of DNSP.
+
+The DNSProxy *DNSP* is just lazily tunneling into HTTP(S) using curllib and nghttp2.
+By doing this encapsulation, **it avoids leakage** of UDP queries. To be on the safe side,
+using DNS over HTTPS makes eavesdropping and spoofing of DNS traffic between you and the 
+HTTPS provider much less likely.
 
 That said, you **MUST** use an external server that you trust and you can deploy stuff on !
-**Do not forget to ensure that 127.0.0.1 is your unique system resolver (/etc/resolv.conf)**.
+**Do not forget to set 127.0.0.1 as your unique system resolver (/etc/resolv.conf)**.
 
 Beware, having the PHP script running on the same local machine (not using a remote webservice)
 makes no sense and WILL make ALL of your DNS queries leaking. Useful for TESTING purposes only !!
 
 To recap, in order to start resolving "anonymous DNS" over HTTP, all you need is:
 - a PHP-server hosting the *nslookup.php* resolver script
-- the C software, available in source or compiled (all libs linked within).
+- the C software, available in source or compiled (all libs linked within, Makefile does).
 
 ## Building
 
@@ -313,6 +319,7 @@ Values should end with bits 0d0a. on any server (HEX is easy to read):
 * https://www.reddit.com/r/hacking/comments/7zjbv2/why_to_use_a_dns_proxy_why_shall_it_be/
 * https://tools.ietf.org/html/draft-ietf-dnsop-dns-wireformat-http-01
 * https://tools.ietf.org/html/draft-ietf-doh-dns-over-https-03
+* https://www.meetup.com/it-IT/Geneva-Legal-Hackers/messages/boards/thread/51438161
 
 ## License
 MIT license, all rights included.
