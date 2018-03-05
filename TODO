@@ -1,0 +1,9 @@
+
+- conform to D-o-H header specifications given in IETF proposals
+  not difficult as DNSP born before !!
+	https://tools.ietf.org/html/draft-ietf-doh-dns-over-https-03
+	https://tools.ietf.org/html/draft-ietf-dnsop-dns-wireformat-http-01
+
+- implement answers from DNS/API engine: dns.google.com
+- REDIS, this is the main goal so far, test started and looking promising.
+  it can be used to cache responses, to track usage and distribute DNS blockchain
