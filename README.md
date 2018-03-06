@@ -331,8 +331,8 @@ Values should end with bits 0d0a. on any server (HEX is easy to read):
 
 ## Testing dnsp-h2 with DNS-over-HTTP/2 IETF proposal design
 
+![alt text](https://raw.githubusercontent.com/fantuz/DNSProxy/master/capture-http2.png)
 
-![alt text](https://raw.githubusercontent.com/fantuz/DNSProxy/master/capture-http2.jpg)
 The capture shows an HTTP/2 dialog as seen by wireshark: this is the only way to show a 
 valid HTTP/2 capture without having to load certificate and key for MITM dissection.
 Obviously a correct negotiation doesn not happen due HTTP v1 URI without Upgrade support
@@ -396,6 +396,7 @@ WHAT: 229d9b40 - 41**** ?host=facebook.com.&type=A
 ```
 
 ![alt text](https://raw.githubusercontent.com/fantuz/DNSProxy/master/capture.jpg)
+
 The capture shows correspondance between expected/produced sent/received DNS packet.
 ```
 max@trinity:~/DNSProxy$ sudo ./dnsp-h2 -s https://php-dns.appspot.com/ -C -v
