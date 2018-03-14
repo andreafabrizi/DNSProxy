@@ -21,7 +21,6 @@
 
 */
 
-//#define _GNU_SOURCE
 #include <sys/wait.h>
 #include <sys/utsname.h>
 #include <sched.h>
@@ -53,8 +52,55 @@
 #include <spawn.h>
 #include <omp.h>
 */
+#define errExit(msg)		do { perror(msg); exit(EXIT_FAILURE); } while (0)
+#define handle_error(msg)	do { perror(msg); exit(EXIT_FAILURE); } while (0)
+
+#define VERSION           "2"
+
+/* Stack size for cloned child */
+#define STACK_SIZE (1024 * 1024)    
+/* DELAY for CURL to wait ? do not remember, needs documentation */
+#define DELAY		    0
+
+/* how can it be influenced, this CURL MAXCONN parameter ? */
+/* kept for historical reasons, will not be useful in threaded model but comes back with H2 */
+#define MAXCONN          	    2
+#define UDP_DATAGRAM_SIZE	  512
+#define DNSREWRITE       	  512
+#define HTTP_RESPONSE_SIZE	 4096
+#define URL_SIZE		  512
+#define DNS_MODE_ANSWER  	    0
+#define DNS_MODE_ERROR   	    1
+#define TYPEQ		    	    2
+#define DEFAULT_LOCAL_PORT	   53
+#define DEFAULT_WEB_PORT 	   80
+#define DEFAULT_PRX_PORT 	 1080
+
+/* experimental options for threaded model, not in use at the moment */
+#define NUMT			    2
+#define NUM_THREADS		    2
+#define NUM_HANDLER_THREADS	    1
+
+/* use nghttp2 library to establish, no ALPN/NPN */
+/* not yet ready as CURL seems to suffice, and NGHTTP2 is C++ */
+#define USE_NGHTTP2		    1
+
+#ifndef CURLPIPE_MULTIPLEX
+#error "too old libcurl, can't do HTTP/2 server push!"
+#endif
+
+//#define for_each_item(item, list) \
+//	    for(T * item = list->head; item != NULL; item = item->next)
+
+/* This little trick will just make sure that we don't enable pipelining for
+   libcurls old enough to not have this symbol. It is _not_ defined to zero in
+   a recent libcurl header. */ 
+//#ifndef CURLPIPE_MULTIPLEX
+//#define CURLPIPE_MULTIPLEX 0
+//#endif
+ 
 #ifndef SIGCLD
-#   define SIGCLD SIGCHLD
+#define SIGCLD SIGCHLD
 #endif
 
 #ifndef HEXDUMP_COLS
@@ -62,6 +108,11 @@
 #endif
  
 #define NUM_HANDLES 4
+
+#define OUTPUTFILE "dl"
+
+int DEBUG, DNSDUMP, DEBUGCURL;
+char* substring(char*, int, int);
 
 static char encoding_table[] = {'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H',
                                 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P',
@@ -71,6 +122,7 @@ static char encoding_table[] = {'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H',
                                 'o', 'p', 'q', 'r', 's', 't', 'u', 'v',
                                 'w', 'x', 'y', 'z', '0', '1', '2', '3',
                                 '4', '5', '6', '7', '8', '9', '+', '/'};
+
 static char *decoding_table = NULL;
 static int mod_table[] = {0, 2, 1};
  
@@ -101,9 +153,7 @@ char *base64_encode(const unsigned char *data, size_t input_length, size_t *outp
     return encoded_data;
 }
  
-unsigned char *base64_decode(const char *data,
-                             size_t input_length,
-                             size_t *output_length) {
+unsigned char *base64_decode(const char *data, size_t input_length, size_t *output_length) {
  
     if (decoding_table == NULL) build_decoding_table();
  
@@ -137,7 +187,6 @@ unsigned char *base64_decode(const char *data,
 }
  
 void build_decoding_table() {
- 
     decoding_table = malloc(256);
  
     for (int i = 0; i < 64; i++)
@@ -151,57 +200,11 @@ void base64_cleanup() {
 static void *curl_hnd[NUM_HANDLES];
 static int num_transfers = 1;
 
-#define errExit(msg)		do { perror(msg); exit(EXIT_FAILURE); } while (0)
-#define handle_error(msg)	do { perror(msg); exit(EXIT_FAILURE); } while (0)
-
-#define VERSION           "2"
-
-/* Stack size for cloned child */
-#define STACK_SIZE (1024 * 1024)    
-/* DELAY for CURL to wait ? do not remember, needs documentation */
-#define DELAY		    0
-
-/* how can it be influenced, this CURL MAXCONN parameter ? */
-/* kept for historical reasons, will not be useful in threaded model but comes back with H2 */
-#define MAXCONN          	    2
-#define UDP_DATAGRAM_SIZE	  512
-#define DNSREWRITE       	  512
-#define HTTP_RESPONSE_SIZE	 4096
-#define URL_SIZE		  512
-#define DNS_MODE_ANSWER  	    0
-#define DNS_MODE_ERROR   	    1
-#define TYPEQ		    	    2
-#define DEFAULT_LOCAL_PORT	   53
-#define DEFAULT_WEB_PORT 	   80
-#define DEFAULT_PRX_PORT 	 1080
-
-/* experimental options for threaded model, not in use at the moment */
-#define NUMT			    2
-#define NUM_THREADS		    2
-#define NUM_HANDLER_THREADS	    1
-
-/* use nghttp2 library to establish, no ALPN/NPN */
-/* not yet ready */
-#define USE_NGHTTP2		    1
-
-#ifndef CURLPIPE_MULTIPLEX
-#error "too old libcurl, can't do HTTP/2 server push!"
-#endif
-
-//#define for_each_item(item, list) \
-//	    for(T * item = list->head; item != NULL; item = item->next)
-
-/* This little trick will just make sure that we don't enable pipelining for
-   libcurls old enough to not have this symbol. It is _not_ defined to zero in
-   a recent libcurl header. */ 
-//#ifndef CURLPIPE_MULTIPLEX
-//#define CURLPIPE_MULTIPLEX 0
-//#endif
- 
+/* this part is to configure default behaviour when initialising threads */
 pthread_key_t glob_var_key_ip;
 pthread_key_t glob_var_key_client;
-//static pthread_mutex_t mutex = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
 static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+//static pthread_mutex_t mutex = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
 //pthread_mutex_t mutex = PTHREAD_ERRORCHECK_MUTEX_INITIALIZER_NP;
 pthread_mutexattr_t MAttr;
 
@@ -264,7 +267,7 @@ void start_thread(pthread_t *mt)
 }
 */
 
-static void * thread_start(void *arg) {
+static void *thread_start(void *arg) {
    struct thread_info *tinfo = arg;
    char *uargv, *p;
 
@@ -282,7 +285,7 @@ static void * thread_start(void *arg) {
 }
 
 //static void hexdump(void *mem, unsigned int len) {
-static void * hexdump(void *mem, unsigned int len) {
+static void *hexdump(void *mem, unsigned int len) {
         unsigned int i, j;
         
         for(i = 0; i < len + ((len % HEXDUMP_COLS) ? (HEXDUMP_COLS - len % HEXDUMP_COLS) : 0); i++)
@@ -339,9 +342,6 @@ static void * hexdump(void *mem, unsigned int len) {
 //	char password[256];
 //};
 
-int DEBUG, DNSDUMP, DEBUGCURL;
-char* substring(char*, int, int);
-
 struct dns_request
 {
     uint16_t transaction_id,
@@ -360,9 +360,7 @@ struct dns_reponse
     char *payload;
 };
 
-/* usage */
-void usage(void)
-{
+void usage(void) {
     fprintf(stderr, "\n dnsp %s, copyright @ 2018 Massimiliano Fantuzzi, HB3YOE, MIT License\n\n"
                        " usage: dnsp [-l [local_host]] [-p [local_port:53,5353,..]] [-H [proxy_host]] [-r [proxy_port:8118,8888,3128,9500..]] \n"
 		       "\t\t [-w [lookup_port:80,443,..]] [-s [lookup_script]]\n\n"
@@ -394,15 +392,13 @@ void usage(void)
 }
 
 /* Prints an error message and exit */
-void error(const char *msg)
-{
+void error(const char *msg) {
     fprintf(stderr," *** %s: %s\n", msg, strerror(errno));
     exit(EXIT_FAILURE);
 }
 
 /* Prints debug messages */
-void debug_msg(const char* fmt, ...)
-{
+void debug_msg(const char* fmt, ...) {
     va_list ap;
 
     if (DEBUG) {
@@ -412,16 +408,14 @@ void debug_msg(const char* fmt, ...)
         va_end(ap);
     }
 }
-int generic_print(const void *ptr, size_t n)
-{
+
+int generic_print(const void *ptr, size_t n) {
     printf("%x\n", ptr);
 }
 
 /* SHUFFLES OPPORTUNE MSB/LSB AGAINST NETWORK BYTE ORDER */
-void *be32(void *ptr, unsigned long int n)
-{
+void *be32(void *ptr, unsigned long int n) {
     unsigned char *bp = ptr;
- 
  
     bp[3] = n & 0xff;
     bp[2] = n >> 8 & 0xff;
@@ -431,8 +425,7 @@ void *be32(void *ptr, unsigned long int n)
 }
 
 /* Return the length of the pointed buffer */
-size_t memlen(const char *buff)
-{
+size_t memlen(const char *buff) {
     size_t len = 0;
     
     while (1) {
@@ -444,8 +437,7 @@ size_t memlen(const char *buff)
 }
 
 /* Parses the dns request and returns the pointer to dns_request struct. Returns NULL on errors */
-struct dns_request *parse_dns_request(const char *udp_request, size_t request_len)
-{
+struct dns_request *parse_dns_request(const char *udp_request, size_t request_len) {
     struct dns_request *dns_req;
     
     dns_req = malloc(sizeof(struct dns_request));
@@ -509,7 +501,7 @@ struct dns_request *parse_dns_request(const char *udp_request, size_t request_le
     return dns_req;
 }
 
-/*  * Builds and sends the dns response datagram */
+/* Builds and sends the dns response datagram */
 void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request *dns_req, const char *ip, int mode, size_t xrequestlen, int ttl)
 {
     char *rip = malloc(256 * sizeof(char));
@@ -629,9 +621,9 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
         
     } else if (mode == DNS_MODE_ERROR) {
         
-	/* DNS_MODE_ERROR should truncate message instead of building it up ...  */
-
-        /* Server failure (0x8182), but what if we want NXDOMAIN (0x....) ???*/
+	/* DNS_MODE_ERROR should truncate message instead of building it up ... 
+	 * Server failure (0x8182), but what if we wanted an NXDOMAIN (0x....) ?
+	 * Being DNSP still under test, we do not care much. Nobody likes failures */
 	    
 	/*
 	     * NOERROR (RCODE:0) : DNS Query completed successfully
@@ -677,11 +669,14 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
     }
     
     /* Authority RRs 0 */
+    /* authorities can be worked out and be present. As scope of DNSP was to 
+     * minimise answers ... this part is lagging/queued */
     response[0] = 0x00;
     response[1] = 0x00;
     response+=2;
     
     /* Additional RRs 0 */
+    /* as authority section, same comment */
     response[0] = 0x00;
     response[1] = 0x00;
     response+=2;
@@ -741,6 +736,7 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
 	}
         
         /* Class IN */
+	/* other classes to be supported, not sure is WANTED but shall be implemented for compatibility */
 	*response++ = 0x00;
 	*response++ = 0x01;
 
@@ -752,13 +748,15 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
 	char hex[5];
 	unsigned char buf[4];
 
-	//quotient = decimalNumber;
 	quotient = ttl;
 
+	/* even so fundamental, I am a dog at C so I still have issues in HEX/INT/CHAR conversions */
+	
 	//while(quotient!=0) {
 	while(quotient!=1) {
 		if (quotient <10) break;
 		temp = quotient % 16;
+		
 		//To convert integer into character
 		if( temp < 10) {
 		  temp = temp + 48;
@@ -777,22 +775,18 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
 		*/
 
 		//*response++ = temp;
+		//response+=1;
+		
 		if (DNSDUMP) {
 			printf("QUOT-int: %u\n",quotient);
 			printf("QUOT-hex: %2x\n",quotient);
 		}
-		//response+=1;
 		
 		//hex[i++]= temp;
 		//printf("QQQ: %x",temp);
 		
 		//if (temp = 0) break;
 		
-		//if (sizeof(quotient) < 4 ) {
-		if (quotient < 0 ) {
-			//sprintf(response++,"%x",quotient);
-		}
-
 		//sprintf(hex,"%x",quotient);
 		//*response++= puts(hex);
 		//puts(response++);
@@ -808,8 +802,10 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
 	for (j = i -1 ;j> 0;j--)
 	        printf("%c\n",hex[j]);
 	//return 0;
+
 	int a[25],c=0,x;
 	int dec = ttl;
+
 	while(dec>0) {
 		if (dec < 10) break;
 		a[c]=dec%16;
@@ -828,16 +824,19 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
 	}
 
 	for(x=c-1;x>=0;x--) {
-		if(a[x]>=10)
+		if(a[x]>=10) {
 			printf("%c",a[x]+55);
-		else
+		} else {
 			printf("%d",a[x]);
-	sprintf(response++,"%x",c);
-	//response+= c;
+		}
+		//sprintf(response++,"%x",c);
+		/* recover this ... */
+		//response+= c;
 	}
+	printf("\n");
+	//*response++= sprintf(hex,"%x",quotient);
 
 	if (DNSDUMP) {
-		//printf("HEXADECIMAL Q: %d\n",quotient);
 		//printf("----DECIMAL Q: %lu\n",quotient);
 		printf("HEXA POST C: %d\n",c);
 	}
@@ -845,25 +844,29 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
 	/* If youre a bit acquainted with hex you dont need to convert to binary. */
 	/* Just take the base-16 complement of each digit, and add 1 to the result. */
 	/* So you get 0C5E. Add 1 and here's your result: 0C5F. */
-	/* OR */
+
 	/* for a faster approach you can also flip the bits left to very first set bit and find out the 2s complement */
+
 	/* (instead of finding 1ns and then adding 1 to it) 
 	 * 1111 0011 1010 0001 toggle the bits left to first set bit
 	 * 0000 1100 0101 1111
 	 *
 	 * i expect you would like this if bit pattern is changed to binary than hex :)
-	 *
 	*/
 	
-	//*response+= sprintf(hex,"%x",quotient);
-	//*response++= sprintf(hex,"%x",quotient);
 	
 	/*
+	*response+= sprintf(hex,"%x",quotient);
+	*response++= sprintf(hex,"%x",quotient);
+	sprintf(response++,"%x",ttl);
 	printf("TTL HEX: %x\n",ttl);
 	printf("len HEX: %d\n",sizeof(ttl));
 	*/
 
-	//sprintf(response++,"%x",ttl);
+	
+	/* The TTL was always kept in mind in DNSP development, but mostly faked for reason of simplicity. */
+	/* With the advent of DNS-over-HTTP drafts, the need became more stringent, and here we go ! */
+	/* IIRC, this is 14400, 4 hours very optimistic */
 	
 	/*
 	*response++ = 0x00;
@@ -889,7 +892,7 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
 	 * 0x20 - space
 	*/ 
 	
-	/* TYPES */
+	/* REQ TYPE PARSING */
 	if (dns_req->qtype == 0x0c) {
         	// PTR
 	        /* Data length (4 bytes)*/
@@ -1069,126 +1072,115 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
 		printf("INSIDE-dns-req->hostname		: %s\n", dns_req->hostname);
 		printf("INSIDE-xrequestlen			: %u\n", (uint16_t)xrequestlen);
 		/*
+		// FAULTY AND UNUSEFUL NOW
 		printf("INSIDE-xdns_req->query			: %s\n", xdns_req->query);
 		printf("INSIDE-xdns_req->hostname-to-char		: %s\n", (char *)(xdns_req->hostname));
-		printf("INSIDE-xdns_req->hostname			: %s\n", xdns_req->hostname);
 		printf("INSIDE-xdns_req->query			: %s\n", xdns_req->query);
 		*/
-		//printf("INSIDE-xdns_req->query			: %s\n", xdns_req->query);
-		printf("\n");	
 	}
         
-		/* example kept for educational purposes, to show how the response packet is built, tailored for the client */
-		//bytes_sent = sendto(3, "\270\204\205\200\0\1\0\1\0\0\0\0\6google\2jp\0\0\1\0\1\300\f\0\1\0"..., 43, 0, {sa_family=0x0002 /* AF_??? */, sa_data="\365\366\374\177\0\0\1\0\0\0\3\0\0\0"}, 16)
-		//bytes_sent = sendto(sd, response_ptr, response - response_ptr, 0, (struct sockaddr *)(&yclient), sizeof(yclient));
+	/* example kept for educational purposes, to show how the response packet is built, tailored for the client */
+	//bytes_sent = sendto(3, "\270\204\205\200\0\1\0\1\0\0\0\0\6google\2jp\0\0\1\0\1\300\f\0\1\0"..., 43, 0, {sa_family=0x0002 /* AF_??? */, sa_data="\365\366\374\177\0\0\1\0\0\0\3\0\0\0"}, 16)
+	//bytes_sent = sendto(sd, response_ptr, response - response_ptr, 0, (struct sockaddr *)(&yclient), sizeof(yclient));
 		
+	/* save HEX packet structure to file, i.e. for feeding caches, or directly serve HTTP content from the same daemon */
 	/*
-	        #define MAX_LENGTH 512
-	    
-	        FILE *fout = fopen("out.txt", "w");
-	    
-	        if(ferror(fout))
-	        {
-	            fprintf(stderr, "Error opening output file");
-	            return 1;
-	        }
-	        char init_line[]  = {"char hex_array[] = { "};
-	        const int offset_length = strlen(init_line);
-	    
-	        char offset_spc[offset_length];
-	    
-	        unsigned char buff[1024];
-	        char curr_out[1024];
-	        //char curr_out[64];
-	    
-	        int count, i;
-	        int line_length = 0;
-	    
-	        memset((void*)offset_spc, (char)32, sizeof(char) * offset_length - 1);
-	        offset_spc[offset_length - 1] = '\0';
-	    
-	        fprintf(fout, "%s", init_line);
-	    
-	        //while(!feof(stdin))
-	        //{
-	            //count = fread(buff, sizeof(char), sizeof(buff) / sizeof(char), stdin);
-	        	count = sizeof(response);
-	    
-	            for(i = 0; i < count; i++)
-	            {
-	                line_length += sprintf(curr_out, "%#x, ", buff[i]);
-	    
-	                fprintf(fout, "%s", curr_out);
-	                if(line_length >= MAX_LENGTH - offset_length)
-	                {
-	                    fprintf(fout, "\n%s", offset_spc);
-	                    line_length = 0;
-	                }
-	            }
-	        //}
-	        fseek(fout, -2, SEEK_CUR);
-	        fprintf(fout, " };\n");
-	    
-	        fclose(fout);
-	*/
-	if (DNSDUMP) {
-		//fprintf(stdout, "DNS-digit:\n%d\n",response);
-		//fprintf(stdout, "DNS-str:\n%s\n",response_ptr);
-		//fprintf(stdout, "DNS-digit:\n%d\n",response_ptr);
-		fprintf(stdout, "DNS-hex:\n%x\n",response_ptr);
-		//fprintf(stdout, "DNS-len:\n%d\n",sizeof(response_ptr));
-		//fprintf(stdout, "req-len:\n%d\n",(uint16_t)xrequestlen);
-		
-		/*
-		for (int i = 0; i < sizeof(response); i++)
-        	{
-        	    //j = (j << 4) | (i + 6);
-        	    //printf("0x%.8X = %#08X = %#.8X = %#010x\n", j, j, j, j);
-		    fprintf(stderr, "%02hhx %02hhx\n", response[i] >> 8, response[i]);
-        	}
-		*/
-    		hexdump(response_ptr, sizeof(response));
-    		hexdump(response_ptr, response - response_ptr);
-	}
-        	bytes_sent = sendto(sd, response_ptr, response - response_ptr, 0, (struct sockaddr *)yclient, 16);
+        #define MAX_LENGTH 512
     
-        } else if (mode == DNS_MODE_ERROR) {
+        FILE *fout = fopen("out.txt", "w");
+    
+        if(ferror(fout)) {
+            fprintf(stderr, "Error opening output file");
+            return 1;
+        }
+        char init_line[]  = {"char hex_array[] = { "};
+        const int offset_length = strlen(init_line);
+    
+        char offset_spc[offset_length];
+    
+        unsigned char buff[1024];
+        char curr_out[1024];
+        //char curr_out[64];
+    
+        int count, i;
+        int line_length = 0;
+    
+        memset((void*)offset_spc, (char)32, sizeof(char) * offset_length - 1);
+        offset_spc[offset_length - 1] = '\0';
+    
+        fprintf(fout, "%s", init_line);
+    
+	// NOT USEFUL TO USE A WHILE-LOOP (got from CURLLIB examples)
+        //while(!feof(stdin))
+        //{
+            //count = fread(buff, sizeof(char), sizeof(buff) / sizeof(char), stdin);
+        	count = sizeof(response);
+    
+            for(i = 0; i < count; i++)
+            {
+                line_length += sprintf(curr_out, "%#x, ", buff[i]);
+    
+                fprintf(fout, "%s", curr_out);
+                if(line_length >= MAX_LENGTH - offset_length)
+                {
+                    fprintf(fout, "\n%s", offset_spc);
+                    line_length = 0;
+                }
+            }
+        //}
+        fseek(fout, -2, SEEK_CUR);
+        fprintf(fout, " };\n");
+    
+        fclose(fout);
+	*/
+
+	if (DNSDUMP) { hexdump(response_ptr, response - response_ptr); }
+
+	/* send it back, onto the same socket */
+	/* the struct allows for independent threds, see other notes about */
+        bytes_sent = sendto(sd, response_ptr, response - response_ptr, 0, (struct sockaddr *)yclient, 16);
+    
+    } else if (mode == DNS_MODE_ERROR) {
+
         fprintf(stdout, "DNS_MODE_ERROR\n");
 	//(struct sockaddr *)xclient->sin_family = AF_INET;
 	int yclient_len = sizeof(yclient);
-        yclient->sin_family = AF_INET;
+
+	/* left for reference, useful to understand sin_addr and sin_port struct */
 	//yclient->sin_addr.s_addr = inet_addr("192.168.2.84"); 
 	//yclient->sin_port = htons(yclient->sin_port);
+        yclient->sin_family = AF_INET;
 	yclient->sin_port = yclient->sin_port;
 	memset(&(yclient->sin_zero), 0, sizeof(yclient->sin_zero)); // zero the rest of the struct 
 	//memset(yclient, 0, 0);
+
         bytes_sent = sendto(sd, response_ptr, response - response_ptr, 0, (struct sockaddr *)yclient, 16);
+
     } else {
         fprintf(stdout, "DNS_MODE_UNKNOWN\n");
         bytes_sent = sendto(sd, response_ptr, response - response_ptr, 0, (struct sockaddr *)yclient, 16);
     }
 
     /* DNS PACKET/VOLUME DISPLAY */
-    if (DEBUG) {
-	printf("SENT %d bytes\n", (uint32_t)bytes_sent);
-    }
+    if (DEBUG) { printf("SENT %d bytes\n", (uint32_t)bytes_sent); }
     
-    fdatasync(sd);
+    /* that sync/datasync slows down, and honestly is not needed when having no disk access ... */
+    //fdatasync(sd);
+
     close(sd);
     free(response_ptr);
     free(dns_req);
     //free(ip);
 }
 
-/* new */
+/* struct to support libCurl callback */
 struct MemoryStruct {
   char *memory;
   size_t size;
 };
  
 /* new libCurl callback */
-static size_t WriteMemoryCallback(void *contents, size_t size, size_t nmemb, void *userp)
-{
+static size_t WriteMemoryCallback(void *contents, size_t size, size_t nmemb, void *userp) {
   size_t realsize = size * nmemb;
   struct MemoryStruct *mem = (struct MemoryStruct *)userp;
  
@@ -1207,8 +1199,7 @@ static size_t WriteMemoryCallback(void *contents, size_t size, size_t nmemb, voi
 }
 
 /* libCurl write data callback */
-static size_t write_data(void *ptr, size_t size, size_t nmemb, void *stream)
-{
+static size_t write_data(void *ptr, size_t size, size_t nmemb, void *stream) {
   size_t stream_size;
   stream_size = size * nmemb + 1;
   bzero(stream, HTTP_RESPONSE_SIZE);
@@ -1217,8 +1208,7 @@ static size_t write_data(void *ptr, size_t size, size_t nmemb, void *stream)
   return stream_size-1;
 }
 
-char *substring(char *string, int position, int length) 
-{
+char *substring(char *string, int position, int length) {
    char *pointer;
    int c;
  
@@ -1241,8 +1231,8 @@ char *substring(char *string, int position, int length)
    return pointer;
 }
  
-static int hnd2num(CURL *ch)
-{
+/* handler checker/limiter */
+static int hnd2num(CURL *ch) {
   int i;
   for(i = 0; i< num_transfers; i++) {
     if(curl_hnd[i] == ch)
@@ -1382,9 +1372,6 @@ static int my_trace(CURL *handle, curl_infotype type, char *data, size_t size, v
   return 0;
 }
 
-#define OUTPUTFILE "dl"
-
-//static void setup(CURL *hnd, int num)
 static void setup(CURL *hnd, char *script_target) {
   //FILE *out;
   FILE *out; // = fopen(OUTPUTFILE, "wb");
@@ -1402,7 +1389,9 @@ static void setup(CURL *hnd, char *script_target) {
   curl_easy_setopt(hnd, CURLOPT_WRITEDATA, out);
  
   /* set the same URL ... or not !! with multiple threads/verification possible */ 
+  /* avoid hardcoding, set it as parameter (or a sort of root-check static list) */
   snprintf(q, sizeof(q)-1, "https://php-dns.appspot.com/%s", script_target);
+
   curl_easy_setopt(hnd, CURLOPT_URL, q);
   fprintf(stderr, "%s\n", q);
  
@@ -1413,13 +1402,9 @@ static void setup(CURL *hnd, char *script_target) {
           curl_easy_setopt(hnd, CURLOPT_VERBOSE,  0);			/* Verbose OFF */
   }
 
-  //curl_easy_setopt(hnd, CURLOPT_VERBOSE, 1L);
   curl_easy_setopt(hnd, CURLOPT_DEBUGFUNCTION, my_trace);
- 
-  /* HTTP/2 please */ 
   curl_easy_setopt(hnd, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_2_0);
  
-  /* we use a self-signed test server, skip verification during debugging */ 
   curl_easy_setopt(hnd, CURLOPT_CAPATH, "/usr/share/ca-certificates/mozilla");
   curl_easy_setopt(hnd, CURLOPT_SSL_VERIFYPEER, 2L);
   curl_easy_setopt(hnd, CURLOPT_SSL_VERIFYHOST, 2L);
@@ -1427,11 +1412,13 @@ static void setup(CURL *hnd, char *script_target) {
   /* OCSP not always available on clouds */
   curl_easy_setopt(hnd, CURLOPT_SSL_VERIFYSTATUS, 0L);
  
-#if (CURLPIPE_MULTIPLEX > 0)
-  /* wait for pipe connection to confirm */ 
-  curl_easy_setopt(hnd, CURLOPT_PIPEWAIT, 1L);
-#endif
+  #if (CURLPIPE_MULTIPLEX > 0)
+    /* wait for pipe connection to confirm */ 
+    curl_easy_setopt(hnd, CURLOPT_PIPEWAIT, 1L);
+  #endif
  
+  /* placeholder, can parallelise N threads but is blocking/waiting */
+  /* this will be enable lately, the function is here to represent the interest of spawning multiple/multipath things */
   //curl_hnd[num] = hnd;
 }
 
@@ -1565,10 +1552,9 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
     /* curl setup */
     /* read: https://curl.haxx.se/libcurl/c/threadsafe.html */
     /* to implement sharing and locks between threads */
-    /* use: https://curl.haxx.se/h2c/ for testing*/
+
     ch = curl_easy_init();
 
-    /* to be added soon, march 2018 commit */
     /*
 	CURLOPT_MAXREDIRS, 2
 	CURLOPT_COOKIEJAR, "cookies.txt"
@@ -1578,10 +1564,10 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
     //curl_setopt($ch, CURLOPT_POSTFIELDS, $data);
     */
 
+    /* set specific nifty options for multi handlers or none at all */
+
     /*
     easy = curl_easy_init();
-
-    // set options
     //setup(easy);
     //setup(easy, lookup_script);
     setup(easy, n);
@@ -1592,7 +1578,6 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
     curl_multi_setopt(multi_handle, CURLMOPT_PIPELINING, CURLPIPE_MULTIPLEX);
     curl_multi_setopt(multi_handle, CURLMOPT_PUSHFUNCTION, server_push_callback);
     curl_multi_setopt(multi_handle, CURLMOPT_PUSHDATA, &transfers);
-
     */
  
     /*
@@ -1607,10 +1592,8 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
 
     /* HTTP/2 prohibits connection-specific header fields. The following header fields must not appear */
     /* “Connection”, “Keep-Alive”, “Proxy-Connection”, “Transfer-Encoding” and “Upgrade”.*/
-
     /* Additionally, “TE” header field must not include any value other than “trailers”.*/
 
-    /* HTTP/2 please */ 
     curl_easy_setopt(ch, CURLOPT_HTTP_VERSION, (long)CURL_HTTP_VERSION_2TLS);
     //curl_easy_setopt(ch, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_2_0);
     //curl_easy_setopt(ch, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_2TLS);
@@ -1626,8 +1609,7 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
     curl_easy_setopt(ch, CURLOPT_FILETIME, 1L);
     curl_easy_setopt(ch, CURLOPT_TCP_KEEPALIVE, 1L);
 
-    /* Proxy configuration section */
-    /* port 1080, 3128, 8118, 8888, 9500, ... */
+    /* Proxy common ports 1080 (generic proxy), 3128 (squid), 8118 (polipo again), 8888 (simplehttp2server), 9500, 1090 (socks) */
     curl_easy_setopt(ch, CURLOPT_PROXY, proxy_host);
     curl_easy_setopt(ch, CURLOPT_PROXYPORT, proxy_port);	
     curl_easy_setopt(ch, CURLOPT_PROXYTYPE, CURLPROXY_HTTP);
@@ -1677,13 +1659,14 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
 
     /* Cloudflare is using COMODO CA */
 
-    /* needed to avoid gzip during the test phase as it clashes with OCSP validation */
+    /* We shall avoid gzip as it clashes with OCSP validation ?? */
     //curl_easy_setopt(ch, CURLOPT_ENCODING, "gzip, deflate, br, sdch");
     //curl_easy_setopt(ch, CURLOPT_ENCODING, "br");
 
+    /* well, this timeout should become a parameter */
     curl_easy_setopt(ch, CURLOPT_TIMEOUT, 5);
     curl_easy_setopt(ch, CURLOPT_DNS_CACHE_TIMEOUT, 60);
-    curl_easy_setopt(ch, CURLOPT_DNS_USE_GLOBAL_CACHE, 1);	/* DNS CACHE  */
+    curl_easy_setopt(ch, CURLOPT_DNS_USE_GLOBAL_CACHE, 1);	/* DNS CACHE WITHIN CURL */
     curl_easy_setopt(ch, CURLOPT_NOPROGRESS, 1L);		/* No progress meter */
     curl_easy_setopt(ch, CURLOPT_BUFFERSIZE, 102400L);
 
@@ -1691,32 +1674,25 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
     //curl_easy_setopt(ch, CURLOPT_TCP_NODELAY, 0L);
 
     if (DEBUGCURL) {
-	    curl_easy_setopt(ch, CURLOPT_VERBOSE,  1);			/* Verbose ON  */
+	    curl_easy_setopt(ch, CURLOPT_VERBOSE,  1);
     } else {
-	    curl_easy_setopt(ch, CURLOPT_VERBOSE,  0);			/* Verbose OFF */
+	    curl_easy_setopt(ch, CURLOPT_VERBOSE,  0);
     }
 
-    /* wait for pipe connection to confirm */
+    /* wait for pipe to confirm */
     /*
     #if (CURLPIPE_MULTIPLEX > 0)
     	curl_easy_setopt(ch, CURLOPT_PIPEWAIT, 1L);
     #endif
     */
 
-    /* need test for HTTP/2*/
-    /* test for HTTP */
-    //curl -s -H "Host: www.fantuz.net" -H "Remote Address:104.27.133.199:80" -H "User-Agent:Mozilla/5.0 (Macintosh; Intel Mac OS X 10_6_8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36" 'http://www.fantuz.net/nslookup.php?host=fantuz.net&type=NS' | xxd
-    //curl -s -H "Host: php-dns.appspot.com" -H "User-Agent:Mozilla/5.0 (Macintosh; Intel Mac OS X 10_6_8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36" 'http://php-dns.appspot.com/helloworld.php?host=fantuz.net&type=NS' | xxd
-
-    /* polipo likes pipelining, reuse, pretty powerful */
-    /* how about squid, nginx et al. ?? */
-    /* anyway all the story will change with H2 */
+    /* do proxies like pipelining ? polipo yes, how about squid, nginx et al. ?? */
+    /* anyway all the story changes completely with H2 and DOH specs */
 
     /* OVERRIDE RESOLVER --> add resolver CURL header, work in progress */
     // in the form of CLI --resolve my.site.com:80:1.2.3.4, -H "Host: my.site.com"
 
     /* OPTIONAL HEADERS, set with curl_slist_append */
-     
 
     //list = curl_slist_append(list, "Remote Address: 217.114.216.51:80");
 
@@ -1759,36 +1735,29 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
     //gzip, deflate, sdch
     //list = curl_slist_append(list, "accept-encoding: sdch");
     
-    /* test bash */
-    //#echo | openssl s_client -showcerts -servername php-dns.appspot.com -connect php-dns.appspot.com:443 2>/dev/null | openssl x509 -inform pem -noout -text
-    //#echo | openssl s_client -showcerts -servername dns.google.com -connect dns.google.com:443 2>/dev/null | openssl x509 -inform pem -noout -text
-    //#curl --http2 -I 'https://www.fantuz.net/nslookup.php?name=google.it'
-    //HTTP/2 200 
-    //date: Sat, 03 Mar 2018 16:30:13 GMT
-    //content-type: text/plain;charset=UTF-8
-    //set-cookie: __cfduid=dd36f3fb91aace1498c03123e646712001520094612; expires=Sun, 03-Mar-19 16:30:12 GMT; path=/; domain=.fantuz.net; HttpOnly
-    //x-powered-by: PHP/7.1.12
-    //cache-control: public, max-age=14400, s-maxage=14400
-    //last-modified: Sat, 03 Mar 2018 16:30:13 GMT
-    //etag: 352d3e68703dce365ec4cda53f420f4a
-    //accept-ranges: bytes
-    //x-powered-by: PleskLin
-    //alt-svc: quic=":443"; ma=2592000; v="35,37,38,39"
-    //x-turbo-charged-by: LiteSpeed
-    //expect-ct: max-age=604800, report-uri="https://report-uri.cloudflare.com/cdn-cgi/beacon/expect-ct"
-    //server: cloudflare
-    //cf-ray: 3f5d7c83180326a2-FRA
-
-    /*
-Cookie:__cfduid=d5e9da110544f36f002a7d6ff3e7d96951518545176; gsScrollPos-1505=0; gsScrollPos-1568=0; __utmc=47044144; __utmz=47044144.1519169656.1.1.utmcsr=(direct)|utmccn=(direct)|utmcmd=(none); __utma=47044144.1144654312.1519169656.1519498523.1519564542.5; gsScrollPos-2056=; gsScrollPos-2122=
-
-If-Modified-Since:Fri, 02 Mar 2018 13:25:57 GMT
-If-None-Match:352d3e68703dce365ec4cda53f420f4a
-Upgrade-Insecure-Requests:1
-User-Agent:Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Ubuntu Chromium/64.0.3282.167 Chrome/64.0.3282.167 Safari/537.36
+    /* 
+     * #echo | openssl s_client -showcerts -servername php-dns.appspot.com -connect php-dns.appspot.com:443 2>/dev/null | openssl x509 -inform pem -noout -text
+     * #echo | openssl s_client -showcerts -servername dns.google.com -connect dns.google.com:443 2>/dev/null | openssl x509 -inform pem -noout -text
+     *
+     * #curl --http2 -I 'https://www.fantuz.net/nslookup.php?name=google.it'
+     * HTTP/2 200 
+     * date: Sat, 03 Mar 2018 16:30:13 GMT
+     * content-type: text/plain;charset=UTF-8
+     * set-cookie: __cfduid=dd36f3fb91aace1498c03123e646712001520094612; expires=Sun, 03-Mar-19 16:30:12 GMT; path=/; domain=.fantuz.net; HttpOnly
+     * x-powered-by: PHP/7.1.12
+     * cache-control: public, max-age=14400, s-maxage=14400
+     * last-modified: Sat, 03 Mar 2018 16:30:13 GMT
+     * etag: 352d3e68703dce365ec4cda53f420f4a
+     * accept-ranges: bytes
+     * x-powered-by: PleskLin
+     * alt-svc: quic=":443"; ma=2592000; v="35,37,38,39"
+     * x-turbo-charged-by: LiteSpeed
+     * expect-ct: max-age=604800, report-uri="https://report-uri.cloudflare.com/cdn-cgi/beacon/expect-ct"
+     * server: cloudflare
+     * cf-ray: 3f5d7c83180326a2-FRA
     */
     
-    /* see if H2 comes no ALPN with no headers set ... */
+    /* see if H2 goes no-ALPN with no headers set ... */
     curl_easy_setopt(ch, CURLOPT_HEADER, 1L);
     curl_easy_setopt(ch, CURLOPT_HTTPHEADER, list);
 
@@ -1809,123 +1778,125 @@ User-Agent:Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko
     curl_easy_setopt(ch, CURLOPT_SHARE, curlsh);
     curl_share_setopt(curlsh, CURLSHOPT_SHARE, CURL_LOCK_DATA_COOKIE);
     curl_share_setopt(curlsh, CURLSHOPT_SHARE, CURL_LOCK_DATA_DNS);
-    //curl_share_setopt(shobject, CURLSHOPT_SHARE, CURL_LOCK_DATA_COOKIE);
     */
-/*
+
+    /*
     curl_easy_setopt(curl2, CURLOPT_URL, "https://example.com/second");
     curl_easy_setopt(curl2, CURLOPT_COOKIEFILE, "");
     curl_easy_setopt(curl2, CURLOPT_SHARE, shobject);
+    */
 
-*/
+    /* CURL multi-handler spawner, deactivated for the time being
+     * we start some action by calling perform right away
+     * curl_multi_perform(multi_handle, &still_running);
+    */
 
-/*
-    // we start some action by calling perform right away
-    // curl_multi_perform(multi_handle, &still_running);
-
-// as long as we have transfers going
-do {
-    struct timeval timeout;
-
-    // select() return code
-    int rc;
-    // curl_multi_fdset() return code
-    CURLMcode mc;
-
-    fd_set fdread;
-    fd_set fdwrite;
-    fd_set fdexcep;
-    int maxfd = -1;
- 
-    long curl_timeo = -1;
- 
-    FD_ZERO(&fdread);
-    FD_ZERO(&fdwrite);
-    FD_ZERO(&fdexcep);
- 
-    // set a suitable timeout to play around with
-    timeout.tv_sec = 1;
-    timeout.tv_usec = 0;
- 
-    curl_multi_timeout(multi_handle, &curl_timeo);
-    if(curl_timeo >= 0) {
-      timeout.tv_sec = curl_timeo / 1000;
-      if(timeout.tv_sec > 1)
-        timeout.tv_sec = 1;
-      else
-        timeout.tv_usec = (curl_timeo % 1000) * 1000;
-    }
- 
-    // get file descriptors from the transfers
-    mc = curl_multi_fdset(multi_handle, &fdread, &fdwrite, &fdexcep, &maxfd);
- 
-    if(mc != CURLM_OK) {
-      fprintf(stderr, "curl_multi_fdset() failed, code %d.\n", mc);
-      break;
-    }
- 
-    // On success the value of maxfd is guaranteed to be >= -1. We call
-    // select(maxfd + 1, ...); specially in case of (maxfd == -1) there are
-    // no fds ready yet so we call select(0, ...) --or Sleep() on Windows--
-    // to sleep 100ms, which is the minimum suggested value in the
-    // curl_multi_fdset() doc.
- 
-    if(maxfd == -1) {
-#ifdef _WIN32
-      Sleep(100);
-      rc = 0;
-#else
-      // Portable sleep for platforms other than Windows
-      struct timeval wait = { 0, 100 * 1000 };
-      // 100ms
-      rc = select(0, NULL, NULL, NULL, &wait);
-#endif
-    }
-    else {
-      // Note that on some platforms 'timeout' may be modified by select().
-      // If you need access to the original value save a copy beforehand.
-      rc = select(maxfd + 1, &fdread, &fdwrite, &fdexcep, &timeout);
-    }
- 
-    switch(rc) {
-    case -1:
-      // select error
-      break;
-    case 0:
-    default:
-      // timeout or readable/writable sockets
-      curl_multi_perform(multi_handle, &still_running);
-      break;
-    }
- 
-    // A little caution when doing server push is that libcurl itself has
-    // created and added one or more easy handles but we need to clean them up
-    // when we are done.
- 
+    /*
+    // as long as we have transfers going, do work ...
+     
     do {
-      int msgq = 0;;
-      m = curl_multi_info_read(multi_handle, &msgq);
-      if(m && (m->msg == CURLMSG_DONE)) {
-        CURL *e = m->easy_handle;
-        transfers--;
-        curl_multi_remove_handle(multi_handle, e);
-        curl_easy_cleanup(e);
-      }
-    } while(m);
- 
-  } while(transfers);
-
-  curl_multi_cleanup(multi_handle);
+        struct timeval timeout;
+    
+        // select() return code
+        int rc;
+        // curl_multi_fdset() return code
+        CURLMcode mc;
+    
+        fd_set fdread;
+        fd_set fdwrite;
+        fd_set fdexcep;
+        int maxfd = -1;
+     
+        long curl_timeo = -1;
+     
+        FD_ZERO(&fdread);
+        FD_ZERO(&fdwrite);
+        FD_ZERO(&fdexcep);
+     
+        // set a suitable timeout to play around with
+        timeout.tv_sec = 1;
+        timeout.tv_usec = 0;
+     
+        curl_multi_timeout(multi_handle, &curl_timeo);
+        if(curl_timeo >= 0) {
+          timeout.tv_sec = curl_timeo / 1000;
+          if(timeout.tv_sec > 1)
+            timeout.tv_sec = 1;
+          else
+            timeout.tv_usec = (curl_timeo % 1000) * 1000;
+        }
+     
+        // get file descriptors from the transfers
+        mc = curl_multi_fdset(multi_handle, &fdread, &fdwrite, &fdexcep, &maxfd);
+     
+        if(mc != CURLM_OK) {
+          fprintf(stderr, "curl_multi_fdset() failed, code %d.\n", mc);
+          break;
+        }
+     
+        // On success the value of maxfd is guaranteed to be >= -1. We call
+        // select(maxfd + 1, ...); specially in case of (maxfd == -1) there are
+        // no fds ready yet so we call select(0, ...) --or Sleep() on Windows--
+        // to sleep 100ms, which is the minimum suggested value in the
+        // curl_multi_fdset() doc.
+     
+        if(maxfd == -1) {
+	    #ifdef _WIN32
+	        Sleep(100);
+	        rc = 0;
+	    #else
+		// Portable sleep for platforms other than Windows
+		struct timeval wait = { 0, 100 * 1000 };
+		// 100ms
+		rc = select(0, NULL, NULL, NULL, &wait);
+	    #endif
+        } else {
+          // Note that on some platforms 'timeout' may be modified by select().
+          // If you need access to the original value save a copy beforehand.
+          rc = select(maxfd + 1, &fdread, &fdwrite, &fdexcep, &timeout);
+        }
+     
+        switch(rc) {
+        case -1:
+          // select error
+          break;
+        case 0:
+        default:
+          // timeout or readable/writable sockets
+          curl_multi_perform(multi_handle, &still_running);
+          break;
+        }
+     
+        // A little caution when doing server push is that libcurl itself has
+        // created and added one or more easy handles but we need to clean them up
+        // when we are done.
+     
+        do {
+          int msgq = 0;;
+          m = curl_multi_info_read(multi_handle, &msgq);
+          if(m && (m->msg == CURLMSG_DONE)) {
+            CURL *e = m->easy_handle;
+            transfers--;
+            curl_multi_remove_handle(multi_handle, e);
+            curl_easy_cleanup(e);
+          }
+        } while(m);
+     
+   } while(transfers);
+    
+   curl_multi_cleanup(multi_handle);
  
 */
+
     /* multiple transfers */
-//    for(i = 0; i<num_transfers; i++) {
-//      easy[i] = curl_easy_init();
-//      /* set options */ 
-//      setup(easy[i], i);
-//   
-//      /* add the individual transfer */ 
-//      curl_multi_add_handle(multi_handle, easy[i]);
-//    }
+    //    for(i = 0; i<num_transfers; i++) {
+    //      easy[i] = curl_easy_init();
+    //      /* set options */ 
+    //      setup(easy[i], i);
+    //   
+    //      /* add the individual transfer */ 
+    //      curl_multi_add_handle(multi_handle, easy[i]);
+    //    }
  
     /* get it! */
     //res = curl_easy_perform(ch);
@@ -1949,6 +1920,7 @@ do {
 
     //ret = curl_easy_perform(ch);
 
+    /* slist holds specific headers here, beware of H2 reccomendations mentioned above */
     slist1 = NULL;
     //slist1 = curl_slist_append(slist1, "User-Agent:");
     slist1 = curl_slist_append(slist1, "content-type: text/plain");
@@ -1973,11 +1945,11 @@ do {
     curl_easy_setopt(hnd, CURLOPT_FILETIME, 1L);
     curl_easy_setopt(hnd, CURLOPT_TCP_KEEPALIVE, 1L);
     curl_easy_setopt(hnd, CURLOPT_ENCODING, "deflate");
-    /* please be verbose */ 
+
     if (DEBUGCURL) {
-            curl_easy_setopt(hnd, CURLOPT_VERBOSE,  1);			/* Verbose ON  */
+            curl_easy_setopt(hnd, CURLOPT_VERBOSE,  1);
     } else {
-            curl_easy_setopt(hnd, CURLOPT_VERBOSE,  0);			/* Verbose OFF */
+            curl_easy_setopt(hnd, CURLOPT_VERBOSE,  0);
     }
 
     //curl_easy_setopt(hnd, CURLOPT_VERBOSE, 1L);
@@ -2053,9 +2025,8 @@ do {
     return http_response;
 }
 
-/* This is our thread function.  It is like main(), but for a thread */
-void *threadFunc(void *arg)
-{
+/* This is our thread function.  It is like main() but for a thread */
+void *threadFunc(void *arg) {
 	struct readThreadParams *params = (struct readThreadParams*)arg;
 
 	struct dns_request *xdns_req = (struct dns_request *)params->xhostname;
@@ -2213,9 +2184,7 @@ void *threadFunc(void *arg)
 	exit(EXIT_SUCCESS);
 }
 
-/* main */
-int main(int argc, char *argv[])
-{
+int main(int argc, char *argv[]) {
     //int sockfd, port = DEFAULT_LOCAL_PORT, wport = DEFAULT_WEB_PORT, proxy_port = DEFAULT_PRX_PORT, c;
     int sockfd, port = DEFAULT_LOCAL_PORT, wport = DEFAULT_WEB_PORT, proxy_port = 0, c;
     int r = 0;
@@ -2234,7 +2203,7 @@ int main(int argc, char *argv[])
 
     opterr = 0;
        
-    /* 20180301: test */
+    /* deactivating mutexes, leaving all placeholders */
     /*
     //sem_t mutex;
     sem_t sem;
@@ -2255,17 +2224,16 @@ int main(int argc, char *argv[])
 
     /*
     const char    * short_opt = "hf:";
-    struct option   long_opt[] =
-    {
+    struct option   long_opt[] = {
        {"help",          no_argument,       NULL, 'h'},
        {"file",          required_argument, NULL, 'f'},
        {NULL,            0,                 NULL, 0  }
     };
     */
     
-    // while ((c = getopt_long(argc, argv, short_opt, long_opt, NULL)) != -1)
-
     /* Command line args */
+    // while ((c = getopt_long(argc, argv, short_opt, long_opt, NULL)) != -1)
+    
     while ((c = getopt (argc, argv, "T:s:p:l:r:H:t:w:u:k:hvCn")) != -1)
     switch (c)
      {
@@ -2343,6 +2311,7 @@ int main(int argc, char *argv[])
             usage();
         break;
 
+	/* leftover from DNSP v1 HTTP/1 */
 	/*
         case 'S':
             httpsssl = (char *)optarg;
@@ -2373,7 +2342,7 @@ int main(int argc, char *argv[])
         default:
         //fprintf(stderr, "Usage: %s [-s stack-size] arg...\n", argv[0]);
         exit(EXIT_FAILURE);
-        abort ();
+        abort();
     }
 
     if (proxy_host != NULL) {
@@ -2481,9 +2450,9 @@ int main(int argc, char *argv[])
 	//static pthread_t tidd;
 
 	//struct thread_data data_array[NUM_THREADS];
-//	pthread_attr_t attr;
-//	pthread_attr_init(&attr);
-//	pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
+	//	pthread_attr_t attr;
+	//	pthread_attr_init(&attr);
+	//	pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
 	//pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
 
     	//sem_wait(&mutex);  /* wrong ... DO NOT USE */
@@ -2528,16 +2497,14 @@ int main(int argc, char *argv[])
 	//if (pid == 0) {
 	//if (clone(parse_dns_request, stack_aligned, CLONE_VM | SIGCHLD, request, request_len)) {
 	
-	/* still monolithic, but can take millions of queries */
+	/* still monolithic, takes millions of queries but thread/processes can be parallelised */
 	if (vfork() == 0) {
 
-	    /* 20180301: test */
 	    /* LEFT FOR HOUSEKEEPING, SEMAPHORE LOGIC */
-	    /*
-	    sem_wait(&mutex);
-	    */
+	    //sem_wait(&mutex);
 
-	    fprintf(stderr, "WHAT: %x - %d",request, request_len);
+	    fprintf(stderr, "WHAT: %x - %d\n",request, request_len);
+	    
 	    /* DNS UDP datagram PARSE */
    	    dns_req = parse_dns_request(request, request_len);
 
@@ -2570,12 +2537,13 @@ int main(int argc, char *argv[])
 	    } else if (dns_req->qtype == 0x0f) {
 		typeq = "MX";
 	    } else { //{ dns_req->qtype == 0xff;} 
-		printf("gotcha: %x \r\n",dns_req->qtype);} //PTR ?
+		printf("gotcha: %x \r\n",dns_req->qtype); //PTR ?
+	    }
 
 	    /*
-	     * CORE DNS LOOKUP IS MADE ONCE (via CURL/HTTP against nslookup.php) 
+	     * CORE DNS LOOKUP IS MADE ONCE (via CURL/HTTP against nslookup.php, nslookup-doh.php) 
 	     * THEN SUCH ANSWER MIGHT BE CACHED IN THE NETWORK (polipo, memcache, CDN, CloudFlare, Varnish, GCP, ...)
-	     * DNS-OVER-HTTP IMPLEMENTS DOMAIN BLACKLISTING, AUTHENTICATION, SSL, THREADS... simple and effective !
+	     * DNSP IMPLEMENTS DOMAIN BLACKLISTING, AUTHENTICATION, SSL, THREADS... simple and effective !
 	    */
 
 	    /* OPTION --> BUFFER SIZE */
@@ -2599,6 +2567,7 @@ int main(int argc, char *argv[])
 	    } else {
 		ttl = ttl_in;
 	    }
+
 	    //int test = 42; // the answer, used in alpha development
 	    int xwport = wport; // web port, deprecated
 	    int xsockfd;
@@ -2671,7 +2640,6 @@ int main(int argc, char *argv[])
 	    threadFunc(readParams);
 	    ret = pthread_create(&pth[i],&attr,threadFunc,readParams);
 
-	    /* 20180301: test */
 	    /* ONLY IF USING SEMAPHORES .... NOT WITH MUTEX */
 	    //sem_wait(&mutex);
 	    //sem_post(&mutex);
@@ -2717,8 +2685,7 @@ int main(int argc, char *argv[])
 	    continue;
 	    pthread_setspecific(glob_var_key_ip, NULL);
 
-	}
-	else {
+	} else {
 
 	    nnn++;
 	    // RECOVER FROM THREAD BOMB SITUATION
