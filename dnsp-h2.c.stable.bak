@@ -29,7 +29,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
-#include <assert.h>
 #include <unistd.h>
 #include <sys/timeb.h>
 #include <sys/types.h> 
@@ -43,11 +42,6 @@
 #include <curl/easy.h>
 #include <signal.h>
 #include <pthread.h>
-//#include <base64.h>
-//#include "base64.c"
-//#include "base64.h"
-//#include "hexdump.h"
-
 /*
 #include <semaphore.h>
 #include <spawn.h>
@@ -62,92 +56,7 @@
 #endif
  
 #define NUM_HANDLES 4
-
-static char encoding_table[] = {'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H',
-                                'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P',
-                                'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X',
-                                'Y', 'Z', 'a', 'b', 'c', 'd', 'e', 'f',
-                                'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n',
-                                'o', 'p', 'q', 'r', 's', 't', 'u', 'v',
-                                'w', 'x', 'y', 'z', '0', '1', '2', '3',
-                                '4', '5', '6', '7', '8', '9', '+', '/'};
-static char *decoding_table = NULL;
-static int mod_table[] = {0, 2, 1};
  
-char *base64_encode(const unsigned char *data, size_t input_length, size_t *output_length) {
- 
-    *output_length = 4 * ((input_length + 2) / 3);
- 
-    char *encoded_data = malloc(*output_length);
-    if (encoded_data == NULL) return NULL;
- 
-    for (int i = 0, j = 0; i < input_length;) {
- 
-        uint32_t octet_a = i < input_length ? (unsigned char)data[i++] : 0;
-        uint32_t octet_b = i < input_length ? (unsigned char)data[i++] : 0;
-        uint32_t octet_c = i < input_length ? (unsigned char)data[i++] : 0;
- 
-        uint32_t triple = (octet_a << 0x10) + (octet_b << 0x08) + octet_c;
- 
-        encoded_data[j++] = encoding_table[(triple >> 3 * 6) & 0x3F];
-        encoded_data[j++] = encoding_table[(triple >> 2 * 6) & 0x3F];
-        encoded_data[j++] = encoding_table[(triple >> 1 * 6) & 0x3F];
-        encoded_data[j++] = encoding_table[(triple >> 0 * 6) & 0x3F];
-    }
- 
-    for (int i = 0; i < mod_table[input_length % 3]; i++)
-        encoded_data[*output_length - 1 - i] = '=';
- 
-    return encoded_data;
-}
- 
-unsigned char *base64_decode(const char *data,
-                             size_t input_length,
-                             size_t *output_length) {
- 
-    if (decoding_table == NULL) build_decoding_table();
- 
-    if (input_length % 4 != 0) return NULL;
- 
-    *output_length = input_length / 4 * 3;
-    if (data[input_length - 1] == '=') (*output_length)--;
-    if (data[input_length - 2] == '=') (*output_length)--;
- 
-    unsigned char *decoded_data = malloc(*output_length);
-    if (decoded_data == NULL) return NULL;
- 
-    for (int i = 0, j = 0; i < input_length;) {
- 
-        uint32_t sextet_a = data[i] == '=' ? 0 & i++ : decoding_table[data[i++]];
-        uint32_t sextet_b = data[i] == '=' ? 0 & i++ : decoding_table[data[i++]];
-        uint32_t sextet_c = data[i] == '=' ? 0 & i++ : decoding_table[data[i++]];
-        uint32_t sextet_d = data[i] == '=' ? 0 & i++ : decoding_table[data[i++]];
- 
-        uint32_t triple = (sextet_a << 3 * 6)
-        + (sextet_b << 2 * 6)
-        + (sextet_c << 1 * 6)
-        + (sextet_d << 0 * 6);
- 
-        if (j < *output_length) decoded_data[j++] = (triple >> 2 * 8) & 0xFF;
-        if (j < *output_length) decoded_data[j++] = (triple >> 1 * 8) & 0xFF;
-        if (j < *output_length) decoded_data[j++] = (triple >> 0 * 8) & 0xFF;
-    }
- 
-    return decoded_data;
-}
- 
-void build_decoding_table() {
- 
-    decoding_table = malloc(256);
- 
-    for (int i = 0; i < 64; i++)
-        decoding_table[(unsigned char) encoding_table[i]] = i;
-}
- 
-void base64_cleanup() {
-    free(decoding_table);
-}
-
 static void *curl_hnd[NUM_HANDLES];
 static int num_transfers = 1;
 
@@ -221,7 +130,6 @@ struct readThreadParams {
     char* xlookup_script;
     char* xtypeq;
     int xwport;
-    int xttl;
     int sockfd;
     int xsockfd;
     //int digit;
@@ -339,7 +247,7 @@ static void * hexdump(void *mem, unsigned int len) {
 //	char password[256];
 //};
 
-int DEBUG, DNSDUMP, DEBUGCURL;
+int DEBUG, DEBUGCURL;
 char* substring(char*, int, int);
 
 struct dns_request
@@ -375,16 +283,13 @@ void usage(void)
                        "      -k\t\t Cache proxy password	(optional)\n"
                        "      -s\t\t Lookup script URL	(mandatory option)\n"
                        "      -w\t\t Lookup port		(obsolete, defaults to 80/443 for HTTP/HTTPS)\n"
+                       "      -t\t\t Stack size in format	0x1000000 (MB)\n"
                        "\n"
                        " TESTING/DEV OPTIONS:\n"
-                       "      -T\t\t Force TTL to be [int] (useful for autotest)\n"
-                       "      -n\t\t Enable DNS DUMP\n"
                        "      -v\t\t Enable DEBUG\n"
                        "      -C\t\t Enable CURL VERBOSE, useful to spot cache issues or dig down into HSTS/HTTPS quirks\n"
-                       " WIP OPTIONS:\n"
                        "      -I\t\t Upgrade Insecure Requests, HSTS work in progress\n"
-                       "      -R\t\t Enable CURL resolve mechanism, avoiding extra gethostbyname (DO NOT USE)\n"
-                       "      -t\t\t Stack size in format	0x1000000 (MB)\n"
+                       "      -R\t\t Enable CURL resolve mechanism, avoiding extra gethostbyname, work in progress\n"
                        "\n"
 		       " Example HTTPS direct :  dnsp -s https://php-dns.appspot.com/\n"
 		       " Example HTTP direct  :  dnsp -s http://www.fantuz.net/nslookup.php\n"
@@ -411,23 +316,6 @@ void debug_msg(const char* fmt, ...)
         vfprintf(stdout, fmt, ap); 
         va_end(ap);
     }
-}
-int generic_print(const void *ptr, size_t n)
-{
-    printf("%x\n", ptr);
-}
-
-/* SHUFFLES OPPORTUNE MSB/LSB AGAINST NETWORK BYTE ORDER */
-void *be32(void *ptr, unsigned long int n)
-{
-    unsigned char *bp = ptr;
- 
- 
-    bp[3] = n & 0xff;
-    bp[2] = n >> 8 & 0xff;
-    bp[1] = n >> 16 & 0xff;
-    bp[0] = n >> 24 & 0xff;
-    return ptr;
 }
 
 /* Return the length of the pointed buffer */
@@ -510,7 +398,7 @@ struct dns_request *parse_dns_request(const char *udp_request, size_t request_le
 }
 
 /*  * Builds and sends the dns response datagram */
-void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request *dns_req, const char *ip, int mode, size_t xrequestlen, int ttl)
+void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request *dns_req, const char *ip, int mode, size_t xrequestlen)
 {
     char *rip = malloc(256 * sizeof(char));
     //struct dns_request *dns_req;
@@ -528,15 +416,13 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
          *token,
          *pch,
 	 *maxim,
-	 *rr,
-	 *tt,
          *response_ptr;
 	 //*ppch,
 	 //*typeq,
     //uint i,ppch;
     int i,ppch;
     ssize_t bytes_sent;
-    ssize_t bytes_encoded;
+
 
     if (DEBUG) {
 	    /*
@@ -547,7 +433,6 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
 	    printf("BUILD-yclient->sin_port			: %u\n", (uint32_t)(yclient->sin_port));
 	    printf("BUILD-yclient->sin_family		: %d\n", (uint32_t)(yclient->sin_family));
 	    printf("BUILD-xrequestlen			: %d\n", (uint32_t)(xrequestlen));
-	    printf("BUILD-ttl				: %d\n", (uint32_t)(ttl));
 	    printf("BUILD-xsockfd				: %u\n", xsockfd);
 	    printf("BUILD-sockfd				: %d\n", sockfd);
 	    printf("BUILD-hostname				: %s\n", dns_req->hostname);
@@ -566,15 +451,8 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
     	    printf("build-answer = %s\n", rip);
     	    printf("build-answer-mode %d\n", DNS_MODE_ANSWER);
 	    */
-
-	    //char *xx = base64_encode(response_ptr, 64, 64);
-	    //char xx = base64_encode(dns_req->hostname, (uint8_t)(xrequestlen)-1, NULL);
-	    //printf("base64-hostname				: %s\n", base64_encode(tt, sizeof(dns_req->hostname), 512));
-	    //printf("base64-hostname				: %s\n", xx); 
-    	    //printf("base64-hostname				: %s\n", Base64encode(rr, dns_req->hostname, (uint8_t)(xrequestlen)));
 	    printf("\n");
     }
-    
 
     response = malloc (UDP_DATAGRAM_SIZE);
     bzero(response, UDP_DATAGRAM_SIZE);
@@ -590,9 +468,7 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
     response[1] = (uint8_t)dns_req->transaction_id;
     response+=2;
 
-    if (DNSDUMP) {
-	    fprintf(stdout, "FIRST-DNS-hex:\n%x\n",response);
-    }
+    //fprintf(stdout, "FIRST-DNS-hex:\n%x\n",response);
     
     /*
     TXT, SRV, SOA, PTR, NS, MX, DS, DNSKEY, AAAA, A, unused
@@ -744,140 +620,11 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
 	*response++ = 0x00;
 	*response++ = 0x01;
 
-       	/* TTL (4 hours to begin with, recently added thread callback, missing only HTTP interpretation of header, correctly generated on PHP) */
-	/* 0000: Cache-control: public, max-age=276, s-maxage=276 */
-
-	long int decimalNumber,remainder,quotient;
-	int i=1,j,temp;
-	char hex[5];
-	unsigned char buf[4];
-
-	//quotient = decimalNumber;
-	quotient = ttl;
-
-	//while(quotient!=0) {
-	while(quotient!=1) {
-		if (quotient <10) break;
-		temp = quotient % 16;
-		//To convert integer into character
-		if( temp < 10) {
-		  temp = temp + 48;
-		} else {
-		  temp = temp + 55;
-		}
-
-		quotient = quotient / 16;
-
-		printf("TEMP: %d\n",temp);
-		//sprintf(response++,"%x",temp);
-
-		/*
-		response[0] = quotient;
-		response++;
-		*/
-
-		//*response++ = temp;
-		if (DNSDUMP) {
-			printf("QUOT-int: %u\n",quotient);
-			printf("QUOT-hex: %2x\n",quotient);
-		}
-		//response+=1;
-		
-		//hex[i++]= temp;
-		//printf("QQQ: %x",temp);
-		
-		//if (temp = 0) break;
-		
-		//if (sizeof(quotient) < 4 ) {
-		if (quotient < 0 ) {
-			//sprintf(response++,"%x",quotient);
-		}
-
-		//sprintf(hex,"%x",quotient);
-		//*response++= puts(hex);
-		//puts(response++);
-		//sprintf(response++,"%x",quotient);
-		//response[0]+= quotient;
-		//sprintf(response++, "0x%x", (((unsigned)hex[0])<<16)+(((unsigned)hex[1])<<8)+(unsigned)hex[2]);
-
-		if (DNSDUMP) {
-			generic_print(be32(buf, hex), sizeof buf);
-		}
-	}
-	
-	for (j = i -1 ;j> 0;j--)
-	        printf("%c\n",hex[j]);
-	//return 0;
-	int a[25],c=0,x;
-	int dec = ttl;
-	while(dec>0) {
-		if (dec < 10) break;
-		a[c]=dec%16;
-		response[0] = a[c];
-		response++;
-		dec=dec/16;
-		c++;
-	}
-
-	//sprintf(response++,"%x",c);
-	
-	if (DNSDUMP) {
-		//printf("HEXADECIMAL Q: %d\n",quotient);
-		//printf("----DECIMAL Q: %lu\n",quotient);
-		printf("HEXA PRE  C: %d\n",c);
-	}
-
-	for(x=c-1;x>=0;x--) {
-		if(a[x]>=10)
-			printf("%c",a[x]+55);
-		else
-			printf("%d",a[x]);
-	sprintf(response++,"%x",c);
-	//response+= c;
-	}
-
-	if (DNSDUMP) {
-		//printf("HEXADECIMAL Q: %d\n",quotient);
-		//printf("----DECIMAL Q: %lu\n",quotient);
-		printf("HEXA POST C: %d\n",c);
-	}
-
-	/* If youre a bit acquainted with hex you dont need to convert to binary. */
-	/* Just take the base-16 complement of each digit, and add 1 to the result. */
-	/* So you get 0C5E. Add 1 and here's your result: 0C5F. */
-	/* OR */
-	/* for a faster approach you can also flip the bits left to very first set bit and find out the 2s complement */
-	/* (instead of finding 1ns and then adding 1 to it) 
-	 * 1111 0011 1010 0001 toggle the bits left to first set bit
-	 * 0000 1100 0101 1111
-	 *
-	 * i expect you would like this if bit pattern is changed to binary than hex :)
-	 *
-	*/
-	
-	//*response+= sprintf(hex,"%x",quotient);
-	//*response++= sprintf(hex,"%x",quotient);
-	
-	/*
-	printf("TTL HEX: %x\n",ttl);
-	printf("len HEX: %d\n",sizeof(ttl));
-	*/
-
-	//sprintf(response++,"%x",ttl);
-	
-	/*
+       	/* TTL (4 hours) */
 	*response++ = 0x00;
 	*response++ = 0x00;
 	*response++ = 0x38;
 	*response++ = 0x40;
-	*/
-
-	/*
-	for (j = i -1 ;j> 0;j--)
-	    //printf("%c",hexadecimalNumber[j]);
-	    response = hexadecimalNumber[j];
-	return 0;
-	*/
 	
 	/*
 	 * 0x08 - backspace	\010 octal
@@ -1131,7 +878,6 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
 	    
 	        fclose(fout);
 	*/
-	if (DNSDUMP) {
 		//fprintf(stdout, "DNS-digit:\n%d\n",response);
 		//fprintf(stdout, "DNS-str:\n%s\n",response_ptr);
 		//fprintf(stdout, "DNS-digit:\n%d\n",response_ptr);
@@ -1147,9 +893,7 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
 		    fprintf(stderr, "%02hhx %02hhx\n", response[i] >> 8, response[i]);
         	}
 		*/
-    		hexdump(response_ptr, sizeof(response));
-    		hexdump(response_ptr, response - response_ptr);
-	}
+    		hexdump(response_ptr, 256);
         	bytes_sent = sendto(sd, response_ptr, response - response_ptr, 0, (struct sockaddr *)yclient, 16);
     
         } else if (mode == DNS_MODE_ERROR) {
@@ -1296,56 +1040,7 @@ static void dump(const char *text, int num, unsigned char *ptr, size_t size, cha
     fputc('\n', stderr); /* newline */ 
   }
 }
-
-static size_t header_handler(void *ptr, size_t size,
-                             size_t nmemb, void *userdata) {
-    char *x = calloc(size + 1, nmemb);
-    assert(x);
-    memcpy(x, ptr, size * nmemb);
-    printf("New header:\n%s\n", x);
-    return size * nmemb;
-}
-
-/*
-pub struct curl_fileinfo {
-    pub filename: *mut c_char,
-    pub filetype: curlfiletype,
-    pub time: time_t,
-    pub perm: c_uint,
-    pub uid: c_int,
-    pub gid: c_int,
-    pub size: curl_off_t,
-    pub hardlinks: c_long,
-    pub strings_time: *mut c_char,
-    pub strings_perm: *mut c_char,
-    pub strings_user: *mut c_char,
-    pub strings_group: *mut c_char,
-    pub strings_target: *mut c_char,
-    pub flags: c_uint,
-    pub b_data: *mut c_char,
-    pub b_size: size_t,
-    pub b_used: size_t,
-}
-
-filename	
-filetype	
-time	
-perm	
-uid	
-gid	
-size	
-hardlinks	
-strings_time	
-strings_perm	
-strings_user	
-strings_group	
-strings_target	
-flags	
-b_data	
-b_size	
-b_used
-*/
-
+ 
 static int my_trace(CURL *handle, curl_infotype type, char *data, size_t size, void *userp) {
   const char *text;
   int num = hnd2num(handle);
@@ -1568,14 +1263,11 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
     /* use: https://curl.haxx.se/h2c/ for testing*/
     ch = curl_easy_init();
 
-    /* to be added soon, march 2018 commit */
+    /* to add soon */
     /*
 	CURLOPT_MAXREDIRS, 2
 	CURLOPT_COOKIEJAR, "cookies.txt"
 	CURLOPT_COOKIEFILE, "cookies.txt"
-    //curl_setopt($ch, CURLOPT_COOKIE, "");
-    //curl_setopt($ch, CURLOPT_POST, 1);
-    //curl_setopt($ch, CURLOPT_POSTFIELDS, $data);
     */
 
     /*
@@ -1599,8 +1291,6 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
     curl_setopt($ch,CURLOPT_POST,1);
     curl_setopt($ch,CURLOPT_POSTFIELDS,'customer_id='.$cid.'&password='.$pass);
     */
-
-    //curl_setopt($ch, CURLOPT_HEADER, 1L);
 
     curl_easy_setopt(ch, CURLOPT_URL, script_url);
     curl_easy_setopt(ch, CURLOPT_PORT, wport); /* 80, 443 */
@@ -1653,8 +1343,6 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
     //curl_easy_setopt(ch, CURLOPT_DEBUGFUNCTION, my_trace);
     
     /* cache with HTTP/1.1 304 "Not Modified" */
-    //0000: Cache-control: public, max-age=276, s-maxage=276
-
     /* set curlopt --> FOLLOW-LOCATION, necessary if getting 301 "Moved Permanently" */
     // Location: http://www.example.org/index.asp
     //curl_easy_setopt(ch, CURLOPT_FOLLOWLOCATION, 1);
@@ -1681,9 +1369,9 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
     //curl_easy_setopt(ch, CURLOPT_ENCODING, "gzip, deflate, br, sdch");
     //curl_easy_setopt(ch, CURLOPT_ENCODING, "br");
 
-    curl_easy_setopt(ch, CURLOPT_TIMEOUT, 5);
-    curl_easy_setopt(ch, CURLOPT_DNS_CACHE_TIMEOUT, 60);
-    curl_easy_setopt(ch, CURLOPT_DNS_USE_GLOBAL_CACHE, 1);	/* DNS CACHE  */
+    //curl_easy_setopt(ch, CURLOPT_TIMEOUT, 5);
+    //curl_easy_setopt(ch, CURLOPT_DNS_CACHE_TIMEOUT, 3600);
+    //curl_easy_setopt(ch, CURLOPT_DNS_USE_GLOBAL_CACHE, 1);	/* DNS CACHE  */
     curl_easy_setopt(ch, CURLOPT_NOPROGRESS, 1L);		/* No progress meter */
     curl_easy_setopt(ch, CURLOPT_BUFFERSIZE, 102400L);
 
@@ -1799,9 +1487,6 @@ User-Agent:Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko
     curl_easy_setopt(ch, CURLOPT_NOBODY, 0L);
 
     curl_easy_setopt(ch, CURLOPT_USERAGENT, "curl/7.59.0-DEV");
-
-    curl_easy_setopt(ch, CURLOPT_HEADERDATA, NULL);
-    curl_easy_setopt(ch, CURLOPT_HEADERFUNCTION, header_handler);
 
     /* CURL_LOCK_DATA_SHARE, quite advanced and criptic, useful in H2 */
     /*
@@ -2080,7 +1765,6 @@ void *threadFunc(void *arg)
 	char* typeq = params->xtypeq;
 	int xsockfd = params->xsockfd;
 	int sockfd = params->sockfd;
-	int ttl = params->xttl;
 
 	int ret;
 	char *rip = malloc(256 * sizeof(char));
@@ -2168,19 +1852,19 @@ void *threadFunc(void *arg)
 		*/
 	    }
 
-            build_dns_response(sockfd, yclient, xhostname, rip, DNS_MODE_ANSWER, request_len, ttl);
+            build_dns_response(sockfd, yclient, xhostname, rip, DNS_MODE_ANSWER, request_len);
 	    //printf("THREAD-V-xclient->sin_addr.s_addr		: %s\n",(char *)(xclient->sin_family));
 	    
         } else if ( strstr(dns_req->hostname, "hamachi.cc") != NULL ) {
             printf("BALCKLIST: pid [%d] - name %s - host %s - size %d \r\n", getpid(), dns_req->hostname, rip, (uint32_t)request_len);
 	    printf("BLACKLIST: xsockfd %d - hostname %s \r\n", xsockfd, xdns_req->hostname);
 	    printf("BLACKLIST: xsockfd %d - hostname %s \r\n", xsockfd, yhostname);
-            build_dns_response(sockfd, yclient, xhostname, rip, DNS_MODE_ANSWER, request_len, ttl);
+            build_dns_response(sockfd, yclient, xhostname, rip, DNS_MODE_ANSWER, request_len);
         } else if ((rip == "0.0.0.0") || (strncmp(rip, "0.0.0.0", 7) == 0)) {
        	    printf("ERROR: pid [%d] - name %s - host %s - size %d \r\n", getpid(), dns_req->hostname, rip, (uint32_t)request_len);
 	    printf("ERROR: xsockfd %d - hostname %s \r\n", xsockfd, yhostname);
 	    printf("Generic resolution problem \n");
-            build_dns_response(sockfd, yclient, xhostname, rip, DNS_MODE_ERROR, request_len, ttl);
+            build_dns_response(sockfd, yclient, xhostname, rip, DNS_MODE_ERROR, request_len);
 	    //exit(EXIT_SUCCESS);
 	}
 
@@ -2219,7 +1903,6 @@ int main(int argc, char *argv[])
     //int sockfd, port = DEFAULT_LOCAL_PORT, wport = DEFAULT_WEB_PORT, proxy_port = DEFAULT_PRX_PORT, c;
     int sockfd, port = DEFAULT_LOCAL_PORT, wport = DEFAULT_WEB_PORT, proxy_port = 0, c;
     int r = 0;
-    int ttl_in;
     char *stack;            /* Start of stack buffer */
     char *stackTop;         /* End of stack buffer */
     pid_t pid;
@@ -2266,7 +1949,7 @@ int main(int argc, char *argv[])
     // while ((c = getopt_long(argc, argv, short_opt, long_opt, NULL)) != -1)
 
     /* Command line args */
-    while ((c = getopt (argc, argv, "T:s:p:l:r:H:t:w:u:k:hvCn")) != -1)
+    while ((c = getopt (argc, argv, "s:p:l:r:H:t:w:u:k:hvC")) != -1)
     switch (c)
      {
         case 't':
@@ -2307,16 +1990,6 @@ int main(int argc, char *argv[])
         case 'v':
             DEBUG = 1;
             fprintf(stderr," *** DEBUG ON\n");
-        break;
-
-        case 'T':
-            ttl_in = atoi(optarg);
-            fprintf(stderr," *** TTL SET TO %d\n",ttl_in);
-        break;
-
-        case 'n':
-            DNSDUMP = 1;
-            fprintf(stderr," *** DNSDUMP ON\n");
         break;
         
         case 'l':
@@ -2591,15 +2264,7 @@ int main(int argc, char *argv[])
 	    // setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int));
 
 	    int ret;
-	    int ttl; // = 86400; 
-	    
-	    if (ttl_in == NULL) {
-	        printf("TTL not set to TEST");
-		ttl = 86400;
-	    } else {
-		ttl = ttl_in;
-	    }
-	    //int test = 42; // the answer, used in alpha development
+	    //int test = 42; // the answer, used in development
 	    int xwport = wport; // web port, deprecated
 	    int xsockfd;
 	    //char* str = "maxnumberone"; // another pun
@@ -2635,7 +2300,6 @@ int main(int argc, char *argv[])
 	    readParams->xwport = wport;
 	    readParams->xhostname = (struct dns_request *)dns_req;
 	    readParams->xdns_req = (struct dns_request *)&dns_req;
-	    readParams->xttl = ttl;
 	    readParams->xsockfd = xsockfd;
 	    readParams->sockfd = sockfd;
 	    readParams->xclient = (struct sockaddr_in *)&client;
