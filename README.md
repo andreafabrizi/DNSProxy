@@ -112,7 +112,6 @@ host yourself as many *nslookup.php* scripts as you can, or send it on a friend'
 The more DNSP resolvers around the world, the less DNS queries will be traceable (TOR leaking problem).
 
 ```bash
-
  dnsp 2, copyright @ 2018 Massimiliano Fantuzzi, HB3YOE, MIT License
 
  usage: dnsp [-l [local_host]] [-p [local_port:53,5353,..]] [-H [proxy_host]] [-r [proxy_port:8118,8888,3128,9500..]] 
@@ -127,20 +126,21 @@ The more DNSP resolvers around the world, the less DNS queries will be traceable
       -k		 Cache proxy password	(optional)
       -s		 Lookup script URL	(mandatory option)
       -w		 Lookup port		(obsolete, defaults to 80/443 for HTTP/HTTPS)
-      -t		 Stack size in format	0x1000000 (MB)
 
  TESTING/DEV OPTIONS:
+      -T		 Force TTL to be [int] (useful for autotest)
+      -n		 Enable DNS DUMP
       -v		 Enable DEBUG
       -C		 Enable CURL VERBOSE, useful to spot cache issues or dig down into HSTS/HTTPS quirks
+ WIP OPTIONS:
       -I		 Upgrade Insecure Requests, HSTS work in progress
-      -R		 Enable CURL resolve mechanism, avoiding extra gethostbyname, work in progress
+      -R		 Enable CURL resolve mechanism, avoiding extra gethostbyname (DO NOT USE)
+      -t		 Stack size in format	0x1000000 (MB)
 
- Example DNS/HTTPS direct : 
-	# dnsp -s https://www.fantuz.net/nslookup.php
- Example DNS/HTTP w/cache : 
-	# dnsp -r 8118 -H 127.0.0.1 -s http://www.fantuz.net/nslookup.php
- Example, debug situation : 
-	# dnsp -s http://www.fantuz.net/nslookup.php -H "http://192.168.1.93:1080/" -C
+ Example HTTPS direct :  dnsp -s https://php-dns.appspot.com/
+ Example HTTP direct  :  dnsp -s http://www.fantuz.net/nslookup.php
+ Example HTTP w/cache :  dnsp -r 8118 -H http://myproxy.example.com/ -s http://www.fantuz.net/nslookup.php
+
 ```
 
 ## Building
