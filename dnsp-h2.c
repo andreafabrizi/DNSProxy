@@ -1173,6 +1173,31 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
     //free(ip);
 }
 
+/* 0x09 - horizontal tab, 0x0a - linefeed, 0x0b - vertical tab, 0x0c - form feed, 0x0d - carriage return, 0x20 - space */
+/* homemade substingy func */
+char *substring(char *string, int position, int length) {
+   char *pointer;
+   int c;
+ 
+   pointer = malloc(length+1);
+ 
+   if (pointer == NULL)
+   {
+      printf("Unable to allocate memory.\n");
+      exit(1);
+   }
+ 
+   for (c = 0 ; c < length ; c++)
+   {
+      *(pointer+c) = *(string+position-1);      
+      string++;   
+   }
+ 
+   *(pointer+c) = '\0';
+ 
+   return pointer;
+}
+ 
 /* struct to support libCurl callback */
 struct MemoryStruct {
   char *memory;
@@ -1205,32 +1230,11 @@ static size_t write_data(void *ptr, size_t size, size_t nmemb, void *stream) {
   bzero(stream, HTTP_RESPONSE_SIZE);
   memcpy(stream, ptr, stream_size);
   //return 0;
+  printf(stream);
+  //printf(substring(stream,31,5));
   return stream_size-1;
 }
 
-char *substring(char *string, int position, int length) {
-   char *pointer;
-   int c;
- 
-   pointer = malloc(length+1);
- 
-   if (pointer == NULL)
-   {
-      printf("Unable to allocate memory.\n");
-      exit(1);
-   }
- 
-   for (c = 0 ; c < length ; c++)
-   {
-      *(pointer+c) = *(string+position-1);      
-      string++;   
-   }
- 
-   *(pointer+c) = '\0';
- 
-   return pointer;
-}
- 
 /* handler checker/limiter */
 static int hnd2num(CURL *ch) {
   int i;
@@ -1287,8 +1291,7 @@ static void dump(const char *text, int num, unsigned char *ptr, size_t size, cha
   }
 }
 
-static size_t header_handler(void *ptr, size_t size,
-                             size_t nmemb, void *userdata) {
+static size_t header_handler(void *ptr, size_t size, size_t nmemb, void *userdata) {
     char *x = calloc(size + 1, nmemb);
     assert(x);
     memcpy(x, ptr, size * nmemb);
@@ -1336,6 +1339,10 @@ b_size
 b_used
 */
 
+/* BEWARE: libcurl does not unfold HTTP "folded headers" (deprecated since RFC 7230). */
+/* A folded header is a header that continues on a subsequent line and starts with a whitespace. */
+/* Such folds will be passed to the header callback as a separate one, although strictly it is just a continuation of the previous line. */
+/* A complete HTTP header that is passed to this function can be up to CURL_MAX_HTTP_HEADER (100K) bytes. */
 static int my_trace(CURL *handle, curl_infotype type, char *data, size_t size, void *userp) {
   const char *text;
   int num = hnd2num(handle);
@@ -1395,7 +1402,6 @@ static void setup(CURL *hnd, char *script_target) {
   curl_easy_setopt(hnd, CURLOPT_URL, q);
   fprintf(stderr, "%s\n", q);
  
-  /* please be verbose */ 
   if (DEBUGCURL) {
           curl_easy_setopt(hnd, CURLOPT_VERBOSE,  1);			/* Verbose ON  */
   } else {
@@ -1508,10 +1514,12 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
     /* here my first format, HOST+QTYPE, but many others including DNS-over-HTTP or GoogleDNS can be integrated */
     snprintf(script_url, URL_SIZE-1, "%s?host=%s&type=%s", lookup_script, host, typeq);
 
-    snprintf(n, sizeof(n)-1, "?host=%s&type=%s", host, typeq); // CLUSTER
-    //snprintf(script_url, URL_SIZE-1, "%s?name=%s", lookup_script, host); // GOOGLE DNS
-    fprintf(stderr, "**** %s\n",n);
-    
+    if (DEBUG) {
+	snprintf(n, sizeof(n)-1, "?host=%s&type=%s", host, typeq); // CLUSTER
+	//snprintf(script_url, URL_SIZE-1, "%s?name=%s", lookup_script, host); // GOOGLE DNS
+	fprintf(stderr, "**** %s\n",n);
+    }
+
     /* Beware of bloody proxy-string, not any format accepted, CURL is gentle if failing due to proxy */
     //snprintf(proxy_url, URL_SIZE-1, "http://%s/", proxy_host);
 
@@ -1520,7 +1528,6 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
         fprintf(stderr, "Required substring is \"%s\"\n", proxy_url);
     }
     */
-    
 
     /* HTTPS DETECTION CODE ... might be better :) */
     pointer = substring(script_url, 5, 1);
@@ -1641,10 +1648,11 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
     // Location: http://www.example.org/index.asp
     //curl_easy_setopt(ch, CURLOPT_FOLLOWLOCATION, 1);
 
+    /* it doesnt cost much to verify, disable only while testing ! */
+    curl_easy_setopt(ch, CURLOPT_SSL_VERIFYPEER, 2L);
+    curl_easy_setopt(ch, CURLOPT_SSL_VERIFYHOST, 2L);;
     /* OCSP validation, avoided in the test phase, as some cloud including Google GCP do not provide it */
     /* Cloudflare CDN does well with terminated frontend-SSL certificate */
-    curl_easy_setopt(ch, CURLOPT_SSL_VERIFYPEER, 0L);
-    curl_easy_setopt(ch, CURLOPT_SSL_VERIFYHOST, 0L);;
     curl_easy_setopt(ch, CURLOPT_SSL_VERIFYSTATUS, 0L);
 
     /* SSL engine config */
@@ -1918,6 +1926,7 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
      * Do something nice with it!
      */ 
 
+    /* original ret was from (ch) but testing (hnd) setup now, same story just housekeeping */
     //ret = curl_easy_perform(ch);
 
     /* slist holds specific headers here, beware of H2 reccomendations mentioned above */
@@ -1936,11 +1945,11 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
     curl_easy_setopt(hnd, CURLOPT_MAXREDIRS, 50L);
     //curl_easy_setopt(hnd, CURLOPT_HTTP_VERSION, (long)CURL_HTTP_VERSION_2TLS);
     curl_easy_setopt(hnd, CURLOPT_HTTP_VERSION, (long)CURL_HTTP_VERSION_2_PRIOR_KNOWLEDGE);
-    /* OCSP not always available on clouds */
     curl_easy_setopt(ch, CURLOPT_SSL_ENABLE_ALPN, 1L);
     curl_easy_setopt(ch, CURLOPT_SSL_ENABLE_NPN, 1L);
     curl_easy_setopt(hnd, CURLOPT_SSL_VERIFYPEER, 2L);
     curl_easy_setopt(hnd, CURLOPT_SSL_VERIFYHOST, 2L);
+    /* OCSP not always available on cloudflare or cloud providers (OK for Google's GCP, still need to test AWS */
     curl_easy_setopt(hnd, CURLOPT_SSL_VERIFYSTATUS, 0L);
     curl_easy_setopt(hnd, CURLOPT_FILETIME, 1L);
     curl_easy_setopt(hnd, CURLOPT_TCP_KEEPALIVE, 1L);
@@ -1963,6 +1972,8 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
     curl_easy_setopt(hnd, CURLOPT_WRITEDATA, http_response);
     
     curl_easy_setopt(hnd, CURLOPT_DEBUGFUNCTION, my_trace);
+
+    /* ret on (hnd) is the H2 cousin of ret on (ch) used previously, now commented out */
     ret = curl_easy_perform(hnd);
 
     /*
