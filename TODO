@@ -7,3 +7,10 @@
 - implement answers from DNS/API engine: dns.google.com
 - REDIS, this is the main goal so far, test started and looking promising.
   it can be used to cache responses, to track usage and distribute DNS blockchain
+
+
+IETF status:
+ - no RAW packet in PHP -> mod library
+ - no base64 urlencode... not an issue (but requires SRV/CLN mods)
+ - TTL, fixed :) but need help to do the proper translation HEX/HEX
+

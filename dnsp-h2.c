@@ -42,9 +42,9 @@
 #include <curl/easy.h>
 #include <signal.h>
 #include <pthread.h>
+#include "b64.h"
+
 //#include <base64.h>
-//#include "base64.c"
-//#include "base64.h"
 //#include "hexdump.h"
 
 /*
@@ -544,6 +544,9 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
 	    printf("BUILD-sockfd				: %d\n", sockfd);
 	    printf("BUILD-hostname				: %s\n", dns_req->hostname);
 
+	    printf("%s\n", b64_encode((dns_req->hostname),sizeof(dns_req->hostname)));
+
+
 	    //printf("build-qry = 				: %s\n",(xdns_req->query));
 	    //printf("build-req-query				: %s\n", dns_req->query);
 	    //printf("hexdump-qry = 				: %s\n",(xdns_req->query));
@@ -560,7 +563,8 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
 	    */
 
 	    //char *xx = base64_encode(response_ptr, 64, 64);
-	    //char xx = base64_encode(dns_req->hostname, (uint8_t)(xrequestlen)-1, NULL);
+	    //char xx = base64_encode(dns_req->hostname, (uint8_t)(xrequestlen)-1, (uint8_t)(xrequestlen)-1);
+	    //printf(xx);
 	    //printf("base64-hostname				: %s\n", base64_encode(tt, sizeof(dns_req->hostname), 512));
 	    //printf("base64-hostname				: %s\n", xx); 
     	    //printf("base64-hostname				: %s\n", Base64encode(rr, dns_req->hostname, (uint8_t)(xrequestlen)));
