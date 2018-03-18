@@ -544,7 +544,7 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
 	    printf("BUILD-sockfd				: %d\n", sockfd);
 	    printf("BUILD-hostname				: %s\n", dns_req->hostname);
 
-	    printf("%s\n", b64_encode((dns_req->hostname),sizeof(dns_req->hostname)));
+	    //printf("%s\n", b64_encode((dns_req->hostname),sizeof(dns_req->hostname)));
 
 
 	    //printf("build-qry = 				: %s\n",(xdns_req->query));
