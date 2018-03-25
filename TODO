@@ -14,3 +14,8 @@ IETF status:
  - no base64 urlencode... not an issue (but requires SRV/CLN mods)
  - TTL, fixed :) but need help to do the proper translation HEX/HEX
 
+OTHERS:
+ - add compression algo choice/type as option (deflate, brotli, gzip ...)
+ - remove fixed TTL as is is used just for tests on hex coversion
+ - extract validity TTL from Content-Type header in response, supporting H1 and H2. Then pass it to the ready-made structure
+

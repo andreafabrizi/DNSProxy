@@ -5,9 +5,9 @@
 //Vary: Accept-Encoding, User-Agent
 // --- SET HEADERS AND DETECT CACHE CONTROL PRESENCE/EXPIRATION.
 session_cache_limiter('public');					//This stop php’s default no-cache
-session_cache_expire(14400);						// Optional expiry time in minutes
-header("Content-type: text/plain;charset=UTF-8");
-//content-type = application/dns-udpwireformat
+session_cache_expire(5);						// Optional expiry time in minutes
+//header("Content-type: text/plain;charset=UTF-8");
+header("content-type: application/dns-udpwireformat");
 /*
 content-length = 64
    cache-control = max-age=128
@@ -160,7 +160,7 @@ if (isSet($_GET["host"]) && isSet($_GET["type"])) {
 		//header("Cache-control: public, max-age=".$result[rand(0,$ccc-1)][ttl].", s-maxage=14400");
 		header("Cache-control: public, max-age=".$result[$key][ttl].", s-maxage=".$result[$key][ttl]);
 
-        print $result[$key][ip];
+        print $result[$key]["ip"];
 		
 	} else {
 		print '0.0.0.0';

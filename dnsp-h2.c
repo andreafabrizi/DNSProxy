@@ -284,6 +284,54 @@ static void *thread_start(void *arg) {
    return uargv;
 }
 
+char** str_split(char* a_str, const char a_delim)
+{
+    char** result    = 0;
+    size_t count     = 0;
+    char* tmp        = a_str;
+    char* last_comma = 0;
+    char delim[2];
+    delim[0] = a_delim;
+    delim[1] = 0;
+
+    /* Count how many elements will be extracted. */
+    while (*tmp)
+    {
+        if (a_delim == *tmp)
+        {
+            count++;
+            last_comma = tmp;
+        }
+        tmp++;
+    }
+
+    /* Add space for trailing token. */
+    count += last_comma < (a_str + strlen(a_str) - 1);
+
+    /* Add space for terminating null string so caller
+       knows where the list of returned strings ends. */
+    count++;
+
+    result = malloc(sizeof(char*) * count);
+
+    if (result)
+    {
+        size_t idx  = 0;
+        char* token = strtok(a_str, delim);
+
+        while (token)
+        {
+            assert(idx < count);
+            *(result + idx++) = strdup(token);
+            token = strtok(0, delim);
+        }
+        assert(idx == count - 1);
+        *(result + idx) = 0;
+    }
+
+    return result;
+}
+
 //static void hexdump(void *mem, unsigned int len) {
 static void *hexdump(void *mem, unsigned int len) {
         unsigned int i, j;
@@ -1370,6 +1418,43 @@ static int my_trace(CURL *handle, curl_infotype type, char *data, size_t size, v
     break;
   case CURLINFO_HEADER_IN:
     text = "<= Recv header";
+    printf("-----\n");
+    /* Parsing header as tokens, find "cache-control" and extract TTL validity */
+    //char** tokens;
+    char *compare;
+    char ref[14];
+    compare = substring(data, 1, 13);
+    strcpy(ref, "cache-control");
+    int cacheheaderfound = strcmp(compare,ref);
+    //dump(text, num, (unsigned char *)data, size, 1);
+
+    if(cacheheaderfound == 0) {
+    	dump(text, num, (unsigned char *)data, size, 0);
+     
+    	// More general pattern:
+    	const char *my_str_literal = data;
+    	char *token, *str, *tofree;
+    	
+    	tofree = str = strdup(my_str_literal);  // We own str's memory now.
+    	while ((token = strsep(&str, ","))) printf(" ----> %s\n",token);
+    	free(tofree);
+    	//printf(" -> %s", data);
+	/*
+    	tokens = str_split(data, ',');
+    	if (tokens != NULL)
+    	{
+    	    int i;
+    	    for (i = 0; *(tokens + i); i++)
+    	    {
+    	        //printf("%s\n", *(tokens + i));
+    	        free(*(tokens + i));
+    	    }
+    	    free(tokens);
+	    ref == NULL;
+	    //return 0;
+    	}
+	*/
+    }
     break;
   case CURLINFO_DATA_IN:
     text = "<= Recv data";
@@ -1379,7 +1464,6 @@ static int my_trace(CURL *handle, curl_infotype type, char *data, size_t size, v
     break;
   }
  
-  dump(text, num, (unsigned char *)data, size, 1);
   return 0;
 }
 
@@ -1646,7 +1730,42 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
     //curl_easy_setopt(ch, CURLOPT_DEBUGFUNCTION, my_trace);
     
     /* cache with HTTP/1.1 304 "Not Modified" */
-    //0000: Cache-control: public, max-age=276, s-maxage=276
+    // https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Cache-Control
+
+    // REQUEST
+/*
+Cache-Control: max-age=<seconds>
+Cache-Control: max-stale[=<seconds>]
+Cache-Control: min-fresh=<seconds>
+Cache-Control: no-cache 
+Cache-Control: no-store
+Cache-Control: no-transform
+Cache-Control: only-if-cached
+*/
+    // RESPONSE
+/*
+Cache-Control: must-revalidate
+Cache-Control: no-cache
+Cache-Control: no-store
+Cache-Control: no-transform
+Cache-Control: public
+Cache-Control: private
+Cache-Control: proxy-revalidate
+Cache-Control: max-age=<seconds>
+Cache-Control: s-maxage=<seconds>
+*/
+    // NON-STANDARD
+/*
+Cache-Control: immutable 
+Cache-Control: stale-while-revalidate=<seconds>
+Cache-Control: stale-if-error=<seconds>
+*/
+
+    // H1
+    // Cache-Control: public, max-age=276, s-maxage=276
+    // Cache-control: public, max-age=276, s-maxage=276
+    // H2
+    // cache-control: public, max-age=14400, s-maxage=14400
 
     /* set curlopt --> FOLLOW-LOCATION, necessary if getting 301 "Moved Permanently" */
     // Location: http://www.example.org/index.asp
@@ -1936,17 +2055,25 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
     /* slist holds specific headers here, beware of H2 reccomendations mentioned above */
     slist1 = NULL;
     //slist1 = curl_slist_append(slist1, "User-Agent:");
-    slist1 = curl_slist_append(slist1, "content-type: text/plain");
+    //slist1 = curl_slist_append(slist1, "content-type: text/plain");
+    slist1 = curl_slist_append(slist1, "content-type: application/dns-udpwireformat");
   
     hnd = curl_easy_init();
-    curl_easy_setopt(hnd, CURLOPT_BUFFERSIZE, 102400L);
+    /* buffer size, set accordingly to truncation and other considerations */
+    curl_easy_setopt(hnd, CURLOPT_BUFFERSIZE, 1024L); // test 1K
+    //curl_easy_setopt(hnd, CURLOPT_BUFFERSIZE, 102400L);
+
     curl_easy_setopt(hnd, CURLOPT_URL, script_url);
     curl_easy_setopt(hnd, CURLOPT_NOPROGRESS, 1L);
+    /* placeholder for HEAD method */
     curl_easy_setopt(hnd, CURLOPT_NOBODY, 0L);
     curl_easy_setopt(hnd, CURLOPT_HEADER, 1L);
     curl_easy_setopt(hnd, CURLOPT_HTTPHEADER, slist1);
     curl_easy_setopt(hnd, CURLOPT_USERAGENT, "curl/7.59.0-DEV");
-    curl_easy_setopt(hnd, CURLOPT_MAXREDIRS, 50L);
+    /* delegation, RD bit set ? */
+    curl_easy_setopt(hnd, CURLOPT_MAXREDIRS, 2L);
+    //curl_easy_setopt(hnd, CURLOPT_MAXREDIRS, 50L);
+
     //curl_easy_setopt(hnd, CURLOPT_HTTP_VERSION, (long)CURL_HTTP_VERSION_2TLS);
     curl_easy_setopt(hnd, CURLOPT_HTTP_VERSION, (long)CURL_HTTP_VERSION_2_PRIOR_KNOWLEDGE);
     curl_easy_setopt(ch, CURLOPT_SSL_ENABLE_ALPN, 1L);
@@ -1957,7 +2084,8 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
     curl_easy_setopt(hnd, CURLOPT_SSL_VERIFYSTATUS, 0L);
     curl_easy_setopt(hnd, CURLOPT_FILETIME, 1L);
     curl_easy_setopt(hnd, CURLOPT_TCP_KEEPALIVE, 1L);
-    curl_easy_setopt(hnd, CURLOPT_ENCODING, "deflate");
+    curl_easy_setopt(hnd, CURLOPT_ENCODING, "br");
+    //curl_easy_setopt(hnd, CURLOPT_ENCODING, "deflate");
 
     if (DEBUGCURL) {
             curl_easy_setopt(hnd, CURLOPT_VERBOSE,  1);
