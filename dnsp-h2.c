@@ -1796,6 +1796,7 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
 
     /* well, this timeout should become a parameter */
     curl_easy_setopt(ch, CURLOPT_TIMEOUT, 5);
+    curl_easy_setopt(ch, CURLOPT_TCP_FASTOPEN, 1L);
     curl_easy_setopt(ch, CURLOPT_DNS_CACHE_TIMEOUT, 60);
     curl_easy_setopt(ch, CURLOPT_DNS_USE_GLOBAL_CACHE, 1);	/* DNS CACHE WITHIN CURL, yes or not ? */
     curl_easy_setopt(ch, CURLOPT_NOPROGRESS, 1L);		/* No progress meter */
@@ -2054,10 +2055,11 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
     hnd = curl_easy_init();
     /* buffer size, set accordingly to truncation and other considerations */
     curl_easy_setopt(hnd, CURLOPT_BUFFERSIZE, 1024L); // test 1K
-    //curl_easy_setopt(hnd, CURLOPT_BUFFERSIZE, 102400L);
 
     curl_easy_setopt(hnd, CURLOPT_URL, script_url);
     curl_easy_setopt(hnd, CURLOPT_NOPROGRESS, 1L);
+    curl_easy_setopt(hnd, CURLOPT_TCP_FASTOPEN, 1L);
+
     /* placeholder for HEAD method */
     curl_easy_setopt(hnd, CURLOPT_NOBODY, 0L);
     curl_easy_setopt(hnd, CURLOPT_HEADER, 1L);
