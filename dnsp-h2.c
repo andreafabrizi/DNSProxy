@@ -2069,8 +2069,8 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
 
     //curl_easy_setopt(hnd, CURLOPT_HTTP_VERSION, (long)CURL_HTTP_VERSION_2TLS);
     curl_easy_setopt(hnd, CURLOPT_HTTP_VERSION, (long)CURL_HTTP_VERSION_2_PRIOR_KNOWLEDGE);
-    curl_easy_setopt(ch, CURLOPT_SSL_ENABLE_ALPN, 1L);
-    curl_easy_setopt(ch, CURLOPT_SSL_ENABLE_NPN, 1L);
+    curl_easy_setopt(hnd, CURLOPT_SSL_ENABLE_ALPN, 1L);
+    curl_easy_setopt(hnd, CURLOPT_SSL_ENABLE_NPN, 1L);
     curl_easy_setopt(hnd, CURLOPT_SSL_VERIFYPEER, 2L);
     curl_easy_setopt(hnd, CURLOPT_SSL_VERIFYHOST, 2L);
     /* OCSP not always available on cloudflare or cloud providers (OK for Google's GCP, still need to test AWS */
