@@ -18,4 +18,5 @@ OTHERS:
  - add compression algo choice/type as option (deflate, brotli, gzip ...)
  - remove fixed TTL as is is used just for tests on hex coversion
  - extract validity TTL from Content-Type header in response, supporting H1 and H2. Then pass it to the ready-made structure
+ - fix NS et MX trimming (depending on PHP version 5/7?)
 
