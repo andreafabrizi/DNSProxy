@@ -1722,7 +1722,6 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
 
   /* here my first format, HOST+QTYPE, but many others including DNS-over-HTTP or GoogleDNS can be integrated */
   snprintf(script_url, URL_SIZE-1, "%s?host=%s&type=%s", lookup_script, host, typeq);
-  //snprintf(script_url, URL_SIZE-1, "%s?host=news.infomaniak.com&type=A", lookup_script, host, typeq);
 
   if (DEBUG) {
       snprintf(n, sizeof(n)-1, "?host=%s&type=%s", host, typeq); // CLUSTER
@@ -3016,27 +3015,6 @@ int main(int argc, char *argv[]) {
         continue;
       }
 
-      /*
-      if (dns_req_tcp->qtype == 0x02) {
-        typeq = "NS";
-      } else if (dns_req_tcp->qtype == 0x0c) {
-        typeq = "PTR";
-      } else if (dns_req_tcp->qtype == 0x05) {
-        typeq = "CNAME";
-      } else if (dns_req_tcp->qtype == 0x01) {
-        typeq = "A";
-	printf("setting TCP \"A type\" on every request: %x \r\n",dns_req_tcp->qtype);
-        //readParams->xsockfd = xsockfd;
-        //readParams->sockfd = newsockfd;
-      } else if (dns_req_tcp->qtype == 0x0f) {
-        typeq = "MX";
-      } else { //{ dns_req->qtype == 0xff;} 
-        printf("gotcha qtype: %x \r\n",dns_req_tcp->qtype); //PTR ?
-        printf("gotcha tid  : %x \r\n",dns_req_tcp->transaction_id); //PTR ?
-      }
-      //if (dns_req_tcp) { printf("TCP request type: %x \r\n",dns_req_tcp->qtype); }
-      */
-
       /* PLACEHOLDER FOR HTTP options, DoH full-spec, CLOUD deploys */
       //	  readParams->max_req_client = 10;
       //	  readParams->random = 0;
@@ -3106,10 +3084,10 @@ int main(int argc, char *argv[]) {
     
       /* Spin the well-instructed thread ! */
 
-      //if ((dns_req->hostname == NULL) && (dns_req_tcp->hostname == NULL)) {
       //if ((!(readParams->xhostname == NULL) && (flag == 1))) {
       //if ((!(readParams->xhostname->hostname == NULL))) {
-      if ((!(readParams->xhostname == NULL)) || (!(readParams->xhostname->hostname == NULL))) {
+      //if ((!(readParams->xhostname == NULL)) || (!(readParams->xhostname->hostname == NULL))) {
+      if ((dns_req->hostname == NULL) && (dns_req_tcp->hostname == NULL)) {
 	printf("met no-host condition !\n");
 	printf("flag: %d, count: %d\n",flag,cnt);
 	//readParams->xhostname = "www.infomaniak.com";
