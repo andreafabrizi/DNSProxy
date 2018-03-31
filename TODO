@@ -1,22 +1,22 @@
 
+GOALS OF THE PROJECT:
 - conform to D-o-H header specifications given in IETF proposals
   not difficult as DNSP born before !!
 	https://tools.ietf.org/html/draft-ietf-doh-dns-over-https-03
 	https://tools.ietf.org/html/draft-ietf-dnsop-dns-wireformat-http-01
-
 - implement answers from DNS/API engine: dns.google.com
-- REDIS, this is the main goal so far, test started and looking promising.
-  it can be used to cache responses, to track usage and distribute DNS blockchain
+- add REDIS, test started and looking promising, can be used to cache responses or track usage and distribute DNS blockchain
 
-
-IETF status:
- - no RAW packet in PHP -> mod library
+Post-IETF status:
+ - no RAW packet in PHP -> mod library or use NET_DNS2 library !!
  - no base64 urlencode... not an issue (but requires SRV/CLN mods)
  - TTL, fixed :) but need help to do the proper translation HEX/HEX
 
-OTHERS:
+MINORS:
  - add compression algo choice/type as option (deflate, brotli, gzip ...)
  - remove fixed TTL as is is used just for tests on hex coversion
- - extract validity TTL from Content-Type header in response, supporting H1 and H2. Then pass it to the ready-made structure
  - fix NS et MX trimming (depending on PHP version 5/7?)
 
+WORK-IN-PROGRESS:
+ - extract validity TTL from Content-Type header in response, supporting H1 and H2. Then pass it to the ready-made structure
+ - multiple listener, UDP & TCP, different parsing needed (2 more bytes in/out)
