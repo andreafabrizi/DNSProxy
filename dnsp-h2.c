@@ -1293,7 +1293,6 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
 	/* send it back, onto the same socket. we allow for independent threds, see other notes about the topic */
         if (protoq == 1) {
 	  //printf("sending TCP resp\n");
-	  //bytes_sent = sendto(sd, response_ptr, response - response_ptr + 2, MSG_DONTWAIT, (struct sockaddr *)yclient, 16);
 	  bytes_sent = sendto(sd, response_ptr, response - response_ptr, MSG_DONTWAIT, (struct sockaddr *)(&yclient), 16);
 	  //bytes_sent = sendto(sd, response_ptr, response - response_ptr + 2, 0, (struct sockaddr *)(&yclient), sizeof(yclient));
 	} else {
@@ -1317,7 +1316,7 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
 	if (DNSDUMP) { hexdump(response_ptr, response - response_ptr); }
         if (protoq == 1) {
 	  printf("sending TCP resp\n");
-	  bytes_sent = sendto(sd, response_ptr, response - response_ptr + 2, MSG_DONTWAIT, (struct sockaddr *)yclient, 16);
+	  bytes_sent = sendto(sd, response_ptr, response - response_ptr, MSG_DONTWAIT, (struct sockaddr *)yclient, 16);
 	  //bytes_sent = sendto(sd, response_ptr, response - response_ptr, 0, (struct sockaddr *)(&yclient), sizeof(yclient));
 	} else {
 	  printf("sending UDP resp\n");
@@ -2740,42 +2739,44 @@ int main(int argc, char *argv[]) {
     request_len = recvfrom(sockfd,request,UDP_DATAGRAM_SIZE,0,(struct sockaddr *)&client,&client_len);
 
     /* TCP listener */
-    //if ((accept(fd, (struct sockaddr *) &serv_addr, sizeof(serv_addr))) < 0) { printf("\nERROR IN INITIAL ACCEPT\n"); close(fd); } else { printf("\nNO ERROR IN INITIAL ACCEPT\n"); }
-
-    //int newsockfd = fd;
     //int new_socket = accept(int fd, struct sockaddr *serv_addr_tcp, socklen_t *addrlen);
-
     //int newsockfd = accept(fd, (struct sockaddr *) &client_tcp, sizeof(client_tcp));
-    //fcntl(fd, F_SETFL, FNDELAY);
-    //int newsockfd = accept(fd, (struct sockaddr *) &client_tcp, &client_len_tcp);
+    fcntl(fd, F_SETFL, O_NONBLOCK);
+    fcntl(fd, F_SETFL, FNDELAY);
     
     int newsockfd;
-
+    //int sndbuf = 512;
+    //int rcvbuf = 512;
+    //int yes = 1;
+    
     if (cnt < 1) {
-	newsockfd = fd;
-	request_len_tcp = recvfrom(fd,request_tcp,UDP_DATAGRAM_SIZE,MSG_DONTWAIT,(struct sockaddr *)&client,&client_len);
-	//request_len_tcp = recvfrom(fd,request_tcp,UDP_DATAGRAM_SIZE,0,(struct sockaddr *)&client,&client_len);
-	cnt++;
+      newsockfd = fd;
+      //setsockopt(newsockfd, SOL_SOCKET, SO_RCVBUF, &rcvbuf, sizeof(sndbuf));
+      //setsockopt(newsockfd, SOL_SOCKET, SO_SNDBUF, &sndbuf, sizeof(rcvbuf));
+      //setsockopt(newsockfd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int));
+      
+      //request_len_tcp = recvfrom(fd,request_tcp,UDP_DATAGRAM_SIZE,MSG_DONTWAIT,(struct sockaddr *)&client,&client_len);
+      request_len_tcp = recvfrom(fd,request_tcp,UDP_DATAGRAM_SIZE,0,(struct sockaddr *)&client,&client_len);
+      cnt++;
     } else {
-        newsockfd = accept(fd, (struct sockaddr *) &client, &client_len);
-        int reusead = 1, reusepo = 1;
-        if (setsockopt(newsockfd,SOL_SOCKET,SO_REUSEPORT, (const char*)&reusepo,sizeof(reusepo))==-1) { printf("%s",strerror(errno)); }
-        if (setsockopt(newsockfd,SOL_SOCKET,SO_REUSEADDR, (const char*)&reusead,sizeof(reusead))==-1) { printf("%s",strerror(errno)); }
-	//printf("newsockfd created !\n");
-	fcntl(newsockfd, F_SETFL, O_NONBLOCK);
-	fcntl(fd, F_SETFL, O_NONBLOCK);
-	//request_len_tcp = recvfrom(newsockfd,request_tcp,UDP_DATAGRAM_SIZE,MSG_WAITALL,(struct sockaddr *)&client,&client_len);
-	request_len_tcp = recvfrom(newsockfd,request_tcp,UDP_DATAGRAM_SIZE,0,(struct sockaddr *)&client,&client_len);
-	cnt++;
+      //newsockfd = accept(fd, (struct sockaddr *) &client_tcp, &client_len_tcp);
+      newsockfd = accept(fd, (struct sockaddr *) &client, &client_len);
+      int reusead = 0, reusepo = 0;
+      if (setsockopt(newsockfd,SOL_SOCKET,SO_REUSEPORT, (const char*)&reusepo,sizeof(reusepo))==-1) { printf("%s",strerror(errno)); }
+      if (setsockopt(newsockfd,SOL_SOCKET,SO_REUSEADDR, (const char*)&reusead,sizeof(reusead))==-1) { printf("%s",strerror(errno)); }
+      //fcntl(newsockfd, F_SETFL, O_NONBLOCK);
+      request_len_tcp = recvfrom(newsockfd,request_tcp,UDP_DATAGRAM_SIZE,MSG_DONTWAIT,(struct sockaddr *)&client,&client_len);
+      //request_len_tcp = recvfrom(newsockfd,request_tcp,UDP_DATAGRAM_SIZE,0,(struct sockaddr *)&client,&client_len);
+      cnt++;
     }
 
     //fcntl(newsockfd, F_SETFL, O_NONBLOCK);
     //request_len_tcp = recvfrom(newsockfd,request,UDP_DATAGRAM_SIZE,MSG_DONTWAIT,(struct sockaddr *)&client_tcp,sizeof(client_tcp));
-
+    //if ((accept(fd, (struct sockaddr *) &serv_addr, sizeof(serv_addr))) < 0) { printf("\nERROR IN INITIAL ACCEPT\n"); close(fd); } else { printf("\nNO ERROR IN INITIAL ACCEPT\n"); }
     //if ((accept(fd, (struct sockaddr *) &client, sizeof(&client))) < 0) { printf("\nERROR IN ACCEPT\n"); //close(fd); } else { printf("\nNO ERROR IN ACCEPT\n"); }
     //if ((accept(fd, (struct sockaddr *) &serv_addr, sizeof(serv_addr))) < 0) {
     
-    //wait(NULL);
+    wait(NULL);
     
     /* Child */
     /* Allocate stack for child */
@@ -2797,8 +2798,9 @@ int main(int argc, char *argv[]) {
     sleep(1);           
     */
     
+    wait(NULL);
+    
     /* Give child time to change its hostname */
-    //wait(NULL);
     /* CLONE process/thread */
     // pid = clone(fn, stack_aligned, CLONE_VM | SIGCHLD, arg);
     // pid = clone(childFunc, stackTop, CLONE_NEWUTS | SIGCHLD, argv[1]);
@@ -2821,18 +2823,6 @@ int main(int argc, char *argv[]) {
        * THEN SUCH ANSWER MIGHT BE CACHED IN THE NETWORK (polipo, memcache, CDN, CloudFlare, Varnish, GCP, ...)
        * DNSP IMPLEMENTS DOMAIN BLACKLISTING, AUTHENTICATION, SSL, THREADS... simple and effective !
       */
-    
-      /* OPTION --> BUFFER SIZE */
-      // int sndbuf = 512;
-      // int rcvbuf = 512;
-      // int yes = 1;
-      
-      /* SETSOCKOPT doesn't always play nicely, left for housekeeping */
-      /* Depending on TCP ALGO IN USE BY THE MACHINE (tahoe,bic,cubic...) mileage may vary */
-      // //setsockopt(sockfd, SOL_SOCKET, SO_RCVBUF, &buffsize, sizeof(buffsize));
-      // setsockopt(sockfd, SOL_SOCKET, SO_RCVBUF, &rcvbuf, sizeof(sndbuf));
-      // setsockopt(sockfd, SOL_SOCKET, SO_SNDBUF, &sndbuf, sizeof(rcvbuf));
-      // setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int));
     
       int ret, proto, xsockfd;
       int ttl; // strictly 4 bytes, 0-2147483647 (RFC 2181)
@@ -2939,8 +2929,6 @@ int main(int argc, char *argv[]) {
           typeq = "CNAME";
         } else if (dns_req_tcp->qtype == 0x01) {
           typeq = "A";
-          printf("setting TCP \"A type\" on every request: %x \r\n",dns_req_tcp->qtype);
-          printf("setting TCP \"A type\" on every request: %x \r\n",dns_req_tcp->qtype);
           printf("TCP gotcha qtype: %x // %d\r\n",dns_req_tcp->qtype,dns_req_tcp->qtype); //PTR ?
           printf("TCP gotcha tid  : %x // %d\r\n",dns_req_tcp->transaction_id,dns_req_tcp->transaction_id); //PTR ?
           //readParams->xsockfd = xsockfd;
@@ -2960,7 +2948,6 @@ int main(int argc, char *argv[]) {
           typeq = "CNAME";
         } else if (dns_req->qtype == 0x01) {
           typeq = "A";
-          printf("reading UDP request type: %x \r\n",dns_req->qtype);
           printf("UDP gotcha qtype: %x // %d\r\n",dns_req->qtype,dns_req->qtype); //PTR ?
           printf("UDP gotcha tid  : %x // %d\r\n",dns_req->transaction_id,dns_req->transaction_id); //PTR ?
           //readParams->xsockfd = xsockfd;
