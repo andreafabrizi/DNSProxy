@@ -79,7 +79,7 @@ To recap, in order to start resolving "anonymous DNS" over HTTP, all you need is
 ## Caching answers in the network
 
 DNS cache is populated with standard HTTP answers provided by the remote webservice 
-(which in turn uses PHP headers in nslookup.php to influence such caching accordingly).
+(which in turn uses headers from nslookup-doh.php to influence such caching accordingly).
 A local caching-only proxy (on any LAN address for example) will help caching 
 HTTP 304 "Not Modified" answers. DNS answers will come back in matter of milliseconds,
 after the first recursive resolution done eventually on the remote webservice...
@@ -158,13 +158,13 @@ A recent version of CURL is needed to leverage HTTP/2 capabilities.
 `apt-get install libcurl4-openssl-dev curl libsslcommon2-dev \
 libssl-dev ca-certs brotli gnutls-bin openssl libtlsh-dev`
 
-Once done with installing such pre-requisites, compile with classic:
-`make all` or simply `nake`
+Once done with installing such pre-requisites, compile with:
+`make`
 
 ## Installing
 
 #### STEP 1. Create access to an HTTP(S) nameserver webservice
-Deploy **nslookup.php** on a webserver, possibly not your local machine (see DISCLAIMER).
+Deploy **nslookup-doh.php** on a webserver, possibly not your local machine (see DISCLAIMER).
 If you ignore how-to carry on such deploy task or you do not have access to any of
 such webservers, just use my own webservice, as suggested in usage examples.
 
@@ -286,10 +286,11 @@ Is a big piece of curly/thready code that helps people _transporting_ and _shari
 
 ## Testing dnsp & HTTP/0.9, 1.0, 1.1
 
-To test if DNS proxy is working correctly, you can use tcpdump. Or simply run the program as follows,
-maybe just change the webservice address:
+To test if DNS proxy is working correctly, you can use tcpdump. Or simply run the program (v1 or v2)
+as follows:
 
 ```bash
+dnsp-h2 -l 127.0.0.1 -s https://www.fantuz.net/nslookup-doh.php
 dnsp -l 127.0.0.1 -s https://www.fantuz.net/nslookup.php
 ```
 Open a new terminal and invoke **dig** to resolve a sample hostname against your brand-new 
@@ -322,12 +323,12 @@ www.google.com.		3600	IN	A	173.194.64.106
 If the test query works, you can safely replace the "nameserver" entries on /etc/resolv.conf
 and immediately point ALL DNS TRAFFIC towards DNSP, leveraging DOH (DNS-over-HTTP) capabilites.
 
-To test whether nslookup.php is correctly deployed and resolving, you could use **bash** (curl).
+To test whether nslookup-doh.php is correctly deployed and resolving, you could use **bash** (curl).
 Replace URL value in accordance with script location. Here are two that I use to check my deploys:
 ```
 # curl -s -H "Host: www.fantuz.net" -H "Remote Address:104.27.133.199:80" -H "User-Agent:Mozilla/5.0 \
 (Macintosh; Intel Mac OS X 10_6_8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 \
-Safari/537.36" 'http://www.fantuz.net/nslookup.php?host=fantuz.net&type=NS' | xxd
+Safari/537.36" 'http://www.fantuz.net/nslookup-doh.php?host=fantuz.net&type=NS' | xxd
 
 # curl -s -H "Host: php-dns.appspot.com" -H "User-Agent:Mozilla/5.0 (Macintosh; Intel Mac OS X 10_6_8) \
 AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36" \
@@ -347,10 +348,10 @@ Values should end with bits 0d0a. on any server (HEX is easy to read):
 The capture shows an HTTP/2 dialog as seen by wireshark: this is the only way to show a 
 valid HTTP/2 capture without having to load certificate and key for MITM dissection.
 Obviously a correct negotiation doesn not happen due HTTP v1 URI without Upgrade support
-(deactivated in this test anyway) and insecure URI http://www.fantuz.net/nslookup.php
+(deactivated in this test anyway) and insecure URI http://www.fantuz.net/nslookup-doh.php
 
 ```
-max@trinity:~/DNSProxy$ sudo ./dnsp-h2 -w 443 -s http://www.fantuz.net/nslookup.php -C
+max@trinity:~/DNSProxy$ sudo ./dnsp-h2 -w 443 -s http://www.fantuz.net/nslookup-doh.php -C
  *** verbose CURL ON
 No HTTP caching proxy configured, continuing without cache
 WHAT: 229d9b40 - 41**** ?host=facebook.com.&type=A
@@ -576,14 +577,14 @@ max@trinity:~/DNSProxy$
 MIT license, all rights included.
 
 ## Disclaimer
-WHEN FULL-ANONIMITY IS A CONCERN, make sure to host *nslookup.php* on a trustable server !
+WHEN FULL-ANONIMITY IS A CONCERN, make sure to host *nslookup-doh.php* on a trustable server !
 
 To be clear, the PHP script DOES DO the underlying (infamously leaking) "system call",
 the "classic UDP/DNS request" (or TCP but mostly not). Such system call relies on different
 mechanisms to resolve DNS, depending on the operating system; in the case of an hosting
 provider, such mechanism and operating systems are said to be "managed" hence not in full
-control of the user. In the context of hosting, we can probably assume that _everythin_ has
-been optimised for serving at the fastest speed with the most of caching made possible.
+control of the user. In the context of hosting, we can probably assume that _everything_
+had been optimised for serving at the fastest speed with the most of caching made possible.
 Such system calls are therefore outside the control of DNSP.
 
 The DNSProxy *DNSP* is just lazily tunneling into HTTP(S) using curllib and nghttp2.
