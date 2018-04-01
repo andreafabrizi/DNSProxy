@@ -522,13 +522,19 @@ struct dns_request *parse_dns_request(const char *udp_request, size_t request_le
 
     /* proto TCP, first 2 octets represent the UDP wire-format size */
     if (proton  == 1) {
-        dns_req = malloc(sizeof(struct dns_request)+2);
-	//if (EXT_DEBUG) {printf("\n *** TCP detected ... %08x // %d\n", dns_req->tcp_size,dns_req->tcp_size); }
-    	//dns_req->tcp_size = (uint8_t)udp_request[1] + (uint16_t)(udp_request[0] << 8);
-    	udp_request+=2;
+      dns_req = malloc(sizeof(struct dns_request)+2);
+      if (DNSDUMP) {
+        printf("\n *** TCP detected .. dns_req->tcp_size IN	: %08x // %d", (uint8_t) dns_req->tcp_size,dns_req->tcp_size);
+        printf("\n *** TCP detected .. sizeof(udp_request) IN	: %08x // %d\n", (uint8_t) sizeof(udp_request),sizeof(udp_request));
+      }
+      //udp_request//response[1] = (uint8_t)(dns_req->transaction_id >> 8);
+      dns_req->tcp_size = (uint8_t)udp_request[1] + (uint16_t)(udp_request[0] << 8);
+      udp_request+=2;
     } else {
-        dns_req = malloc(sizeof(struct dns_request));
-	//if (EXT_DEBUG) { printf("\n *** UDP detected ... %08x // %d\n", dns_req->tcp_size,dns_req->tcp_size); }
+      dns_req = malloc(sizeof(struct dns_request));
+      if (DNSDUMP) {
+        printf("\n *** UDP detected .. sizeof(udp_request) IN	: %08x // %d\n", (uint8_t) sizeof(udp_request),sizeof(udp_request));
+      }
     }
 
     /* Transaction ID */
@@ -665,10 +671,15 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
 
     /* DNS header added when using TCP, represents the lenght in 2-bytes for the corresponding UDP/DNS usual wireformat. limit 65K */
     if (protoq == 1) {
-      if (DEBUG) { printf(" *** ABOUT TO ADD TCP HEADER ON DNS WIRE PACKET: should read %d\n",dns_req->tcp_size); }
-      response[0] = 0x00;
-      response[1] = 0x35; // 55 bytes
-      //response[1] = (uint8_t)(dns_req->transaction_id >> 8);
+      if (DNSDUMP) { printf(" *** TCP HEADER ON DNS WIRE PACKET: read tcp_size		: %d\n",(uint8_t)(dns_req->tcp_size)); }
+      if (DNSDUMP) { printf(" *** TCP HEADER ON DNS WIRE PACKET: read dns_req		: %d\n",(uint8_t)(sizeof(dns_req) - 2)); }
+      int norm = (dns_req->tcp_size + finalresponse - finalresponse_ptr);
+      //response[0] = 0x00;
+      //response[1] = 0x35; // testing with 55 bytes responses, as for A news.infomaniak.com
+      response[0] = (uint8_t)(norm >> 8);
+      response[1] = (uint8_t)norm;
+      //response[0] = (uint8_t)(dns_req->tcp_size >> 8);
+      //response[1] = (uint8_t)dns_req->tcp_size;
       //response[1] = sizeof(response_ptr); // 55 bytes
       response+=2;
     }
@@ -680,7 +691,6 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
 
     /*
     	TXT, SRV, SOA, PTR, NS, MX, DS, DNSKEY, AAAA, A, unused
-    	
     	A IPv4 host address 0x0001
     	AAAA IPv6 host address 0x001c
     	NS authoritative name server 0x0002
@@ -1139,17 +1149,16 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
 	//memcpy(response,ip,strlen(ip)-1);
 	//strncpy(response,ip,strlen(ip)-1);
 	
-	/* example kept for educational purposes, to show how the request packet is parsed */
-	/* here is what you receive */
+	/* example kept for educational purposes, to show how the request packet is parsed. Here is what you receive on a 'strace' */
 	//recvfrom(3, "\326`\1 \0\1\0\0\0\0\0\1\6google\2it\0\0\1\0\1\0\0)\20\0"..., 256, 0, {sa_family=AF_INET, sin_port=htons(48379), sin_addr=inet_addr("192.168.2.84")}, [16]) = 38
 	//(3, "\24\0\0\0\26\0\1\3\23\306;U\0\0\0\0\0\0\0\0", 20, 0, {sa_family=AF_NETLINK, pid=0, groups=00000000}, 12) = 20
 	//(3, "z\271\205\200\0\1\0\1\0\0\0\0\6google\2hr\0\0\2\0\1\300\f\0\2\0"..., 41, 0, {sa_family=0x1a70 /* AF_??? */, sa_data="s\334\376\177\0\0\20D\1\270\223\177\0\0"}, 8)
 	
-    	//printf(" *** ASSOCIATE RESPONSE TO CLIENT\n");
+    	if (EXT_DEBUG) { printf(" *** ASSOCIATE RESPONSE TO CLIENT\n"); }
 	//(struct sockaddr *)xclient->sin_family = AF_INET;
 	int yclient_len = sizeof(yclient);
         yclient->sin_family = AF_INET;
-	//yclient->sin_addr.s_addr = inet_addr("192.168.2.84"); 
+	//yclient->sin_addr.s_addr = inet_addr("192.168.2.84"); // initial tests, my year of birth is 1984
 	//yclient->sin_port = htons(yclient->sin_port);
 	yclient->sin_port = yclient->sin_port;
 	memset(&(yclient->sin_zero), 0, sizeof(yclient->sin_zero)); // zero the rest of the struct 
@@ -1224,23 +1233,33 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
 	  int resulttt = 0;
 	  int resulqqq = 0;
 
-	  //printf(" *** %x,%x,%x\n",response, response_ptr,response[sizeof(response_ptr)]);
-	  //strcat(finalresponse, &response);
-	  //strncat(finalresponse, dns_req->tcp_size, 2);
-	  //strncat(finalresponse, response_ptr, sizeof(response_ptr));
-	  //finalresponse+=2;
+	  //finalresponse[0] = (uint8_t)(sizeof(&response) >> 8);
+	  //finalresponse[0] = (uint8_t)(yclient_len >> 8);
+	  //finalresponse[0] = (uint8_t)((sizeof(response) - sizeof(response_ptr)) >> 8);
+	  //finalresponse[0] = (uint8_t)(sizeof(yclient) >> 8);
+	  //finalresponse+=sizeof(response_ptr);
+          //finalresponse+=2;
 
-	  finalresponse[0] = (uint8_t)(sizeof(&response) >> 8);
-          finalresponse[1] = (uint8_t)sizeof(&response);
+	  /* experimental fix to allow testing autosize TCP */
+	  int norm2 = (dns_req->tcp_size + sizeof(response_ptr) - 3);
+	  //int norm2 = (dns_req->tcp_size + finalresponse - finalresponse_ptr + sizeof(response_ptr));
+	  finalresponse[0] = (uint8_t)(norm2 >> 8);
+	  finalresponse[1] = (uint8_t)norm2;
           //finalresponse[0] = 0x00;
           //finalresponse[1] = 0x35; // testing with 55 bytes responses, as for A news.infomaniak.com
-          finalresponse+=2;
+          //finalresponse+=2;
           //finalresponse+=sizeof(response)+2;
 	  //finalresponse[sizeof(&response)];
 	  //copy_string(*finalresponse,*response);
           //finalresponse+=sizeof(response);
 	  
-	  for (int i=0; i<sizeof(response_ptr); i++) {
+	  //strcat(finalresponse, &response);
+	  //strncat(finalresponse, dns_req->tcp_size, 2);
+	  //strncat(finalresponse, response_ptr, sizeof(response_ptr));
+	  //finalresponse+=2;
+
+	  /* start off 3rd byte to leave the overwritten tcp_size value intact */
+	  for (int i=2; i< (sizeof(response_ptr) + 2); i++) {
 	      resulttt <<= 8;
 	      resulttt |= response_ptr[i];
               finalresponse[i] = resulttt;
@@ -1249,8 +1268,11 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
 	      //finalresponse+=sizeof(resulttt);
 	  }
 	  finalresponse+=sizeof(resulqqq);
-	  finalresponse+=sizeof(response_ptr)+2;
-          finalresponse+=2;
+	  //finalresponse+=resulqqq;
+	  //finalresponse+=sizeof(yclient);
+
+	  //finalresponse+=sizeof(response_ptr)+2;
+          //finalresponse+=2;
 	  
           //*finalresponse++ = &response_ptr;
           //finalresponse+=sizeof(response)+2;
@@ -1262,19 +1284,25 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
 	  //*finalresponse++ = &response_ptr;
 	  //finalresponse += sizeof(&response - &response_ptr);
 
-          //if (DNSDUMP) { printf(" *** ABOUT TO ADD TCP HEADER ON DNS WIRE PACKET: should read %d\n",dns_req->tcp_size); }
-          if (DNSDUMP) { printf(" *** finalresponse_ptr, finalresponse - finalresponse_ptr\n"); }
-	  if (DNSDUMP) { hexdump(finalresponse_ptr, finalresponse - finalresponse_ptr); }
-          if (DNSDUMP) { printf(" *** finalresponse, finalresponse - finalresponse_ptr\n"); }
-	  if (DNSDUMP) { hexdump(finalresponse, finalresponse - finalresponse_ptr); }
+          if (DNSDUMP) { 
+	    printf(" *** finalresponse_ptr, finalresponse + 6 - finalresponse_ptr\n"); 
+	    hexdump(finalresponse_ptr, finalresponse + 6 - finalresponse_ptr);
+            printf(" *** finalresponse_ptr, finalresponse + 2 - finalresponse_ptr\n");
+	    hexdump(finalresponse_ptr, finalresponse + 2 - finalresponse_ptr);
+            printf(" *** finalresponse_ptr, finalresponse - finalresponse_ptr\n");
+	    hexdump(finalresponse_ptr, finalresponse - finalresponse_ptr);
+            printf(" *** finalresponse_ptr, response + 2 - response_ptr\n");
+	    hexdump(finalresponse_ptr, response + 2 - response_ptr);
+	  }
+
 	  if (DEBUG) { printf("SENT %d bytes of finalresponse\n\n", finalresponse - finalresponse_ptr); }
 	  if (DEBUG) { printf("SENT %d bytes of response (including +2 for TCP)\n", response - response_ptr); }
-
         }
 
 	/* dump to udpwireformat */
 	if (DNSDUMP) {
-	  if (protoq == 1) { hexdump(response_ptr, response - response_ptr); } else { hexdump(response_ptr, response - response_ptr); }
+	  printf(" *** response_ptr, response - response_ptr\n"); 
+	  hexdump(response_ptr, response - response_ptr);
 	}
 
 	/* send it back, onto the same socket. we allow for independent threds, see other notes about the topic */
@@ -1301,7 +1329,11 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
 	yclient->sin_port = yclient->sin_port;
 	memset(&(yclient->sin_zero), 0, sizeof(yclient->sin_zero)); // zero the rest of the struct 
 	//memset(yclient, 0, 0);
-	if (DNSDUMP) { hexdump(response_ptr, response - response_ptr); }
+	if (DNSDUMP) {
+	  hexdump(response_ptr, response - response_ptr);
+	  printf(" *** response_ptr, response - response_ptr\n"); 
+	}
+
         if (protoq == 1) {
 	  printf("sending TCP resp\n");
 	  bytes_sent = sendto(sd, response_ptr, response - response_ptr, MSG_DONTWAIT, (struct sockaddr *)yclient, 16);
@@ -1706,7 +1738,7 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
 
   free(pointer);
 
-  /* if given a number, do that many transfers */ 
+  /* do that many transfers */ 
   num_transfers = 1;
 
   //if(!num_transfers || (num_transfers > NUM_HANDLES))
@@ -2512,7 +2544,7 @@ int main(int argc, char *argv[]) {
   if (bind(sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0) error("Error opening socket (bind)");
   //bind(sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr));
 
-  /* TCP REUSEPORT SUPPORT TEST */
+  /* TCP REUSE KERNEL SUPPORT TEST */
   /*
   #ifdef SO_REUSEPORT
     int sock = socket(AF_INET, SOCK_STREAM, 0);
@@ -2526,8 +2558,15 @@ int main(int argc, char *argv[]) {
     } else {
       printf("SO_REUSEPORT is supported\n");
     }
+    close(sock);
+  #else
+    printf("SO_REUSEPORT is not supported by your include files\n");
+  #endif
+  
+  #ifdef SO_REUSEADDR
+    int sock2 = socket(AF_INET, SOCK_STREAM, 0);
     int reuse = 1;
-    if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, (const char*)&reuse, sizeof(reuse)) < 0) {
+    if (setsockopt(sock2, SOL_SOCKET, SO_REUSEADDR, (const char*)&reuse, sizeof(reuse)) < 0) {
       if (errno == EINVAL || errno == ENOPROTOOPT) {
         printf("SO_REUSEADDR is not supported by your kernel\n");
       } else {
@@ -2536,13 +2575,7 @@ int main(int argc, char *argv[]) {
     } else {
       printf("SO_REUSEADDR is supported\n");
     }
-    close(sock);
-  #else
-    printf("SO_REUSEPORT is not supported by your include files\n");
-  #endif
-  
-  #ifdef SO_REUSEADDR
-    printf("SO_REUSEADDR is supported\n");
+    close(sock2);
   #else
     printf("SO_REUSEADDR is not supported by your include files\n");
   #endif
@@ -2592,6 +2625,10 @@ int main(int argc, char *argv[]) {
   if ((listen(fd, SOMAXCONN)==-1)) { printf("%s",strerror(errno)); }
   int cnt = 0;
   int flag;
+
+  int reusead = 0, reusepo = 0;
+  if (setsockopt(fd,SOL_SOCKET,SO_REUSEPORT, (const char*)&reusepo,sizeof(reusepo))==-1) { printf("%s",strerror(errno)); }
+  if (setsockopt(fd,SOL_SOCKET,SO_REUSEADDR, (const char*)&reusead,sizeof(reusead))==-1) { printf("%s",strerror(errno)); }
 
   /* selfconnect test */
   //if (connect(fd, (struct sockaddr *) &serv_addr_tcp, sizeof(serv_addr_tcp)) < 0) error("caca");;
@@ -2675,7 +2712,6 @@ int main(int argc, char *argv[]) {
     //setsockopt(newsockfd, SOL_SOCKET, SO_SNDBUF, &sndbuf, sizeof(rcvbuf));
     //setsockopt(newsockfd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int));
     
-    
     if (cnt == 0) {
       newsockfd = fd;
       request_len_tcp = recvfrom(fd,request_tcp,TCP_DATAGRAM_SIZE,MSG_DONTWAIT,(struct sockaddr *)&client,&client_len);
@@ -2685,22 +2721,19 @@ int main(int argc, char *argv[]) {
       newsockfd = accept(fd, (struct sockaddr *) &client_tcp, &client_len_tcp);
       //newsockfd = accept(fd, (struct sockaddr *) &client, &client_len);
       fcntl(newsockfd, F_SETFL, FNDELAY);
-      int reusead = 0, reusepo = 0;
-      if (setsockopt(newsockfd,SOL_SOCKET,SO_REUSEPORT, (const char*)&reusepo,sizeof(reusepo))==-1) { printf("%s",strerror(errno)); }
-      if (setsockopt(newsockfd,SOL_SOCKET,SO_REUSEADDR, (const char*)&reusead,sizeof(reusead))==-1) { printf("%s",strerror(errno)); }
       fcntl(newsockfd, F_SETFL, O_NONBLOCK);
-      //request_len_tcp = recvfrom(newsockfd,request_tcp,TCP_DATAGRAM_SIZE,MSG_DONTWAIT,(struct sockaddr *)&client,&client_len);
-      request_len_tcp = recvfrom(newsockfd,request_tcp,TCP_DATAGRAM_SIZE,0,(struct sockaddr *)&client_tcp,&client_len_tcp);
-      cnt++;
+      //request_len_tcp = recvfrom(newsockfd,request_tcp,TCP_DATAGRAM_SIZE,MSG_WAITALL,(struct sockaddr *)&client,&client_len);
+      request_len_tcp = recvfrom(newsockfd,request_tcp,TCP_DATAGRAM_SIZE,MSG_WAITALL,(struct sockaddr *)&client_tcp,&client_len_tcp);
+      //request_len_tcp = recvfrom(newsockfd,request_tcp,TCP_DATAGRAM_SIZE,0,(struct sockaddr *)&client_tcp,&client_len_tcp);
     }
 
-    fcntl(newsockfd, F_SETFL, O_NONBLOCK);
+    //fcntl(newsockfd, F_SETFL, O_NONBLOCK);
     //request_len_tcp = recvfrom(newsockfd,request,TCP_DATAGRAM_SIZE,MSG_DONTWAIT,(struct sockaddr *)&client_tcp,sizeof(client_tcp));
     //if ((accept(fd, (struct sockaddr *) &serv_addr, sizeof(serv_addr))) < 0) { printf("\nERROR IN INITIAL ACCEPT\n"); close(fd); } else { printf("\nNO ERROR IN INITIAL ACCEPT\n"); }
     //if ((accept(fd, (struct sockaddr *) &client, sizeof(&client))) < 0) { printf("\nERROR IN ACCEPT\n"); //close(fd); } else { printf("\nNO ERROR IN ACCEPT\n"); }
     //if ((accept(fd, (struct sockaddr *) &serv_addr, sizeof(serv_addr))) < 0) {
     
-    wait(NULL);
+    //wait(NULL);
     
     /* Child */
     /* Allocate stack for child */
@@ -2767,6 +2800,7 @@ int main(int argc, char *argv[]) {
       //if (flag == 1) {
       if (request_len == -1) {
 	flag = 1;
+	cnt++;
       	dns_req_tcp = parse_dns_request(request_tcp, request_len_tcp, 1);
         if (EXT_DEBUG) { fprintf(stderr, "QUANTITY TCP: %x - %d\n", request_tcp, request_len_tcp); }
 	if (cnt == 0) { readParams->sockfd = fd; } else { readParams->sockfd = newsockfd; }
@@ -2844,6 +2878,7 @@ int main(int argc, char *argv[]) {
           printf("UDP gotcha qtype: %x // %d\r\n",dns_req->qtype,dns_req->qtype); //PTR ?
           printf("UDP gotcha tid  : %x // %d\r\n",dns_req->transaction_id,dns_req->transaction_id); //PTR ?
         }
+	//flag == NULL;
       } else if ( flag == NULL) {
         continue;
       }
@@ -2891,7 +2926,7 @@ int main(int argc, char *argv[]) {
 	//printf("new hostname: %s\n", readParams->xhostname);
 	continue;
       }
-      
+
       //printf("received hostname: %s // %s\n", dns_req_tcp->hostname, dns_req->hostname);
       //printf("guessing hostname: %s // %s\n", readParams->xhostname->hostname, readParams->xhostname);
 
