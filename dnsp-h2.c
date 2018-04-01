@@ -487,12 +487,12 @@ int generic_print(const void *ptr, size_t n) {
 /* SHUFFLES OPPORTUNE MSB/LSB AGAINST NETWORK BYTE ORDER */
 void *be32(void *ptr, unsigned long int n) {
     unsigned char *bp = ptr;
-    /*
+    
     bp[3] = n & 0xff;
     bp[2] = n >> 8 & 0xff;
     bp[1] = n >> 16 & 0xff;
     bp[0] = n >> 24 & 0xff;
-    */
+    /*
     bp[7] = n & 0xff;
     bp[6] = n >> 8 & 0xff;
     bp[5] = n >> 16 & 0xff;
@@ -501,6 +501,7 @@ void *be32(void *ptr, unsigned long int n) {
     bp[2] = n >> 40 & 0xff;
     bp[1] = n >> 48 & 0xff;
     bp[0] = n >> 56 & 0xff;
+    */
     return ptr;
 }
 
@@ -522,7 +523,7 @@ struct dns_request *parse_dns_request(const char *udp_request, size_t request_le
 
     /* proto TCP, first 2 octets represent the UDP wire-format size */
     if (proton  == 1) {
-      dns_req = malloc(sizeof(struct dns_request)+2);
+      dns_req = malloc(sizeof(struct dns_request) + 2);
       if (DNSDUMP) {
         printf("\n *** TCP detected .. dns_req->tcp_size IN	: %08x // %d", (uint8_t) dns_req->tcp_size,dns_req->tcp_size);
         printf("\n *** TCP detected .. sizeof(udp_request) IN	: %08x // %d\n", (uint8_t) sizeof(udp_request),sizeof(udp_request));
@@ -532,9 +533,7 @@ struct dns_request *parse_dns_request(const char *udp_request, size_t request_le
       udp_request+=2;
     } else {
       dns_req = malloc(sizeof(struct dns_request));
-      if (DNSDUMP) {
-        printf("\n *** UDP detected .. sizeof(udp_request) IN	: %08x // %d\n", (uint8_t) sizeof(udp_request),sizeof(udp_request));
-      }
+      if (DNSDUMP) { printf("\n *** UDP detected .. sizeof(udp_request) IN	: %08x // %d\n", (uint8_t) sizeof(udp_request),sizeof(udp_request)); }
     }
 
     /* Transaction ID */
@@ -921,8 +920,7 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
 	}
 
 	//sprintf(response++,"%x",c);
-	if (DNSDUMP) { printf(" *** HEXA PRE-CONVERSION: %d\n",c); }
-
+	//if (DNSDUMP) { printf(" *** HEXA PRE-CONVERSION: %d\n",c); }
 	for(x=c-1;x>=0;x--) {
 		if(a[x]>=10) {
 			printf("%c",a[x]+55);
@@ -933,10 +931,10 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
 		/* recover this ... */
 		//response+= c;
 	}
-
 	printf("\n");
 	//*response++= sprintf(hex,"%x",quotient);
-	if (DNSDUMP) { printf(" *** HEXA POST-CONVERSION: %d\n",c); }
+	
+	//if (DNSDUMP) { printf(" *** HEXA POST-CONVERSION: %d\n",c); }
 	//printf("----DECIMAL Q: %lu\n",quotient);
 
 	/* If you are a bit acquainted with hex you dont need to convert to binary. */
@@ -978,17 +976,9 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
 	return 0;
 	*/
 	
-	/*
-	 * 0x08 - backspace	\010 octal
-	 * 0x09 - horizontal tab
-	 * 0x0a - linefeed
-	 * 0x0b - vertical tab	\013 octal
-	 * 0x0c - form feed
-	 * 0x0d - carriage return
-	 * 0x20 - space
-	*/ 
+	/* 0x08 - backspace \010 octal, 0x09 - horizontal tab, 0x0a - linefeed, 0x0b - vertical tab \013 octal, 0x0c - form feed, 0x0d - carriage return, 0x20 - space */ 
 	
-	/* REQ TYPE PARSING */
+	/* DNS request TYPE parsing */
 	if (dns_req->qtype == 0x0c) {
         	// PTR
 	        /* Data length (4 bytes)*/
@@ -1227,10 +1217,11 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
         fclose(fout);
 	*/
 
-        /* TCP length header stamp */
+        /* TCP length header re-stamp */
 	if (protoq == 1) {
 	  int resulttt = 0;
 	  int resulqqq = 0;
+	  int resultq = 0;
 
 	  //finalresponse[0] = (uint8_t)(sizeof(&response) >> 8);
 	  //finalresponse[0] = (uint8_t)(yclient_len >> 8);
@@ -1240,7 +1231,8 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
           //finalresponse+=2;
 
 	  /* experimental fix to allow testing autosize TCP */
-	  int norm2 = (dns_req->tcp_size + sizeof(response_ptr) - 3);
+	  int norm2 = (dns_req->tcp_size + sizeof(response_ptr) - 5);
+	  printf("%d artificial bytes\n",norm2);
 	  //int norm2 = (dns_req->tcp_size + finalresponse - finalresponse_ptr + sizeof(response_ptr));
 	  finalresponse[0] = (uint8_t)(norm2 >> 8);
 	  finalresponse[1] = (uint8_t)norm2;
@@ -1269,16 +1261,26 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
 	  
 	  finalresponse+=sizeof(resulqqq);
 
+	  /*
+	  for (int t=2; i< (sizeof(dns_req->qtype) + 2); t++) {
+	      resulttt <<= 8;
+	      resulttt |= response_ptr[t];
+              finalresponse[t] = resulttt;
+              *finalresponse++ = resulttt;
+	      resultq++;
+	      //finalresponse+=sizeof(resulttt);
+	  }
+	  */
+	  
+	  //finalresponse+=sizeof(resultq);
 	  //finalresponse+=resulqqq;
 	  //finalresponse+=sizeof(yclient);
 
 	  //finalresponse+=sizeof(response_ptr)+2;
-          //finalresponse+=2;
-	  
           //*finalresponse++ = &response_ptr;
-          //finalresponse+=sizeof(response)+2;
 
 	  //while(*finalresponse++ = *response++);
+	  
 	  //*finalresponse++ = &response;
           //finalresponse += sizeof(response);
 	  
@@ -1322,7 +1324,7 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
 	//(struct sockaddr *)xclient->sin_family = AF_INET;
 	int yclient_len = sizeof(yclient);
 
-	/* left for reference, useful to understand sin_addr and sin_port struct */
+	/* few lines left for reference, useful to understand sin_addr and sin_port struct */
 	//yclient->sin_addr.s_addr = inet_addr("192.168.2.84"); 
 	//yclient->sin_port = htons(yclient->sin_port);
         yclient->sin_family = AF_INET;
@@ -2261,7 +2263,7 @@ void *threadFunc(void *arg) {
     //char *p = &xclient->sin_addr.s_addr;
     char *s = inet_ntoa(yclient->sin_addr);
     printf("params->xhostname->hostname		: %s\n",(char *)params->xhostname->hostname);
-    printf("params->xhostname			: %s\n",(char *)params->xhostname);
+    //printf("params->xhostname			: %s\n",(char *)params->xhostname);
     printf("proto					: %d\n",params->xproto);
     printf("VARIABLE sin_addr human-readable	: %s\n", s);
     //printf("VARIABLE yhostname			: %s\n", yhostname);
@@ -2269,9 +2271,11 @@ void *threadFunc(void *arg) {
     //printf("VARIABLE sin_addr			: %d\n", (uint32_t)(yclient->sin_addr).s_addr);
   }
   
-  if (!(yhostname == NULL)) {
+  //if (!(yhostname == NULL))
+  if (!(params->xhostname->hostname == NULL)) {
     rip = lookup_host(yhostname, proxy_host_t, proxy_port_t, proxy_user_t, proxy_pass_t, lookup_script, typeq, wport);
     yhostname == NULL;
+    params->xhostname->hostname == NULL;
   } else {
     rip == "0.0.0.0";
     yhostname == NULL;
@@ -2528,26 +2532,6 @@ int main(int argc, char *argv[]) {
   /* libCurl init */
   curl_global_init(CURL_GLOBAL_ALL);
 
-  /* socket() */
-  sockfd = socket(AF_INET, SOCK_DGRAM, 17);
-  int reusea = 1, reusep = 1;
-  if (setsockopt(sockfd,SOL_SOCKET,SO_REUSEPORT, (const char*)&reusep,sizeof(reusep))==-1) { printf("%s",strerror(errno)); }
-  if (setsockopt(sockfd,SOL_SOCKET,SO_REUSEADDR, (const char*)&reusea,sizeof(reusea))==-1) { printf("%s",strerror(errno)); }
-  int socketid = 0;
-  if (sockfd < 0) error("Error opening socket");
-  if ((socketid = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) < 0) error("socket(2) failed");
-
-  /* local address listener guessing UDP */
-  bzero((char *) &serv_addr, sizeof(serv_addr));
-  local_address = gethostbyname(bind_address);
-  if (local_address == NULL) error("Error resolving local host");
-  
-  serv_addr.sin_family = AF_INET;
-  memcpy (&serv_addr.sin_addr.s_addr, local_address->h_addr,sizeof (struct in_addr));
-  serv_addr.sin_port = htons(port);
-
-  if (bind(sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0) error("Error opening socket (bind)");
-
   /* TCP REUSE KERNEL SUPPORT TEST */
   /*
   #ifdef SO_REUSEPORT
@@ -2596,7 +2580,27 @@ int main(int argc, char *argv[]) {
     return 1;
   }  
   */
+
+  /* socket() */
+  sockfd = socket(AF_INET, SOCK_DGRAM, 17);
+  int reusea = 1, reusep = 1;
+  if (setsockopt(sockfd,SOL_SOCKET,SO_REUSEPORT, (const char*)&reusep,sizeof(reusep))==-1) { printf("%s",strerror(errno)); }
+  if (setsockopt(sockfd,SOL_SOCKET,SO_REUSEADDR, (const char*)&reusea,sizeof(reusea))==-1) { printf("%s",strerror(errno)); }
+  int socketid = 0;
+  if (sockfd < 0) error("Error opening socket");
+  if ((socketid = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) < 0) error("socket(2) failed");
+
+  /* local address listener guessing UDP */
+  bzero((char *) &serv_addr, sizeof(serv_addr));
+  local_address = gethostbyname(bind_address);
+  if (local_address == NULL) error("Error resolving local host");
   
+  serv_addr.sin_family = AF_INET;
+  memcpy (&serv_addr.sin_addr.s_addr, local_address->h_addr,sizeof (struct in_addr));
+  serv_addr.sin_port = htons(port);
+
+  if (bind(sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0) error("Error opening socket (bind)");
+
   fd = socket(AF_INET, SOCK_STREAM, 6);
   if (fd<0) { printf(" *** %s",strerror(errno)); }
 
@@ -2881,7 +2885,6 @@ int main(int argc, char *argv[]) {
           printf("UDP gotcha qtype: %x // %d\r\n",dns_req->qtype,dns_req->qtype); //PTR ?
           printf("UDP gotcha tid  : %x // %d\r\n",dns_req->transaction_id,dns_req->transaction_id); //PTR ?
         }
-	//flag == NULL;
       } else if ( flag == NULL) {
         continue;
       }
@@ -2922,16 +2925,20 @@ int main(int argc, char *argv[]) {
       
       //if ((!(readParams->xhostname == NULL) && (flag == 1))) {
       //if ((!(readParams->xhostname->hostname == NULL))) {
+      
       //if ((!(readParams->xhostname == NULL)) || (!(readParams->xhostname->hostname == NULL))) {
+      //if ((readParams->xhostname == NULL)) {
+      //if ((readParams->xhostname->hostname == NULL)) {
       if ((dns_req->hostname == NULL) && (dns_req_tcp->hostname == NULL)) {
 	printf("met no-host condition ! fail flag: %d, fail count: %d\n",flag,cnt);
 	//readParams->xhostname = "www.example.com";
 	//printf("new hostname: %s\n", readParams->xhostname);
+	flag == NULL;
 	continue;
       }
 
-      //printf("received hostname: %s // %s\n", dns_req_tcp->hostname, dns_req->hostname);
-      //printf("guessing hostname: %s // %s\n", readParams->xhostname->hostname, readParams->xhostname);
+      printf("dns_req_tcp->hostname, dns_req->hostname		\n: %s // %s\n", dns_req_tcp->hostname, dns_req->hostname);
+      printf("readParams->xhostname->hostname, readParams->xhostname	\n: %s // %s\n", readParams->xhostname->hostname, readParams->xhostname);
 
       //readParams->input = str;
       //readParams->digit = test;
@@ -2999,8 +3006,7 @@ int main(int argc, char *argv[]) {
         nnn++;
       }
     
-      //if (nnn > NUMT*NUM_THREADS*4) {wait(NULL);}
-      if (nnn > NUMT*NUM_THREADS*1) { wait(NULL); }
+      if (nnn > NUMT*NUM_THREADS * 2) { wait(NULL); }
 
       printf("IF: Thread/process ID : %d\n", getpid());
       pthread_mutex_destroy(&mutex);
