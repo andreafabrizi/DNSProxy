@@ -1,13 +1,13 @@
 # DNS Proxy over HTTP(S)
 
 ## Why DNSP ?
-This is a new idea in terms of transport of DNS outside of it's original design.
+A new idea in terms of transport of DNS messaging, outside of its original design.
 DNS-over-HTTP is currently being evaluated by IETF as workgroup/proposal.
-(c.f. https://tools.ietf.org/html/draft-ietf-doh-dns-over-https-03)
-An header schema for HTTP/2 client has been outlined, WIP implementation.
+(c.f. https://tools.ietf.org/html/draft-ietf-doh-dns-over-https-05)
+An header schema for HTTP/2 client has been outlined, WIP implementation details.
 
-There is no roadmap on my side, just the burning desire to see DoH being 
-implemented and deployed. 
+On my side, no roadmaps - just the burning desire to see DoH being implemented and
+ deployed. In different ways, as DOH format, as JSON and as textual formats.
 
 ## How does it work ?
 DNS proxy listens for incoming DNS requests (A,NS,MX,TXT,SRV..) on any
@@ -163,7 +163,7 @@ Once done with installing such pre-requisites, compile with:
 
 ## Installing
 
-#### STEP 1. Create access to an HTTP(S) nameserver webservice
+#### STEP 1. Create and deploy the HTTP(S) nameserver webservice
 Deploy **nslookup-doh.php** on a webserver, possibly not your local machine (see DISCLAIMER).
 If you ignore how-to carry on such deploy task or you do not have access to any of
 such webservers, just use my own webservice, as suggested in usage examples.
@@ -178,9 +178,9 @@ Compile the *dnsp* binary by running provided build commands (make, for example)
 ## Integration, easy with standards:
 
 DNSP has been build keeping in mind _simplicity_ and _standardness_.
-Most of us will know that -on a modern Linux box- an extra layer of caching DNS messages is
-provided by nscd or dnsmasq services. Even in presence of such caches, UDP+TCP DNS traffic
-accounts today for a sensible and quite constant bandwidth consumption.
+Most of us will know that -on a modern Linux box- an extra layer of caching DNS 
+is provided by nscd or dnsmasq services. Even in presence of such caches, UDP+TCP
+DNS traffic accounts today for a sensible and quite constant bandwidth consumption.
 
 DNSP is _not_ an alternative to such caching services. They can coexist if needed. In a way,
 DNS can be integrated to work closely with **DNS services** in empowering a more distributed 
@@ -201,7 +201,7 @@ As you might question yourself, yes, any **DNS-over-HTTP** will leave a trace, j
 trace will be in a different place, not on the UDP level anyway.
 
 I never meant to say that DNSP is faster or better than any other, is just pretty new on its own.
-Is a big piece of curly/thready code that helps people _transporting_ and _sharing_ DNS.
+Is a big piece of curl/threaded code that helps people _transporting_ and _sharing_ DNS.
 
 ## Changelog:
 
@@ -225,8 +225,9 @@ Is a big piece of curly/thready code that helps people _transporting_ and _shari
   based on Location header, will force the same DNS server software to issue a parallel GET 
   on the remote domain, in order to preemptively populate HTTP caches in between.
   (Not interesting except in particular scenarios, as browsing through high-delay satellite networks).
-* added the arduino-ethernet library with the new select() function (sorry for delay, was easy)
+* added the arduino+ethernet library with the new select() function (sorry for delay, was easy)
 * DNSP for HTTP/1 version freeze, development on H2 only (till Hackathon 101 London 17-18/3).
+* Added TCP query/response support in a thread on its own !
 
 #### Version 1.6 - March 2018:
 * sneak peak: REDIS ready _via https://github.com/redis/hiredis_
@@ -531,33 +532,7 @@ DNS-hex:
 0x000010: 65 62 6f 6f 6b 03 63 6f ebook.co
 0x000018: 6d 00 00 01 00 01 c0 0c m.......
 0x000020: 00 01 00 01 00 00 38 40 ......8@
-0x000028: 00 04 b9 3c d8 23 00 00 ...<.#..
-0x000030: 00 00 00 00 00 00 00 00 ........
-0x000038: 00 00 00 00 00 00 00 00 ........
-0x000040: 00 00 00 00 00 00 00 00 ........
-0x000048: 00 00 00 00 00 00 00 00 ........
-0x000050: 00 00 00 00 00 00 00 00 ........
-0x000058: 00 00 00 00 00 00 00 00 ........
-0x000060: 00 00 00 00 00 00 00 00 ........
-0x000068: 00 00 00 00 00 00 00 00 ........
-0x000070: 00 00 00 00 00 00 00 00 ........
-0x000078: 00 00 00 00 00 00 00 00 ........
-0x000080: 00 00 00 00 00 00 00 00 ........
-0x000088: 00 00 00 00 00 00 00 00 ........
-0x000090: 00 00 00 00 00 00 00 00 ........
-0x000098: 00 00 00 00 00 00 00 00 ........
-0x0000a0: 00 00 00 00 00 00 00 00 ........
-0x0000a8: 00 00 00 00 00 00 00 00 ........
-0x0000b0: 00 00 00 00 00 00 00 00 ........
-0x0000b8: 00 00 00 00 00 00 00 00 ........
-0x0000c0: 00 00 00 00 00 00 00 00 ........
-0x0000c8: 00 00 00 00 00 00 00 00 ........
-0x0000d0: 00 00 00 00 00 00 00 00 ........
-0x0000d8: 00 00 00 00 00 00 00 00 ........
-0x0000e0: 00 00 00 00 00 00 00 00 ........
-0x0000e8: 00 00 00 00 00 00 00 00 ........
-0x0000f0: 00 00 00 00 00 00 00 00 ........
-0x0000f8: 00 00 00 00 00 00 00 00 ........
+0x000028: 00 04 b9 3c d8 23       ...<.#
 SENT 46 bytes
 unlock NOT OK..
 destroy NOT OK..
@@ -580,12 +555,12 @@ MIT license, all rights included.
 WHEN FULL-ANONIMITY IS A CONCERN, make sure to host *nslookup-doh.php* on a trustable server !
 
 To be clear, the PHP script DOES DO the underlying (infamously leaking) "system call",
-the "classic UDP/DNS request" (or TCP but mostly not). Such system call relies on different
-mechanisms to resolve DNS, depending on the operating system; in the case of an hosting
-provider, such mechanism and operating systems are said to be "managed" hence not in full
-control of the user. In the context of hosting, we can probably assume that _everything_
-had been optimised for serving at the fastest speed with the most of caching made possible.
-Such system calls are therefore outside the control of DNSP.
+the "classic" UDP or TCP "DNS request". Such system call relies on different
+mechanisms to resolve DNS, depending on the operating system; in the case of an
+hosting provider, such mechanism and operating systems are said to be "managed" hence 
+not in FULL-CONTROL of the user. In the context of hosting, we can probably assume that
+_everything_ had been optimised for serving at the fastest speed with the most of 
+caching made possible. Such system calls are therefore outside the scope of DNSP.
 
 The DNSProxy *DNSP* is just lazily tunneling into HTTP(S) using curllib and nghttp2.
 By doing this encapsulation, **it avoids leakage** of UDP queries. To be on the safe side,
@@ -597,3 +572,4 @@ That said, you **MUST** use an external server that you trust and you can deploy
 
 Beware, having the PHP script running on the same local machine (not using a remote webservice)
 makes no sense and WILL make ALL of your DNS queries leaking. Useful for TESTING purposes only !!
+
