@@ -80,8 +80,8 @@
 #define DEFAULT_PRX_PORT 	 1080
 
 /* experimental options for threaded model, not in use at the moment */
-#define NUMT			    2
-#define NUM_THREADS		    2
+#define NUMT			    1
+#define NUM_THREADS		    1
 #define NUM_HANDLER_THREADS	    1
 
 /* use nghttp2 library to establish, no ALPN/NPN */
@@ -519,8 +519,13 @@ size_t memlen(const char *buff) {
 }
 
 /* Parses the dns request and returns the pointer to dns_request struct. Returns NULL on errors */
-struct dns_request *parse_dns_request(const char *udp_request, size_t request_len, int proton) {
+struct dns_request *parse_dns_request(const char *udp_request, size_t request_len, int proton, int reset) {
     struct dns_request *dns_req;
+
+    if (reset  == 1) {
+      udp_request += 0;
+      return NULL;
+    }
 
     /* proto TCP, first 2 octets represent the UDP wire-format size */
     if (proton  == 1) {
@@ -660,6 +665,8 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
 
   finalresponse = malloc (TCP_DATAGRAM_SIZE);
   bzero(finalresponse, TCP_DATAGRAM_SIZE);
+  //bzero(dns_req->query, sizeof(dns_req->query));
+  //memcpy(dns_req->query, udp_request, sizeof(dns_req->query)-1);
 
   maxim = malloc (DNSREWRITE);
   bzero(maxim, DNSREWRITE);
@@ -835,7 +842,7 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
     	response+=2;
     } else {
     	printf(" *** NO PARSE HAPPENED\n\n");
-    	return;
+    	return NULL;
     	//*response++ = 0x00;
     	//*response++ = 0x01;
     }
@@ -977,7 +984,7 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
     /* 0x08 - backspace \010 octal, 0x09 - horizontal tab, 0x0a - linefeed, 0x0b - vertical tab \013 octal, 0x0c - form feed, 0x0d - carriage return, 0x20 - space */ 
     
     if (DNSDUMP) {
-      printf("*** before answer: response_ptr, response - response_ptr + 2\n");
+      printf(" *** before answer: response_ptr, response - response_ptr + 2\n");
       hexdump(response_ptr, response - response_ptr);
     }
 
@@ -1298,31 +1305,20 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
         hexdump(finalresponse_ptr, finalresponse - finalresponse_ptr);
         printf(" *** finalresponse_ptr, response - response_ptr\n");
         hexdump(finalresponse_ptr, response - response_ptr);
+        printf("SENT %d bytes of TCP finalresponse\n\n", finalresponse - finalresponse_ptr);
+        printf("SENT %d bytes of TCP response (including +2)\n", response - response_ptr);
       }
-
-      if (DEBUG) { printf("SENT %d bytes of finalresponse\n\n", finalresponse - finalresponse_ptr); }
-      if (DEBUG) { printf("SENT %d bytes of response (including +2 for TCP)\n", response - response_ptr); }
     }
+
+    /* send it back, onto the same socket. we allow for independent threds, see other notes about the topic */
+    bytes_sent = sendto(sd, response_ptr, response - response_ptr, MSG_DONTWAIT, (struct sockaddr *)yclient, 16);
 
     /* dump to udpwireformat */
     if (DNSDUMP) {
       printf(" *** response_ptr, response - response_ptr\n"); 
       hexdump(response_ptr, response - response_ptr);
+      printf(" *** A VALID PARSE HAPPENED\n");
     }
-
-    /* send it back, onto the same socket. we allow for independent threds, see other notes about the topic */
-    bytes_sent = sendto(sd, response_ptr, response - response_ptr, MSG_DONTWAIT, (struct sockaddr *)yclient, 16);
-    /*
-    if (protoq == 1) {
-      //bytes_sent = sendto(sd, response_ptr, response - response_ptr, MSG_WAITALL, (struct sockaddr *)yclient, sizeof(yclient));
-      //bytes_sent = sendto(sd, response_ptr, response - response_ptr, MSG_DONTWAIT, (struct sockaddr *)(&yclient), 16);
-      bytes_sent = sendto(sd, response_ptr, response - response_ptr, MSG_DONTWAIT, (struct sockaddr *)yclient, 16);
-    } else {
-      bytes_sent = sendto(sd, response_ptr, response - response_ptr, MSG_DONTWAIT, (struct sockaddr *)yclient, 16);
-    }
-    */
-
-    printf(" *** A VALID PARSE HAPPENED\n");
 
   } else if (mode == DNS_MODE_ERROR) {
 
@@ -1337,27 +1333,15 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
     yclient->sin_port = yclient->sin_port;
     memset(&(yclient->sin_zero), 0, sizeof(yclient->sin_zero)); // zero the rest of the struct 
     //memset(yclient, 0, 0);
-    if (DNSDUMP) {
-      hexdump(response_ptr, response - response_ptr);
-      printf(" *** response_ptr, response - response_ptr\n"); 
+    if (DNSDUMP) { hexdump(response_ptr, response - response_ptr );
     }
-
     bytes_sent = sendto(sd, response_ptr, response - response_ptr, MSG_DONTWAIT, (struct sockaddr *)yclient, 16);
     printf(" *** AN ERRONEOUS PARSE HAPPENED\n");
 
   } else {
     fprintf(stdout, " *** DNS_MODE_UNKNOWN\n");
     if (DNSDUMP) { hexdump(response_ptr, response - response_ptr); }
-
-    if (protoq == 1) {
-      //bytes_sent = sendto(sd, response_ptr, response - response_ptr, 0, (struct sockaddr *)yclient, 16);
-      //bytes_sent = sendto(sd, response_ptr, response - response_ptr + 2, MSG_DONTWAIT, (struct sockaddr *)(&yclient), sizeof(yclient));
-      bytes_sent = sendto(sd, response_ptr, response - response_ptr + 2, MSG_DONTWAIT, (struct sockaddr *)(&yclient), 16);
-    } else {
-      //bytes_sent = sendto(sd, response_ptr, response - response_ptr, MSG_DONTWAIT, (struct sockaddr *)yclient, 16);
-      bytes_sent = sendto(sd, response_ptr, response - response_ptr, 0, (struct sockaddr *)yclient, 16);
-      //bytes_sent = sendto(sd, response_ptr, response - response_ptr, 0, (struct sockaddr *)yclient, 16);
-    }
+    bytes_sent = sendto(sd, response_ptr, response - response_ptr, 0, (struct sockaddr *)yclient, 16);
     printf(" *** AN UNKNOWN PARSE HAPPENED\n");
   }
 
@@ -1372,7 +1356,6 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
   free(rip);
   free(dns_req);
   free(response_ptr);
-  //free(yclient);
 }
 
 /* homemade substingy func */
@@ -1709,6 +1692,8 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
   script_url = malloc(URL_SIZE);
   http_response = malloc(HTTP_RESPONSE_SIZE);
   bzero(script_url, URL_SIZE);
+  //bzero(stream, HTTP_RESPONSE_SIZE);
+  //memcpy(stream, ptr, stream_size);
   
   //char *n = ( char * ) malloc( 80 * sizeof( char ) );
   char n[512];
@@ -2165,11 +2150,15 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
 
   /* ret on (hnd) is the H2 cousin of original ret used above for (ch), now temporarely commented out */
   //if (sizeof(host) > 2)
-  if (!(host == NULL) || (host == "")) {
+  //if (!(host == NULL) || !(host == "" || !(host == ".")) || !(host == "(null)")) {
+  if (sizeof(host) > 2 ) {
+    printf(" *** HOST: '%s'\n", host);
     ret = curl_easy_perform(hnd);
+    //printf(" *** CORE: ISSUED CURL REQUEST\n");
     //free(host);
     //host = NULL;
   } else {
+    //host = "";
     ret = -1;
   }
 
@@ -2177,7 +2166,7 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
   
   /* Problem in performing the http request */
   if (ret < 0) {
-      debug_msg ("Error performing HTTP request (Error %d) - spot on !!!\n");
+      //debug_msg ("Error performing HTTP request (Error %d) - spot on !!!\n");
       printf("Error performing HTTP request (Error %d) - spot on !!!\n",ret);
       curl_easy_cleanup(ch);
       free(script_url);
@@ -2196,7 +2185,7 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
       /* In BIND 8 the SOA record (minimum parameter) was used to define the zone default TTL value. */
       /* In BIND 9 the SOA 'minimum' parameter is used as the negative (NXDOMAIN) caching time (defined in RFC 2308). */
       if (DNSDUMP) {
-	printf(" *** CORE: MALFORMED DNS, possibly a SERVFAIL from origin ? ... \n");
+	//printf(" *** CORE: MALFORMED DNS, possibly a SERVFAIL from origin ? ... \n");
         printf(" *** DNS-over-HTTP server  -> %s\n", script_url);
         printf(" *** Response from libCURL -> %s\n", http_response);
       }
@@ -2283,17 +2272,19 @@ void *threadFunc(void *arg) {
     rip = lookup_host(yhostname, proxy_host_t, proxy_port_t, proxy_user_t, proxy_pass_t, lookup_script, typeq, wport);
     yhostname == NULL;
     params->xhostname->hostname == NULL;
+    //pthread_exit(NULL);
   } else {
     rip == "0.0.0.0";
     yhostname == NULL;
+    params->xhostname->hostname == NULL;
     //return;
     pthread_exit(NULL);
-    exit(EXIT_SUCCESS);
+    //exit(EXIT_SUCCESS);
   }
 
   /* PTHREAD SET SPECIFIC GLOBAL VARIABLE ... */
   pthread_setspecific(glob_var_key_ip, rip);
-  pthread_getspecific(glob_var_key_ip);
+  //pthread_getspecific(glob_var_key_ip);
   
   //printf("VARIABLE-RET-HTTP-GLOBAL: %x\n", glob_var_key_ip);
   //printf("VARIABLE-HTTP: %x\n", pthread_getspecific(glob_var_key_ip));
@@ -2309,22 +2300,24 @@ void *threadFunc(void *arg) {
     printf("THREAD-proxy-port			: %d\n", proxy_port_t);
   }
   
+  //printf("xdns_req->hostname			: %s\n",(char *)xdns_req->hostname);
+  printf("VARIABLE dns-req->hostname		: %s\n", dns_req->hostname);
+  printf("VARIABLE yhostname			: %s\n", yhostname);
+  //printf("VARIABLE xdns_req->hostname-to-char		: %s\n", (char *)(xdns_req->hostname));
+
   if ((rip != NULL) && (strncmp(rip, "0.0.0.0", 7) != 0)) {
     if (DEBUG) {
-	printf("THREAD-V-size				: %u\n", (uint32_t)request_len);
-	printf("THREAD-typeq				: %s\n", typeq);
-	printf("THREAD-dns_req->qtype			: %d\n", dns_req->qtype);
-	printf("THREAD-V-socket-Xsockfd			: %u\n", xsockfd);
-	printf("THREAD-V-socket- sockfd			: %u\n", sockfd);
-	printf("THREAD-V-xclient->sin_addr.s_addr	: %u\n", (uint32_t)(yclient->sin_addr).s_addr);
-	printf("THREAD-V-xclient->sin_port		: %u\n", (uint32_t)(yclient->sin_port));
-	printf("THREAD-V-xclient->sin_family		: %u\n", (uint32_t)(yclient->sin_family));
+	printf("THREAD qsize				: %u\n", (uint32_t)request_len);
+	printf("THREAD typeq				: %s\n", typeq);
+	printf("THREAD dns_req->qtype			: %d\n", dns_req->qtype);
+	printf("THREAD V-socket-Xsockfd			: %u\n", xsockfd);
+	printf("THREAD V-socket- sockfd			: %u\n", sockfd);
+	printf("THREAD V-xclient->sin_addr.s_addr	: %u\n", (uint32_t)(yclient->sin_addr).s_addr);
+	//printf("THREAD V-xclient->sin_port		: %u\n", (uint32_t)(yclient->sin_port));
+	//printf("THREAD V-xclient->sin_family		: %u\n", (uint32_t)(yclient->sin_family));
 
 	/*
-	printf("THREAD-V-xhostname				: %s\n", yhostname);
-	printf("THREAD-V-dns-req->hostname			: %s\n", dns_req->hostname);
-	printf("THREAD-V-xdns_req->hostname-to-char		: %s\n", (char *)(xdns_req->hostname));
-	printf("THREAD-V-xclient->sin_addr.s_addr		: %s\n",(char *)(xclient->sin_family));
+	printf("THREAD V-xclient->sin_addr.s_addr		: %s\n",(char *)(xclient->sin_family));
 	*/
     }
     build_dns_response(sockfd, yclient, xhostname, rip, DNS_MODE_ANSWER, request_len, ttl, proto);
@@ -2337,14 +2330,17 @@ void *threadFunc(void *arg) {
     build_dns_response(sockfd, yclient, xhostname, rip, DNS_MODE_ANSWER, request_len, ttl,proto);
   
   } else if ((rip == "0.0.0.0") || (strncmp(rip, "0.0.0.0", 7) == 0)) {
-    //printf(" *** Generic/unknown DNS-over-HTTP resolution problem. Contact Massimiliano Fantuzzi.\n");
-    printf(" *** ERROR: pid [%d] - name %s - host %s - size %d \r\n", getpid(), dns_req->hostname, rip, (uint32_t)request_len);
-    printf(" *** ERROR: xsockfd %d - hostname %s \r\n", xsockfd, yhostname);
+    printf(" *** ERROR: pid [%d] - dns_req->hostname %s - host (rip) %s - size %d \r\n", getpid(), dns_req->hostname, rip, (uint32_t)request_len);
+    printf(" *** ERROR: xsockfd %d - yhostname %s \r\n", xsockfd, yhostname);
     //close(sockfd);
     build_dns_response(sockfd, yclient, xhostname, rip, DNS_MODE_ERROR, request_len, ttl, proto);
+    //yhostname == NULL;
+    //params->xhostname->hostname == NULL;
+    //params->xhostname == NULL;
     /* critical section */
-    //pthread_exit(NULL);
+    pthread_exit(NULL);
     exit(EXIT_SUCCESS);
+    //return;
   }
   
   //char *s = inet_ntoa(xclient->sin_addr);
@@ -2597,10 +2593,10 @@ int main(int argc, char *argv[]) {
   struct timespec read_timeout_nano;
   /* timeval */
   read_timeout_micro.tv_sec = 3;
-  read_timeout_micro.tv_usec = 3000;
+  read_timeout_micro.tv_usec = 300;
   /* timespec */
   read_timeout_nano.tv_sec = 3;
-  read_timeout_nano.tv_nsec = 3000000;
+  read_timeout_nano.tv_nsec = 300000;
 
   /* socket() */
   sockfd = socket(AF_INET, SOCK_DGRAM, 17);
@@ -2677,27 +2673,38 @@ int main(int argc, char *argv[]) {
 
   if(pthread_mutex_init(&mutex, &MAttr)) { printf("Unable to initialize a mutex while using threads\n"); return -1; }
 
-  //fcntl(fd, F_SETFL, O_NONBLOCK);
-  fcntl(fd, F_SETFL, O_ASYNC);
-
-  //while ;; {
-  while (1) {
-
     int nnn = 0;
     uint i = 0;
-    int s, tnum, opt, stack_size, rc, t, status;
+    int rc, t, status;
     unsigned int request_len, client_len;
     unsigned int request_len_tcp, client_len_tcp;
     unsigned int new_socket_len;
-    
-    char *ip = NULL;
-    char request[UDP_DATAGRAM_SIZE + 1];
-    char request_tcp[TCP_DATAGRAM_SIZE + 1];
     
     struct dns_request *dns_req;
     struct dns_request *dns_req_tcp;
     struct sockaddr client;
     struct sockaddr client_tcp;
+
+    /* client */
+    client_len = sizeof(client);
+    client_len_tcp = sizeof(client_tcp);
+
+  //fcntl(fd, F_SETFL, O_NONBLOCK);
+  fcntl(fd, F_SETFL, O_ASYNC);
+
+    /* UDP listener */
+    fcntl(sockfd, F_SETFL, O_NONBLOCK);
+    //fcntl(sockfd, F_SETFL, FNDELAY);
+
+    /* TCP listener */
+    //fcntl(fd, F_SETFL, O_NONBLOCK);
+    fcntl(fd, F_SETFL, FNDELAY);
+
+  while (1) {
+    
+    char *ip = NULL;
+    char request[UDP_DATAGRAM_SIZE + 1];
+    char request_tcp[TCP_DATAGRAM_SIZE + 1];
 
     pthread_mutexattr_init(&MAttr);
     //pthread_mutexattr_settype(&MAttr, PTHREAD_MUTEX_ERRORCHECK);
@@ -2718,80 +2725,66 @@ int main(int argc, char *argv[]) {
     //struct thread_data data_array[NUM_THREADS];
     pthread_attr_t attr;
     pthread_attr_init(&attr);
-    pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
-    //pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
+    //pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
+    pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
     
     /* wrong ... DO NOT USE */
     //sem_wait(&mutex);
     pthread_mutex_trylock(&mutex);
     //pthread_mutex_destroy(&mutex);
 
-    /* client */
-    client_len = sizeof(client);
-    client_len_tcp = sizeof(client_tcp);
-
-    /* UDP listener */
-    fcntl(sockfd, F_SETFL, O_NONBLOCK);
-    //fcntl(sockfd, F_SETFL, FNDELAY);
     request_len = recvfrom(sockfd,request,UDP_DATAGRAM_SIZE,0,(struct sockaddr *)&client,&client_len);
-    int solt = select(2, fd, NULL, NULL, &read_timeout_micro);
-    if (solt > 0) {
-      printf(" *** sockfd -> select()\n");
-    }
+    int solt = select(sockfd+1, sockfd, NULL, NULL, &read_timeout_micro);
+    if (!(solt == -1)) { printf(" *** sockfd -> select() contains %d bytes\n",solt); }
 
-    /* TCP listener */
-    fcntl(fd, F_SETFL, O_NONBLOCK);
-    fcntl(fd, F_SETFL, FNDELAY);
-    //int new_socket = accept(int fd, struct sockaddr *serv_addr_tcp, socklen_t *addrlen);
-    //int newsockfd = accept(fd, (struct sockaddr *) &client_tcp, sizeof(client_tcp));
-    
-    int newsockfd;
-    //int sndbuf = 512;
-    //int rcvbuf = 512;
-    //int yes = 1;
+    //int sndbuf = 512; //int rcvbuf = 512; //int yes = 1;
     //setsockopt(newsockfd, SOL_SOCKET, SO_RCVBUF, &rcvbuf, sizeof(sndbuf));
     //setsockopt(newsockfd, SOL_SOCKET, SO_SNDBUF, &sndbuf, sizeof(rcvbuf));
     //setsockopt(newsockfd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int));
     
-    if (cnt == 0) {
-      newsockfd = fd;
-      flag = 1;
-      
-      request_len_tcp = recvfrom(fd,request_tcp,TCP_DATAGRAM_SIZE,MSG_DONTWAIT,(struct sockaddr *)&client_tcp,&client_len_tcp);
-      int selt = select(2, fd, NULL, NULL, &read_timeout_micro);
-      if (selt > 0) {
+    //if (cnt == 0) {
+      //newsockfd = fd;
+      //flag = 1;
+      //request_len_tcp = recvfrom(fd,request_tcp,TCP_DATAGRAM_SIZE,MSG_DONTWAIT,(struct sockaddr *)&client_tcp,&client_len_tcp);
+      //request_len_tcp = recvfrom(fd,request_tcp,TCP_DATAGRAM_SIZE,0,(struct sockaddr *)&client,&client_len);
+      /*
+      int selt = select(fd+1, fd, NULL, NULL, &read_timeout_micro);
+      if (!(selt == -1)) {
 	printf(" *** fd -> select() contains %d bytes\n",selt);
       }
-
-      //request_len_tcp = recvfrom(fd,request_tcp,TCP_DATAGRAM_SIZE,0,(struct sockaddr *)&client,&client_len);
+      */
       //cnt++;
-    } else {
-      flag = 1;
+    //} else {
+      //flag = 1;
       //setsockopt(newsockfd, SOL_SOCKET, SO_RCVTIMEO, &read_timeout, sizeof read_timeout);
-      newsockfd = accept(fd, (struct sockaddr *) &client_tcp, &client_len_tcp);
+      //newsockfd = accept(fd, (struct sockaddr *) &client_tcp, &client_len_tcp);
+      //fcntl(newsockfd, F_SETFL, O_NONBLOCK);
+      //fcntl(newsockfd, F_SETFL, O_ASYNC);
+      //setsockopt(newsockfd, SOL_SOCKET, SO_RCVTIMEO, &read_timeout_micro, sizeof read_timeout_micro);
+      
       //close(fd);
       //newsockfd = accept(fd, (struct sockaddr *) &client, &client_len);
-      fcntl(newsockfd, F_SETFL, FNDELAY);
-      fcntl(newsockfd, F_SETFL, O_NONBLOCK);
-      //fcntl(newsockfd, F_SETFL, O_ASYNC);
       //request_len_tcp = recvfrom(newsockfd,request_tcp,TCP_DATAGRAM_SIZE,MSG_WAITALL,(struct sockaddr *)&client,&client_len);
       
-      request_len_tcp = recvfrom(newsockfd,request_tcp,TCP_DATAGRAM_SIZE,MSG_WAITALL,(struct sockaddr *)&client_tcp,&client_len_tcp);
-      int selt = select(2, fd, NULL, NULL, &read_timeout_micro);
-      if (selt > 0) {
+      int silt = select(fd+1, fd, NULL, NULL, &read_timeout_micro);
+      //int newsockfd = fd;
+      int newsockfd = accept(fd, (struct sockaddr *) &client_tcp, &client_len_tcp);
+      fcntl(newsockfd, F_SETFL, FNDELAY);
+      if (!(silt == -1)) {
 	//request_len_tcp = recvfrom(fd,request_tcp,TCP_DATAGRAM_SIZE,MSG_DONTWAIT,(struct sockaddr *)&client,&client_len);
-	printf(" *** newsockfd -> select() contains %d bytes\n",selt);
+	printf(" *** newsockfd -> select() contains %d bytes\n",silt);
+        //fcntl(newsockfd, F_SETFL, O_NONBLOCK);
+    //int newsockfd;
       }
-
-      cnt++;
-      //request_len_tcp = recvfrom(newsockfd,request_tcp,TCP_DATAGRAM_SIZE,0,(struct sockaddr *)&client_tcp,&client_len_tcp);
+        request_len_tcp = recvfrom(newsockfd,request_tcp,TCP_DATAGRAM_SIZE,MSG_WAITALL,(struct sockaddr *)&client_tcp,&client_len_tcp);
+    //int new_socket = accept(int fd, struct sockaddr *serv_addr_tcp, socklen_t *addrlen);
+    //int newsockfd = accept(fd, (struct sockaddr *) &client_tcp, sizeof(client_tcp));
+      //cnt++;
       //request_len_tcp = recvfrom(newsockfd,request,TCP_DATAGRAM_SIZE,MSG_DONTWAIT,(struct sockaddr *)&client_tcp,sizeof(client_tcp));
-    }
+    //}
 
-    //fcntl(newsockfd, F_SETFL, O_NONBLOCK);
     //if ((accept(fd, (struct sockaddr *) &serv_addr, sizeof(serv_addr))) < 0) { printf("\nERROR IN INITIAL ACCEPT\n"); close(fd); } else { printf("\nNO ERROR IN INITIAL ACCEPT\n"); }
     //if ((accept(fd, (struct sockaddr *) &client, sizeof(&client))) < 0) { printf("\nERROR IN ACCEPT\n"); //close(fd); } else { printf("\nNO ERROR IN ACCEPT\n"); }
-    
     //wait(NULL);
     
     /* Child */
@@ -2802,15 +2795,14 @@ int main(int argc, char *argv[]) {
     /* Assume stack grows downward */
     stackTop = stack + STACK_SIZE;
     
-    /* Create child that has its own UTS namespace; child commences execution in childFunc() */
     /* Clone function */
+    /* Create child that has its own UTS namespace; child commences execution in childFunc() */
     /*
     pid = clone(parse_dns_request, stackTop, CLONE_NEWUTS | SIGCHLD, argv[1]);
     //pid = clone(parse_dns_request, stackTop, CLONE_VM | SIGCHLD, argv[1]);
     if (pid == -1) errExit("clone");
     printf("clone() returned %ld\n", (long) pid);
     sleep(1);           
-    //wait(NULL);
     */
     
     /* Give child time to change its hostname */
@@ -2850,39 +2842,41 @@ int main(int argc, char *argv[]) {
       struct readThreadParams *readParams = malloc(sizeof(*readParams));
       // int xproxy_port = proxy_port; char* xproxy_user = proxy_user; char* xproxy_pass = proxy_pass; char* xproxy_host = proxy_host;
 
-      //if (request_len_tcp == -1) { dns_req_tcp = parse_dns_request(request_tcp, request_len_tcp + 2, 1); flag = 1; }
       //if (dns_req == NULL) { flag = 0; } //if (dns_req_tcp == NULL) { flag = 1; } 
 
-      //if (flag == 1) {
-      //if (dns_req_tcp == -1) {
       if (request_len == -1) {
 	flag = 1;
         if (DNSDUMP) { fprintf(stderr, "QUANTITY TCP: %x - %d\n", request_tcp, request_len_tcp); }
-	if (cnt == 0) { readParams->sockfd = fd; } else { readParams->sockfd = newsockfd; }
 	if (cnt == 0) {
-	  int selt = select(2, fd, NULL, NULL, &read_timeout_micro); 
-	  printf(" *** fd -> select(), %d\n",(selt));
-	} else if (cnt > 0) {
-	  int selt = select(2, newsockfd, NULL, NULL, &read_timeout_micro); 
-	  printf(" *** newsockfd -> select(), %d\n",(selt));
+	  int selt = select(fd+1, fd, NULL, NULL, &read_timeout_micro); 
+	  if (!(selt == -1)) {
+	    printf(" *** fd -> select(), %d\n",(selt));
+	  }
+	  readParams->sockfd = fd;
+	} else {
+	  int selt = select(newsockfd+1, newsockfd, NULL, NULL, &read_timeout_micro); 
+	  //if (!(selt == -1)) {
+	  if (selt > 0) {
+	    printf(" *** newsockfd -> select(), %d\n",(selt));
+	  }
+	  readParams->sockfd = newsockfd;
 	}
-        //if ((request_len_tcp > 10)) {
-	  dns_req_tcp = parse_dns_request(request_tcp, request_len_tcp, 1);
-          dns_req_tcp->qtype == 0x01;
-          readParams->xproto = 1;
-          readParams->xclient = (struct sockaddr_in *)&client;
-          readParams->yclient = (struct sockaddr_in *)&client;
-          readParams->xrequestlen = request_len_tcp;
-          readParams->xhostname = (struct dns_request *)dns_req_tcp;
-          //readParams->xhostname = dns_req_tcp->hostname;
-          //readParams->xhostname = (struct dns_request *)dns_req;
-          //readParams->xdns_req = (struct dns_request *)&dns_req_tcp;
-	//}
+	dns_req_tcp = parse_dns_request(request_tcp, request_len_tcp, 1, 0);
+        //dns_req_tcp->qtype == 0x01;
+        readParams->xproto = 1;
+        readParams->xclient = (struct sockaddr_in *)&client;
+        readParams->yclient = (struct sockaddr_in *)&client;
+        readParams->xrequestlen = request_len_tcp;
+        readParams->xhostname = (struct dns_request *)dns_req_tcp;
+        //readParams->xhostname = dns_req_tcp->hostname;
+        //readParams->xhostname = (struct dns_request *)dns_req;
+        //readParams->xdns_req = (struct dns_request *)&dns_req_tcp;
 	cnt++;
       } else if (request_len_tcp == -1) {
 	flag = 0;
-        dns_req = parse_dns_request(request, request_len, 0);
+        dns_req = parse_dns_request(request, request_len, 0, 0);
         if (DNSDUMP) { fprintf(stderr, "QUANTITY UDP: %x - %d\n", request, request_len); }
+	cnt++;
 	cntudp++;
         readParams->sockfd = sockfd;
         readParams->xproto = 0;
@@ -2893,13 +2887,14 @@ int main(int argc, char *argv[]) {
         //readParams->xhostname = dns_req->hostname;
         //readParams->xdns_req = (struct dns_request *)&dns_req;
       } else {
-	flag = 3;
+	//flag = 3;
 	printf("flag is NULL and closing fd\n");
-	return;
+	//close(newsockfd);
+        //dns_req = parse_dns_request(request, request_len, 0, 1);
         //pthread_mutex_destroy(&mutex);
-	//continue;
         //pthread_join(pth[i],NULL);
-	//close(fd);
+	//return;
+	//continue;
       }
       //} else if (request_len_tcp == -1) {
       
@@ -2955,7 +2950,7 @@ int main(int argc, char *argv[]) {
       } else if ( flag == 3) {
 	printf("flag is NULL\n");
 	//break;
-	return;
+	//return;
         //continue;
       }
 
@@ -3010,7 +3005,7 @@ int main(int argc, char *argv[]) {
       }
 
       if (DNSDUMP) {
-        printf("dns_req_tcp->hostname, dns_req->hostname		\n: %s // %s\n", dns_req_tcp->hostname, dns_req->hostname);
+        //printf("dns_req_tcp->hostname, dns_req->hostname		\n: %s // %s\n", dns_req_tcp->hostname, dns_req->hostname);
         printf("readParams->xhostname->hostname, readParams->xhostname	\n: %s // %s\n", readParams->xhostname->hostname, readParams->xhostname);
       }
 
@@ -3026,7 +3021,7 @@ int main(int argc, char *argv[]) {
       /* Waiting stable specs for DNS-over-HTTP https://tools.ietf.org/html/draft-ietf-doh-dns-over-https-04 */
     
       /* Here just checking if any issue in creating a new THREAD ? NO issuses BTW errore means error in italian :) */
-      //errore = pthread_create(&tid[i], NULL, threadFunc, &data_array[i]);
+      //int errore = pthread_create(&tid[i], NULL, threadFunc, &data_array[i]);
       //if (i=sizeof(pth)) { i = 0 ;}
     
       if (pthread_mutex_trylock(&mutex)) {
@@ -3072,20 +3067,19 @@ int main(int argc, char *argv[]) {
           printf("OUTSIDE-THREAD-log: size %d\n",request_len);
           fprintf(stderr, " *** Finished joining thread i-> %d, nnn-> %d, r-> %d \n",i,nnn,r);
         }
-
-        printf("OUTSIDE-THREAD-log: size %d\n",request_len);
-        fprintf(stderr, " *** Finished joining thread i-> %d, nnn-> %d, r-> %d \n",i,nnn,r);
         i++;
         nnn++;
       }
     
-      if (nnn > NUMT*NUM_THREADS * 2) { wait(NULL); }
-      if (nnn < NUMT*NUM_THREADS) { wait(NULL); }
+      //if (nnn > NUMT*NUM_THREADS * 2) { wait(NULL); }
+      //if (nnn < NUMT*NUM_THREADS) { wait(NULL); }
 
-      printf("IF: Thread/process ID : %d\n", getpid());
+      printf(" *** Thread/process ID : %d\n", getpid());
       pthread_mutex_destroy(&mutex);
       //if (i != 0) { i=0;}
-      pthread_join(pth[i],NULL);
+      if (!(flag == 3)) {
+        pthread_join(pth[i],NULL);
+      }
       /* trying to re-enable this logic, continue shouldnt be before pthread_setspecific() */
       /* testing destroy after join, and before setspecific, seems right */
       pthread_attr_destroy(&attr);
