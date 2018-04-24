@@ -68,7 +68,7 @@
 /* kept for historical reasons, will not be useful in threaded model but comes back with H2 */
 #define MAXCONN          	    1
 #define UDP_DATAGRAM_SIZE	  512
-#define TCP_DATAGRAM_SIZE	 4096
+#define TCP_DATAGRAM_SIZE	  512 //4096
 #define DNSREWRITE       	  512
 #define HTTP_RESPONSE_SIZE	 4096
 #define URL_SIZE		  512
@@ -2142,7 +2142,7 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
   curl_easy_setopt(hnd, CURLOPT_WRITEDATA, http_response); /* we pass our 'chunk' struct to the callback function */ 
   curl_easy_setopt(hnd, CURLOPT_DEBUGFUNCTION, my_trace);
 
-      //snprintf(script_url, URL_SIZE-1, "%s?name=%s", lookup_script, host); // GOOGLE DNS
+  //snprintf(script_url, URL_SIZE-1, "%s?name=%s", lookup_script, host); // GOOGLE DNS
   if (DEBUG) { fprintf(stderr, " *** %s\n",n); }
 
   /* ret on (hnd) is the H2 cousin of original ret used above for (ch), now temporarely commented out */
@@ -2153,9 +2153,7 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
     printf(" *** HOST				: %s\n", host);
     ret = curl_easy_perform(hnd);
     //free(host);
-    //host = NULL;
   } else {
-    //host = "";
     printf(" *** WRONG HOST: '%s'\n", host);
     ret = -1;
   }
@@ -2298,7 +2296,6 @@ void *threadFunc(void *arg) {
   }
   
   //printf("xdns_req->hostname			: %s\n",(char *)xdns_req->hostname);
-  
   //printf("BUILD dns-req->hostname		: %s\n", dns_req->hostname);
   //printf("BUILD yhostname			: %s\n", yhostname);
 
@@ -2687,15 +2684,13 @@ int main(int argc, char *argv[]) {
   client_len = sizeof(client);
   client_len_tcp = sizeof(client_tcp);
 
-  //fcntl(fd, F_SETFL, O_NONBLOCK);
-  fcntl(fd, F_SETFL, O_ASYNC);
-
   /* UDP listener */
   fcntl(sockfd, F_SETFL, O_NONBLOCK);
   //fcntl(sockfd, F_SETFL, FNDELAY);
 
   /* TCP listener */
   fcntl(fd, F_SETFL, O_NONBLOCK);
+  //fcntl(fd, F_SETFL, O_ASYNC);
   //fcntl(fd, F_SETFL, FNDELAY);
 
   while (1) {
@@ -2735,11 +2730,6 @@ int main(int argc, char *argv[]) {
     int solt = select(sockfd+1, sockfd, NULL, NULL, &read_timeout_micro);
     if (!(solt == -1)) { printf(" *** sockfd -> select() contains %d bytes\n",solt); }
 
-    //int sndbuf = 512; //int rcvbuf = 512; //int yes = 1;
-    //setsockopt(newsockfd, SOL_SOCKET, SO_RCVBUF, &rcvbuf, sizeof(sndbuf));
-    //setsockopt(newsockfd, SOL_SOCKET, SO_SNDBUF, &sndbuf, sizeof(rcvbuf));
-    //setsockopt(newsockfd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int));
-    
     //if (cnt == 0) {
       //newsockfd = fd;
       //flag = 1;
@@ -2766,15 +2756,19 @@ int main(int argc, char *argv[]) {
       
       int silt = select(fd+1, fd, NULL, NULL, &read_timeout_micro);
       //int newsockfd = fd;
-      int newsockfd = accept(fd, (struct sockaddr *) &client_tcp, &client_len_tcp);
+      int newsockfd = accept(fd, (struct sockaddr *)&client_tcp,&client_len_tcp);
       fcntl(newsockfd, F_SETFL, FNDELAY);
+      //fcntl(newsockfd, F_SETFL, O_NONBLOCK);
+      //fcntl(fd, F_SETFL, O_ASYNC);
+      //fcntl(fd, F_SETFL, FNDELAY);
       if (!(silt == -1)) {
 	//request_len_tcp = recvfrom(fd,request_tcp,TCP_DATAGRAM_SIZE,MSG_DONTWAIT,(struct sockaddr *)&client,&client_len);
 	printf(" *** newsockfd -> select() contains %d bytes\n",silt);
         //fcntl(newsockfd, F_SETFL, O_NONBLOCK);
     //int newsockfd;
       }
-        request_len_tcp = recvfrom(newsockfd,request_tcp,TCP_DATAGRAM_SIZE,MSG_WAITALL,(struct sockaddr *)&client_tcp,&client_len_tcp);
+      request_len_tcp = recvfrom(newsockfd,request_tcp,TCP_DATAGRAM_SIZE,MSG_WAITALL,(struct sockaddr *)&client_tcp,&client_len_tcp);
+      //request_len_tcp = recvfrom(newsockfd,request_tcp,TCP_DATAGRAM_SIZE,MSG_DONTWAIT,(struct sockaddr *)&client_tcp,&client_len_tcp);
     //int new_socket = accept(int fd, struct sockaddr *serv_addr_tcp, socklen_t *addrlen);
     //int newsockfd = accept(fd, (struct sockaddr *) &client_tcp, sizeof(client_tcp));
       //cnt++;
@@ -2848,14 +2842,16 @@ int main(int argc, char *argv[]) {
 	if ((request_len_tcp == -1)) {
 	  flag = 3;
 	  /* critical section */
-	  //exit(EXIT_SUCCESS);
+	  exit(EXIT_SUCCESS);
 	}
+	
 	if (cnt == 0) {
 	  int selt = select(fd+1, fd, NULL, NULL, &read_timeout_micro); 
 	  if (!(selt == -1)) {
 	    printf(" *** fd -> select(), %d\n",(selt));
 	  }
 	  readParams->sockfd = fd;
+	  cnt++;
 	} else {
 	  int selt = select(newsockfd+1, newsockfd, NULL, NULL, &read_timeout_micro); 
 	  //if (!(selt == -1)) {
@@ -2864,11 +2860,14 @@ int main(int argc, char *argv[]) {
 	  }
 	  readParams->sockfd = newsockfd;
 	}
+
 	if ((flag != 3)) {
 	  dns_req_tcp = parse_dns_request(request_tcp, request_len_tcp, 1, 0);
 	} else {
+	  printf(" *** exiting :(\n");
 	  exit(EXIT_SUCCESS);
 	}
+	
         //dns_req_tcp->qtype == 0x01;
         readParams->xproto = 1;
         readParams->xclient = (struct sockaddr_in *)&client;
@@ -2876,7 +2875,6 @@ int main(int argc, char *argv[]) {
         readParams->xrequestlen = request_len_tcp;
         readParams->xhostname = (struct dns_request *)dns_req_tcp;
         //readParams->xhostname = dns_req_tcp->hostname;
-        //readParams->xhostname = (struct dns_request *)dns_req;
         //readParams->xdns_req = (struct dns_request *)&dns_req_tcp;
 	cnt++;
       } else if (request_len_tcp == -1) {
@@ -2900,11 +2898,8 @@ int main(int argc, char *argv[]) {
         //dns_req = parse_dns_request(request, request_len, 0, 1);
         //pthread_mutex_destroy(&mutex);
         //pthread_join(pth[i],NULL);
-	//return;
-	//continue;
       }
-      //} else if (request_len_tcp == -1) {
-      
+
       /*
       if ((dns_req == NULL) || (dns_req_tcp == NULL)) {
         //printf("BL: pid [%d] - name %s - host %s - size %d \r\n", getpid(), dns_req->hostname, ip, request_len);
@@ -2931,9 +2926,8 @@ int main(int argc, char *argv[]) {
           typeq = "A";
         } else if (dns_req_tcp->qtype == 0x0f) {
           typeq = "MX";
-        } // else { //{ dns_req->qtype == 0xff;} 
-        //}
-	if (DEBUG) {
+        } // else { { dns_req->qtype == 0xff;} }
+	if (EXT_DEBUG) {
           printf("TCP gotcha qtype: %x // %d\r\n",dns_req_tcp->qtype,dns_req_tcp->qtype); //PTR ?
           printf("TCP gotcha tid  : %x // %d\r\n",dns_req_tcp->transaction_id,dns_req_tcp->transaction_id); //PTR ?
 	}
@@ -2954,8 +2948,9 @@ int main(int argc, char *argv[]) {
           printf("TCP gotcha tid  : %x // %d\r\n",dns_req->transaction_id,dns_req->transaction_id); //PTR ?
 	}
       } else if ( flag == 3) {
-	printf("flag is NULL or equal 3\n");
         //pthread_join(pth[i],NULL);
+	printf("flag is NULL or equal 3\n");
+	flag = NULL;
 	//break;
 	return;
         //continue;
@@ -3001,6 +2996,7 @@ int main(int argc, char *argv[]) {
       //if ((!(readParams->xhostname == NULL)) || (!(readParams->xhostname->hostname == NULL))) 
       //if ((readParams->xhostname == NULL)) 
       //if ((readParams->xhostname->hostname == NULL)) 
+
       if ((dns_req->hostname == NULL) && (dns_req_tcp->hostname == NULL)) {
 	printf("met no-host condition ! fail flag: %d, count TCP: %d, count UDP: %d\n",flag,cnt,cntudp);
 	//readParams->xhostname = "www.example.com";
@@ -3050,17 +3046,18 @@ int main(int argc, char *argv[]) {
       /* USEFUL for future with QUIC support (multipath/UDP) */
       for(r=0; r < NUMT*NUM_THREADS; r++) {
       	if(0 != ret) {
-      	fprintf(stderr, "Couldn't run thread number %d, errno %d\n", i, ret);
-              //char *vvv = pthread_getspecific(glob_var_key_ip);
-              //printf("GLOBAL-FAIL-IP: %s\n", vvv);
+      	  fprintf(stderr, "Couldn't run thread number %d, errno %d\n", i, ret);
+          //char *vvv = pthread_getspecific(glob_var_key_ip);
+          //printf("GLOBAL-FAIL-IP: %s\n", vvv);
         } else {
-              //char *vvv = pthread_getspecific(glob_var_key_ip);
-              //printf("GLOBAL-SUCC-IP: %s\n", vvv);
+          //char *vvv = pthread_getspecific(glob_var_key_ip);
+          //printf("GLOBAL-SUCC-IP: %s\n", vvv);
         }
     
         /* joiing is the trick */
         pthread_join(pth[i],NULL);
         pthread_join(pth[r],NULL);
+
         //tidd = pthread_self();
         //fprintf(stderr, "self r - %d \n",pthread_self(pth[i]));
     
@@ -3085,8 +3082,11 @@ int main(int argc, char *argv[]) {
       pthread_mutex_destroy(&mutex);
       //if (i != 0) { i=0;}
       //if (!(flag == 3)) {
-        pthread_join(pth[i],NULL);
+      
+      pthread_join(pth[i],NULL);
+     
       //}
+
       /* trying to re-enable this logic, continue shouldnt be before pthread_setspecific() */
       /* testing destroy after join, and before setspecific, seems right */
       pthread_attr_destroy(&attr);
@@ -3118,7 +3118,7 @@ int main(int argc, char *argv[]) {
       pthread_mutex_lock(&mutex);
       if (pthread_mutex_unlock(&mutex)) {
           //printf("FAILED, unlock OK.. but no RET\n");
-      continue;
+	  continue;
       } else {
           printf("FAILED, unlock NOT OK.. and no RET\n");
       } 
