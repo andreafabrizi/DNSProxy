@@ -931,6 +931,7 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
       c++;
     }
 
+    /*
     //sprintf(response++,"%x",c);
     //if (DNSDUMP) { printf(" *** HEXA PRE-CONVERSION: %d\n",c); }
     for(x=c-1;x>=0;x--) {
@@ -940,10 +941,12 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
     		printf("%d",a[x]);
     	}
     	//sprintf(response++,"%x",c);
-    	/* recover this ... */
+    	// recover this
     	//response+= c;
     }
     printf("\n");
+    */
+
     // \*response++= sprintf(hex,"%x",quotient);
     
     //if (DNSDUMP) { printf(" *** HEXA POST-CONVERSION: %d\n",c); }
@@ -1019,8 +1022,8 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
       	ppch = strlen(pch);
       	*response++ = strlen(pch);
       	for (i = 0; i < strlen(pch); ++i) {
-      		*response++ = pch[i];
-      		maxim[i] = pch[i];
+      	  *response++ = pch[i];
+      	  maxim[i] = pch[i];
       	}
 
       	pch = strtok(NULL, ". ");
@@ -1048,25 +1051,24 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
 
       pch = strtok((char *)ip,". \r\n\t");
 
-      while (pch != NULL)
-      {
+      while (pch != NULL) {
       	ppch = strlen(pch);
       	*response++ = strlen(pch);
       	for (i = 0; i < strlen(pch); ++i) {
-      		*response++ = pch[i];
-      		maxim[i] = pch[i];
+      	  *response++ = pch[i];
+      	  maxim[i] = pch[i];
       	}
 
-      		pch = strtok (NULL, ". ");
+      	pch = strtok (NULL, ". ");
       	
       	if (pch == NULL) {
-      		for (i = 0; i < ppch+1; ++i) {
-      			response--;
-      		}
-                          *response++ = ppch-3;
-                          for (i = 0; i < ppch-3; ++i) {
-                      	*response++ = maxim[i];
-          	        }
+      	  for (i = 0; i < ppch+1; ++i) {
+      	    response--;
+      	  }
+          *response++ = ppch-3;
+          for (i = 0; i < ppch-3; ++i) {
+           *response++ = maxim[i];
+          }
       	}
       	
       }
@@ -1080,7 +1082,7 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
       response[1] = (strlen(ip)+3);
       response+=2;
 
-          /* PRIO (4 bytes)*/
+      /* PRIO (4 bytes)*/
       response[0] = 0x00;
       response[1] = 0x0a;
       response+=2;
@@ -1153,13 +1155,10 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
     //memcpy(response,ip,strlen(ip)-1);
     //strncpy(response,ip,strlen(ip)-1);
     
-    if (EXT_DEBUG) { printf(" *** ASSOCIATE RESPONSE TO CLIENT\n"); }
-    
     //(struct sockaddr *)xclient->sin_family = AF_INET;
     int yclient_len = sizeof(yclient);
     yclient->sin_family = AF_INET;
     //yclient->sin_addr.s_addr = inet_addr("192.168.2.84"); // initial tests, my year of birth is 1984
-    //yclient->sin_port = htons(yclient->sin_port);
     yclient->sin_port = yclient->sin_port;
     memset(&(yclient->sin_zero), 0, sizeof(yclient->sin_zero)); // zero the rest of the struct 
     //memset(yclient, 0, 0);
@@ -1340,9 +1339,9 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
     bytes_sent = sendto(sd, response_ptr, response - response_ptr, 0, (struct sockaddr *)yclient, 16);
     printf(" *** AN UNKNOWN PARSE HAPPENED\n");
     close(sd);
-    free(rip);
-    free(dns_req);
-    free(response_ptr);
+    //free(rip);
+    //free(dns_req);
+    //free(response_ptr);
   }
 
   /* DNS VOLUME calculation, UDP and TCP compatible */
@@ -2586,10 +2585,10 @@ int main(int argc, char *argv[]) {
   struct timeval read_timeout_micro;
   struct timespec read_timeout_nano;
   /* timeval */
-  read_timeout_micro.tv_sec = 1;
-  read_timeout_micro.tv_usec = 3000;
+  read_timeout_micro.tv_sec = 0;
+  read_timeout_micro.tv_usec = 300;
   /* timespec */
-  read_timeout_nano.tv_sec = 1;
+  read_timeout_nano.tv_sec = 0;
   read_timeout_nano.tv_nsec = 100000;
 
   /* socket() */
@@ -2952,7 +2951,7 @@ int main(int argc, char *argv[]) {
 	printf("flag is NULL or equal 3\n");
 	flag = NULL;
 	//break;
-	return;
+	//return;
         //continue;
       }
 
