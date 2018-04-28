@@ -587,6 +587,7 @@ struct dns_request *parse_dns_request(const char *udp_request, size_t request_le
         }
 
         udp_request++;
+
         if (dns_req->hostname_len + len >=  sizeof(dns_req->hostname)) {
 	    if (DNSDUMP) { printf(" *** CORE: size issue ! Maybe TCP ?\n"); }
             //free(dns_req);
@@ -667,10 +668,10 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
 	  //printf("base64-hostname				: %s\n", Base64encode(rr, dns_req->hostname, (uint8_t)(xrequestlen)));
   }
 
-  response = malloc (UDP_DATAGRAM_SIZE);
+  response = malloc(UDP_DATAGRAM_SIZE);
   bzero(response, UDP_DATAGRAM_SIZE);
 
-  finalresponse = malloc (TCP_DATAGRAM_SIZE);
+  finalresponse = malloc(TCP_DATAGRAM_SIZE);
   bzero(finalresponse, TCP_DATAGRAM_SIZE);
   //bzero(dns_req->query, sizeof(dns_req->query));
   //memcpy(dns_req->query, udp_request, sizeof(dns_req->query)-1);
@@ -1017,8 +1018,7 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
 
       pch = strtok((char *)ip,". \r\n\t");
 
-      while (pch != NULL)
-      {
+      while (pch != NULL) {
       	ppch = strlen(pch);
       	*response++ = strlen(pch);
       	for (i = 0; i < strlen(pch); ++i) {
@@ -1306,7 +1306,9 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
       hexdump(response_ptr, response - response_ptr);
       printf(" *** A VALID PARSE HAPPENED\n");
     }
+
     close(sd);
+
     free(rip);
     free(dns_req);
     free(response_ptr);
@@ -1330,8 +1332,8 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
     printf(" *** AN ERRONEOUS PARSE HAPPENED\n");
     close(sd);
     //free(rip);
-    //free(dns_req);
-    //free(response_ptr);
+    free(dns_req);
+    free(response_ptr);
 
   } else {
     fprintf(stdout, " *** DNS_MODE_UNKNOWN\n");
@@ -1339,9 +1341,9 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
     bytes_sent = sendto(sd, response_ptr, response - response_ptr, 0, (struct sockaddr *)yclient, 16);
     printf(" *** AN UNKNOWN PARSE HAPPENED\n");
     close(sd);
-    //free(rip);
-    //free(dns_req);
-    //free(response_ptr);
+    free(rip);
+    free(dns_req);
+    free(response_ptr);
   }
 
   /* DNS VOLUME calculation, UDP and TCP compatible */
@@ -1703,8 +1705,7 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
   snprintf(n, sizeof(n)-1, "?host=%s&type=%s", host, typeq); // CLUSTER
 
   /* Beware of bloody proxy-string, not any format accepted, CURL is gentle if failing due to proxy */
-  //snprintf(proxy_url, URL_SIZE-1, "http://%s/", proxy_host);
-  //if (proxy_host != NULL) { fprintf(stderr, "Required substring is \"%s\"\n", proxy_url); }
+  //snprintf(proxy_url, URL_SIZE-1, "http://%s/", proxy_host); //if (proxy_host != NULL) { fprintf(stderr, "Required substring is \"%s\"\n", proxy_url); }
 
   /* HTTPS DETECTION CODE ... might be better :) */
   pointer = substring(script_url, 5, 1);
@@ -1716,17 +1717,15 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
   if(result == 0) {
           wport=443;
   } else {
-          printf(" *** HTTP does NOT guarantee against MITM attacks. Consider switching to HTTPS webservice\n");
+          //printf(" *** HTTP does NOT guarantee against MITM attacks. Consider switching to HTTPS webservice\n");
           wport=80;
   }
-
   free(pointer);
 
   /* do that many transfers */ 
-  num_transfers = 1;
+  num_transfers = 1; /* a suitable low default */ 
 
   //if(!num_transfers || (num_transfers > NUM_HANDLES))
-  //num_transfers = 3; /* a suitable low default */ 
 
   /* init a multi stack */ 
   //multi_handle = curl_multi_init();
@@ -1736,15 +1735,6 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
   /* to implement sharing and locks between threads */
 
   ch = curl_easy_init();
-
-  /*
-      CURLOPT_MAXREDIRS, 2
-      CURLOPT_COOKIEJAR, "cookies.txt"
-      CURLOPT_COOKIEFILE, "cookies.txt"
-  //curl_setopt($ch, CURLOPT_COOKIE, "");
-  //curl_setopt($ch, CURLOPT_POST, 1);
-  //curl_setopt($ch, CURLOPT_POSTFIELDS, $data);
-  */
 
   /* set specific nifty options for multi handlers or none at all */
 
@@ -1912,7 +1902,6 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
   //curl_setopt($ch, CURLOPT_HTTPHEADER, ["Content-Type: application/x-www-form-urlencoded; charset=UTF-8"]); // change to DNS type
 
   //list = curl_slist_append(list, "Request URL: http://www.fantuz.net/nslookup-doh.php?host=news.google.fr.&type=A");
-  //list = curl_slist_append(list, "Request URL: http://www.fantuz.net/nslookup-doh.php");
   //list = curl_slist_append(list, "Request Method:GET");
   //list = curl_slist_append(list, "Remote Address: 217.114.216.51:443");
   //list = curl_slist_append(list, "Cache-Control:max-age=300");
@@ -2142,18 +2131,18 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
   curl_easy_setopt(hnd, CURLOPT_DEBUGFUNCTION, my_trace);
 
   //snprintf(script_url, URL_SIZE-1, "%s?name=%s", lookup_script, host); // GOOGLE DNS
-  if (DEBUG) { fprintf(stderr, " *** %s\n",n); }
+  if (DEBUG) { fprintf(stderr, " *** GET sting				%s\n",n); }
 
   /* ret on (hnd) is the H2 cousin of original ret used above for (ch), now temporarely commented out */
 
   //if (!(host == NULL) && !(host == "") && !(host == ".") && !(host == "(null)")) {
-  if (sizeof(host) > 3 ) {
   //if (!host == NULL ) {
+  if (sizeof(host) > 3 ) {
     printf(" *** HOST				: %s\n", host);
     ret = curl_easy_perform(hnd);
     //free(host);
   } else {
-    printf(" *** WRONG HOST: '%s'\n", host);
+    printf(" *** WRONG HOST:			: '%s'\n", host);
     ret = -1;
   }
 
@@ -2169,6 +2158,7 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
       //curl_slist_free_all(hosting);
       //curl_share_cleanup(curlsh);
       /*this will satisfy the client, with a SERVFAIL at least */
+      free(n);
       http_response = "0.0.0.0";
       return http_response;
   }
@@ -2178,11 +2168,10 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
       // insert error answers here, as NXDOMAIN, SERVFAIL etc
       /* In BIND 8 the SOA record (minimum parameter) was used to define the zone default TTL value. */
       /* In BIND 9 the SOA 'minimum' parameter is used as the negative (NXDOMAIN) caching time (defined in RFC 2308). */
-      //if (DNSDUMP) {
-	//printf(" *** CORE: MALFORMED DNS, possibly a SERVFAIL from origin ? ... \n");
+      if (EXT_DEBUG) {
         printf(" *** DNS-over-HTTP server  -> %s\n", script_url);
         //printf(" *** Response from libCURL -> %s\n", http_response);
-      //}
+      }
       //curl_slist_free_all(hosting);
       curl_easy_cleanup(ch);
       curl_slist_free_all(list);
@@ -2202,7 +2191,8 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
   curl_slist_free_all(list);
   //curl_slist_free_all(hosting);
   //curl_share_cleanup(curlsh);
-
+  free(hnd);
+  //free(n);
   /* contains CURL answer */
   return http_response;
 }
@@ -2850,14 +2840,15 @@ int main(int argc, char *argv[]) {
 	    printf(" *** fd -> select(), %d\n",(selt));
 	  }
 	  readParams->sockfd = fd;
-	  cnt++;
+	  //cnt++;
 	} else {
 	  int selt = select(newsockfd+1, newsockfd, NULL, NULL, &read_timeout_micro); 
-	  //if (!(selt == -1)) {
+	  //if (!(selt == -1))
 	  if (selt > 0) {
 	    printf(" *** newsockfd -> select(), %d\n",(selt));
 	  }
 	  readParams->sockfd = newsockfd;
+	  cnt++;
 	}
 
 	if ((flag != 3)) {
@@ -2880,8 +2871,7 @@ int main(int argc, char *argv[]) {
 	flag = 0;
         dns_req = parse_dns_request(request, request_len, 0, 0);
         if (DNSDUMP) { fprintf(stderr, "QUANTITY UDP: %x - %d\n", request, request_len); }
-	cnt++;
-	cntudp++;
+	//cnt++;
         readParams->sockfd = sockfd;
         readParams->xproto = 0;
         readParams->xclient = (struct sockaddr_in *)&client;
@@ -2890,13 +2880,15 @@ int main(int argc, char *argv[]) {
         readParams->xhostname = (struct dns_request *)dns_req;
         //readParams->xhostname = dns_req->hostname;
         //readParams->xdns_req = (struct dns_request *)&dns_req;
+	cntudp++;
       } else {
 	flag = 3;
 	printf("flag is NULL and closing fd\n");
-	//close(newsockfd);
+	close(newsockfd);
         //dns_req = parse_dns_request(request, request_len, 0, 1);
         //pthread_mutex_destroy(&mutex);
         //pthread_join(pth[i],NULL);
+	exit(EXIT_SUCCESS);
       }
 
       /*
@@ -3000,10 +2992,11 @@ int main(int argc, char *argv[]) {
 	printf("met no-host condition ! fail flag: %d, count TCP: %d, count UDP: %d\n",flag,cnt,cntudp);
 	//readParams->xhostname = "www.example.com";
 	//printf("new hostname: %s\n", readParams->xhostname);
-	flag == NULL;
-	return;
+	//flag == NULL;
+	flag = NULL;
+	//return;
 	//continue;
-	//break;
+	break;
       }
 
       if (DNSDUMP) {
@@ -3097,7 +3090,7 @@ int main(int argc, char *argv[]) {
       nnn++;
       // RECOVER FROM THREAD BOMB SITUATION
       if (DEBUG) { printf(" *** BIG FAULT with thread/process ID : %d\n", getpid()); }
-      if (nnn > NUM_THREADS) {wait(NULL);}
+      //if (nnn > NUM_THREADS) {wait(NULL);}
       //wait(NULL);
       //exit(EXIT_SUCCESS);
       /* sometimes you just need to take a break, or continue .. */
@@ -3113,33 +3106,29 @@ int main(int argc, char *argv[]) {
       */
     
       /* LOCKS AND MUTEXES */
+      //pthread_mutex_lock(&mutex);
       /*
-      pthread_mutex_lock(&mutex);
       if (pthread_mutex_unlock(&mutex)) {
-          //printf("FAILED, unlock OK.. but no RET\n");
+          //printf("unlock OK\n");
 	  continue;
       } else {
-          printf("FAILED, unlock NOT OK.. and no RET\n");
-      } 
+          printf("unlock NOT OK\n");
+      }
       */
     
       /* Semaphores section */
-      //sem_destroy(&mutex);
+      sem_destroy(&mutex);
     
       /* JOIN THREADS, rejoin and terminate threaded section */
       //if(pthread_join(pth[i], NULL)) {
 	//fprintf(stderr, "Finished serving client %s on socket %u \n",(struct sockaddr_in *)&client->sin_addr.s_addr,sockfd);
       //}
-      //close(newsockfd);
     
       /* LOCKS AND MUTEXES */
       pthread_mutex_destroy(&mutex);
-      /*
       // DO NOT USE
       //sem_post(&mutex); // sem_post is fun and dangerous
-      */
       
-      //pthread_exit(NULL);
       continue;
 
       //break;
