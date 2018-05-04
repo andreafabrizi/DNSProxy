@@ -9,11 +9,22 @@ An header schema for HTTP/2 client has been outlined, WIP implementation details
 On my side, no roadmaps - just the burning desire to see DoH being implemented and
  deployed. In different ways, as DOH format, as JSON and as textual formats.
 
+<<<<<<< HEAD
 ## How does it work ?
 DNS proxy listens for incoming DNS requests (A,NS,MX,TXT,SRV..) on any
 local interface chosen, on both UDP and TCP. It listens with threads, then 
 when a query comes in, it parses and start resolving such queries, by using 
 an external PHP script and standardised HTTP requests/headers (D-o-H compatible).
+=======
+The source code is hosted on [GitHub](https://github.com/andreafabrizi/DNSProxy/)
+
+## Get the code
+```
+git clone https://github.com/andreafabrizi/DNSProxy.git
+```
+
+## Build
+>>>>>>> upstream/master
 
 DNSP will take care to recreate a well-formed UDP/TCP packet in reply to client.
 
@@ -321,8 +332,12 @@ www.google.com.		3600	IN	A	173.194.64.106
 ;; MSG SIZE  rcvd: 48
 ```
 
+<<<<<<< HEAD
 If the test query works, you can safely replace the "nameserver" entries on /etc/resolv.conf
 and immediately point ALL DNS TRAFFIC towards DNSP, leveraging DOH (DNS-over-HTTP) capabilites.
+=======
+## Changelog
+>>>>>>> upstream/master
 
 To test whether nslookup-doh.php is correctly deployed and resolving, you could use **bash** (curl).
 Replace URL value in accordance with script location. Here are two that I use to check my deploys:
