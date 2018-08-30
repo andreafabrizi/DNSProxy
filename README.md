@@ -334,7 +334,7 @@ Replace URL value in accordance with script location. Here are two that I use to
 Safari/537.36" 'http://www.fantuz.net/nslookup-doh.php?host=fantuz.net&type=NS' | xxd
 
 # curl -s -H "Host: php-dns.appspot.com" -H "User-Agent:Mozilla/5.0 (Macintosh; Intel Mac OS X 10_6_8) \
-AppleWebKit/537.36 (KHTML, like Go) Chrome/42.0.2311.135 Safari/537.36" \
+AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36" \
 'http://php-dns.appspot.com/helloworld.php?host=fantuz.net&type=NS' | xxd
 ```
 
