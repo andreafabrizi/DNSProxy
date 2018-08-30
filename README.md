@@ -3,28 +3,19 @@
 ## Why DNSP ?
 A new idea in terms of transport of DNS messaging, outside of its original design.
 DNS-over-HTTP is currently being evaluated by IETF as workgroup/proposal.
-(c.f. https://tools.ietf.org/html/draft-ietf-doh-dns-over-https-05)
+(c.f. https://tools.ietf.org/html/draft-ietf-doh-dns-over-https-14)
 An header schema for HTTP/2 client has been outlined, WIP implementation details.
 
 On my side, no roadmaps - just the burning desire to see DoH being implemented and
  deployed. In different ways, as DOH format, as JSON and as textual formats.
 
-<<<<<<< HEAD
 ## How does it work ?
 DNS proxy listens for incoming DNS requests (A,NS,MX,TXT,SRV..) on any
 local interface chosen, on both UDP and TCP. It listens with threads, then 
 when a query comes in, it parses and start resolving such queries, by using 
 an external PHP script and standardised HTTP requests/headers (D-o-H compatible).
-=======
-The source code is hosted on [GitHub](https://github.com/andreafabrizi/DNSProxy/)
-
-## Get the code
-```
-git clone https://github.com/andreafabrizi/DNSProxy.git
-```
 
 ## Build
->>>>>>> upstream/master
 
 DNSP will take care to recreate a well-formed UDP/TCP packet in reply to client.
 
@@ -112,12 +103,10 @@ dnsp -H http://aremoteproxyservice/ -r 3128 -s https://www.fantuz.net/nslookup-d
 #### HTTP mode w/out caching proxies and w/out HTTPS
 ```bash
 dnsp -s http://www.fantuz.net/nslookup-doh.php
-
+```
 NB: Some parts of this "distributed cache" might be held on a CDN for a transient period.
 An intermediate cache layer is often present nowadays, unless forbidden by headers or expiry.
 Headers are your friends.
-
-```
 
 **IMPORTANT:** Please, don't use the script hosted on my server(s) as they serve as demo-only.
 They might be subject to unpredicted change, offlining, defacing.... Trust your own servers, and 
@@ -332,12 +321,10 @@ www.google.com.		3600	IN	A	173.194.64.106
 ;; MSG SIZE  rcvd: 48
 ```
 
-<<<<<<< HEAD
 If the test query works, you can safely replace the "nameserver" entries on /etc/resolv.conf
 and immediately point ALL DNS TRAFFIC towards DNSP, leveraging DOH (DNS-over-HTTP) capabilites.
-=======
+
 ## Changelog
->>>>>>> upstream/master
 
 To test whether nslookup-doh.php is correctly deployed and resolving, you could use **bash** (curl).
 Replace URL value in accordance with script location. Here are two that I use to check my deploys:
@@ -347,7 +334,7 @@ Replace URL value in accordance with script location. Here are two that I use to
 Safari/537.36" 'http://www.fantuz.net/nslookup-doh.php?host=fantuz.net&type=NS' | xxd
 
 # curl -s -H "Host: php-dns.appspot.com" -H "User-Agent:Mozilla/5.0 (Macintosh; Intel Mac OS X 10_6_8) \
-AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36" \
+AppleWebKit/537.36 (KHTML, like Go) Chrome/42.0.2311.135 Safari/537.36" \
 'http://php-dns.appspot.com/helloworld.php?host=fantuz.net&type=NS' | xxd
 ```
 
