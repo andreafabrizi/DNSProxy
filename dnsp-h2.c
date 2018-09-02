@@ -669,7 +669,6 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
   maxim = malloc (DNSREWRITE);
   bzero(maxim, DNSREWRITE);
 
-  //maxim_ptr = maxim;
   response_ptr = response;
   finalresponse_ptr = finalresponse;
 
@@ -698,17 +697,17 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
   response+=2;
 
   /*
-  	TXT, SRV, SOA, PTR, NS, MX, DS, DNSKEY, AAAA, A, unused
-  	A IPv4 host address 0x0001
-  	AAAA IPv6 host address 0x001c
-  	NS authoritative name server 0x0002
-  	CNAME alias canonical name 0x0005
-  	SOA start of zone authority 0x0006
-  	PTR Domain name pointer 0x000c
-  	HINFO host info 0x000d
-  	MINFO mailbox/mail list info 0x000e
-  	MX mail exchange 0x000f
-  	AXFR zone transfer 0x00fc 
+      TXT, SRV, SOA, PTR, NS, MX, DS, DNSKEY, AAAA, A, unused
+      A IPv4 host address 0x0001
+      AAAA IPv6 host address 0x001c
+      NS authoritative name server 0x0002
+      CNAME alias canonical name 0x0005
+      SOA start of zone authority 0x0006
+      PTR Domain name pointer 0x000c
+      HINFO host info 0x000d
+      MINFO mailbox/mail list info 0x000e
+      MX mail exchange 0x000f
+      AXFR zone transfer 0x00fc 
   */
 
   if (mode == DNS_MODE_ANSWER) {
@@ -736,16 +735,16 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
      * Being DNSP still under test, we do not care much. Nobody likes failures */
         
     /*
-     * NOERROR (RCODE:0) : DNS Query completed successfully
-     * FORMERR (RCODE:1) : DNS Query Format Error
-     * SERVFAIL (RCODE:2) : Server failed to complete the DNS request
-     * NXDOMAIN (RCODE:3) : Domain name does not exist
-     * NOTIMP (RCODE:4) : Function not implemented
-     * REFUSED (RCODE:5) : The server refused to answer for the query
-     * YXDOMAIN (RCODE:6) : Name that should not exist, does exist
-     * XRRSET (RCODE:7) : RRset that should not exist, does exist
-     * NOTAUTH (RCODE:9) : Server not authoritative for the zone
-     * NOTZONE (RCODE:10) : Name not in zone
+     * NOERROR (RCODE:0)	: DNS Query completed successfully
+     * FORMERR (RCODE:1)	: DNS Query Format Error
+     * SERVFAIL (RCODE:2)	: Server failed to complete the DNS request
+     * NXDOMAIN (RCODE:3)	: Domain name does not exist
+     * NOTIMP (RCODE:4)		: Function not implemented
+     * REFUSED (RCODE:5)	: The server refused to answer for the query
+     * YXDOMAIN (RCODE:6)	: Name that should not exist, does exist
+     * XRRSET (RCODE:7)		: RRset that should not exist, does exist
+     * NOTAUTH (RCODE:9)	: Server not authoritative for the zone
+     * NOTZONE (RCODE:10)	: Name not in zone
      * 11-15           available for assignment
      * 16    BADVERS   Bad OPT Version             
      * 16    BADSIG    TSIG Signature Failure      
@@ -765,10 +764,12 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
     response[0] = 0x81;
     response[1] = 0x82;
     response+=2;
+
     /* Questions 1 */
     response[0] = 0x00;
     response[1] = 0x01;
     response+=2;
+    
     /* Answers 0 */
     response[0] = 0x00;
     response[1] = 0x00;
@@ -780,14 +781,13 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
   }
   
   /* Authority RRs 0 */
-  /* authorities can be worked out and be present. As scope of DNSP was to 
-   * minimise answers ... this part is lagging/queued */
+  /* Scope of DNSP was to minimise answers ... this part is yet to be perfect */
   response[0] = 0x00;
   response[1] = 0x00;
   response+=2;
   
   /* Additional RRs 0 */
-  /* as authority section, same comment */
+  /* See Authority section, same comments */
   response[0] = 0x00;
   response[1] = 0x00;
   response+=2;
@@ -862,10 +862,8 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
     char hex[5];
     unsigned char buf[4];
 
-    quotient = ttl;
-
-    printf(" *** TTL SET\n");
     /* I still have issues in HEX/INT/CHAR conversions ... please help !! */
+    quotient = ttl;
     
     //while(quotient!=0) {
     while(quotient!=1) {
@@ -953,11 +951,11 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
 
     /* for a faster approach you can also flip the bits left to very first set bit and find out the 2s complement */
 
-    /* (instead of finding 1ns and then adding 1 to it) 
+    /*
+     * (instead of finding 1ns and then adding 1 to it) 
      * 1111 0011 1010 0001 toggle the bits left to first set bit
      * 0000 1100 0101 1111
-     *
-     * i expect you would like this if bit pattern is changed to binary than hex :)
+     * I expect you would like this if bit pattern is changed to binary than hex :)
     */
     
     /*
@@ -989,7 +987,7 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
     /* 0x08 - backspace \010 octal, 0x09 - horizontal tab, 0x0a - linefeed, 0x0b - vertical tab \013 octal, 0x0c - form feed, 0x0d - carriage return, 0x20 - space */ 
     
     if (DNSDUMP) {
-      printf(" *** UDP answer: response_ptr, response - response_ptr\n");
+      printf(" *** raw-answer: response_ptr, response - response_ptr\n");
       hexdump(response_ptr, response - response_ptr);
     }
 
@@ -1088,16 +1086,12 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
 
       pch = strtok((char *)ip,".\r\n\t");
       while (pch != NULL) {
-      	//maxim = NULL;
       	ppch = strlen(pch);
       	*response++ = strlen(pch);
       	for (i = 0; i < strlen(pch); ++i) {
       		*response++ = pch[i];
-      		//maxim[0] += 0x00;
       		maxim[i] = pch[i];
       	}
-      	//strcat(response, pch);
-      	// \*response++ = *maxim;
               
 	pch = strtok (NULL, ".");
       	if (pch == NULL) {
@@ -1145,12 +1139,9 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
     //memcpy(response,ip,strlen(ip)-1);
     //strncpy(response,ip,strlen(ip)-1);
     
-    //(struct sockaddr *)xclient->sin_family = AF_INET;
     int yclient_len = sizeof(yclient);
-    //yclient->sin_addr.s_addr = inet_addr("192.168.2.84"); // initial tests, my year of birth is 1984
     yclient->sin_family = AF_INET;
     yclient->sin_port = yclient->sin_port;
-    // zero the rest of the struct 
     memset(&(yclient->sin_zero), 0, sizeof(yclient->sin_zero));
     //memset(yclient, 0, 0);
 
@@ -1213,9 +1204,6 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
       
       finalresponse[0] = (uint8_t)(norm2 >> 8);
       finalresponse[1] = (uint8_t)norm2;
-      //finalresponse[0] = 0x00;
-      //finalresponse[1] = 0x35; // testing with 55 bytes responses, as for A news.infomaniak.com
-      //finalresponse+=2;
 
       /* start off 3rd byte to leave the overwritten tcp_size value intact */
       for (int i=2; i < (response - response_ptr); i++) {
@@ -1651,10 +1639,10 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
   snprintf(script_url, URL_SIZE-1, "%s?host=%s&type=%s", lookup_script, host, typeq);
   snprintf(n, sizeof(n)-1, "?host=%s&type=%s", host, typeq); // CLUSTER
 
-  /* Beware of bloody proxy-string, not any format accepted, CURL is gentle if failing due to proxy */
+  /* Beware of proxy-string, not any format accepted, CURL fails silently if unavailable .. */
   //snprintf(proxy_url, URL_SIZE-1, "http://%s/", proxy_host); //if (proxy_host != NULL) { fprintf(stderr, "Required substring is \"%s\"\n", proxy_url); }
 
-  /* HTTPS DETECTION CODE ... might be better :) */
+  /* HTTPS DETECTION PSEUDOCODE ... might be better :) */
   pointer = substring(script_url, 5, 1);
   strcpy(base, "s");
 
@@ -1698,22 +1686,21 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
   curl_multi_setopt(multi_handle, CURLMOPT_PUSHDATA, &transfers);
   */
 
-  /* placeholder for DNS-over-HTTP (doh) POST method choice, to become a CLI parameter */
+  /* placeholder for DNS-over-HTTP (DoH) POST method choice, to become a CLI option */
   //curl_setopt($ch,CURLOPT_POST,1);
   //curl_setopt($ch,CURLOPT_POSTFIELDS,'customer_id='.$cid.'&password='.$pass);
 
   //curl_setopt($ch, CURLOPT_HEADER, 1L);
   curl_easy_setopt(ch, CURLOPT_URL, script_url);
-  curl_easy_setopt(ch, CURLOPT_PORT, wport); /* 80, 443 */
+  curl_easy_setopt(ch, CURLOPT_PORT, wport);
 
   /* HTTP/2 prohibits connection-specific header fields. The following header fields must not appear */
   /* “Connection”, “Keep-Alive”, “Proxy-Connection”, “Transfer-Encoding” and “Upgrade”.*/
   /* Additionally, “TE” header field must not include any value other than “trailers”.*/
 
-  curl_easy_setopt(ch, CURLOPT_HTTP_VERSION, (long)CURL_HTTP_VERSION_2TLS);
+  //curl_easy_setopt(ch, CURLOPT_HTTP_VERSION, (long)CURL_HTTP_VERSION_2TLS);
   //curl_easy_setopt(ch, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_2_0);
-  //curl_easy_setopt(ch, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_2TLS);
-  //curl_easy_setopt(ch, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_2_PRIOR_KNOWLEDGE);
+  curl_easy_setopt(ch, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_2_PRIOR_KNOWLEDGE);
   //curl_easy_setopt(ch, CURLOPT_SSL_ENABLE_ALPN, 1L);
   curl_easy_setopt(ch, CURLOPT_SSL_ENABLE_NPN, 1L);
   //curl_easy_setopt(ch, CURLOPT_SSLVERSION, CURL_SSLVERSION_TLSv1_2);
@@ -1735,26 +1722,24 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
       curl_easy_setopt(ch, CURLOPT_PROXYPASSWORD, proxy_pass);
   }
 
-  //curl_easy_setopt(ch, CURLOPT_MAXCONNECTS, MAXCONN);
-  //curl_easy_setopt(ch, CURLOPT_FRESH_CONNECT, 0);
-  //curl_easy_setopt(ch, CURLOPT_FORBID_REUSE, 0);
-  //curl_setopt($curl, CURLOPT_AUTOREFERER, 1);
+  //curl_easy_setopt(ch, CURLOPT_MAXCONNECTS, MAXCONN); //curl_easy_setopt(ch, CURLOPT_FRESH_CONNECT, 0);
+  //curl_easy_setopt(ch, CURLOPT_FORBID_REUSE, 0); //curl_setopt($curl, CURLOPT_AUTOREFERER, 1);
 
   /* send all data to this function */
-  //curl_easy_setopt(ch, CURLOPT_WRITEFUNCTION, WriteMemoryCallback);
   curl_easy_setopt(ch, CURLOPT_WRITEFUNCTION, write_data);
+  //curl_easy_setopt(ch, CURLOPT_WRITEFUNCTION, WriteMemoryCallback);
 
   /* we pass our 'chunk' struct to the callback function */ 
-  //curl_easy_setopt(ch, CURLOPT_WRITEDATA, (void *)&chunk);
   curl_easy_setopt(ch, CURLOPT_WRITEDATA, http_response);
+  //curl_easy_setopt(ch, CURLOPT_WRITEDATA, (void *)&chunk);
   
   //curl_easy_setopt(ch, CURLOPT_DEBUGFUNCTION, my_trace);
   
   /* cache with HTTP/1.1 304 "Not Modified" */
   // https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Cache-Control
 
-  // REQUEST
   /*
+   * REQUEST
   Cache-Control: max-age=<seconds>
   Cache-Control: max-stale[=<seconds>]
   Cache-Control: min-fresh=<seconds>
@@ -1762,10 +1747,7 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
   Cache-Control: no-store
   Cache-Control: no-transform
   Cache-Control: only-if-cached
-  */
-
-  // RESPONSE
-  /*
+   *  RESPONSE
   Cache-Control: must-revalidate
   Cache-Control: no-cache
   Cache-Control: no-store
@@ -1775,18 +1757,14 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
   Cache-Control: proxy-revalidate
   Cache-Control: max-age=<seconds>
   Cache-Control: s-maxage=<seconds>
-  */
-  // NON-STANDARD
-  /*
+   * NON-STANDARD
   Cache-Control: immutable 
   Cache-Control: stale-while-revalidate=<seconds>
   Cache-Control: stale-if-error=<seconds>
   */
 
-  /* H1 */
   // Cache-Control: public, max-age=276, s-maxage=276
   // Cache-control: public, max-age=276, s-maxage=276
-  /* H2 */
   // cache-control: public, max-age=299, s-maxage=299
 
   /* set curlopt --> FOLLOW-LOCATION, necessary if getting 301 "Moved Permanently" */
@@ -1837,9 +1815,7 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
   // in the form of CLI --resolve my.site.com:80:1.2.3.4, -H "Host: my.site.com"
 
   /* OPTIONAL HEADERS, set with curl_slist_append */
-
-  //list = curl_slist_append(list, "user-agent: nghttp2/1.21.90");
-  //list = curl_slist_append(list, "User-Agent: curl/7.59.0-DEV");
+  //list = curl_slist_append(list, "User-Agent: dnsproxy/2");
 
   //hosting = curl_slist_append(hosting, "www.fantuz.net:80:217.114.216.51");
   //curl_easy_setopt(ch, CURLOPT_RESOLVE, hosting);
@@ -1867,7 +1843,6 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
   
   /* 
    * #echo | openssl s_client -showcerts -servername php-dns.appspot.com -connect php-dns.appspot.com:443 2>/dev/null | openssl x509 -inform pem -noout -text
-   * #echo | openssl s_client -showcerts -servername dns.google.com -connect dns.google.com:443 2>/dev/null | openssl x509 -inform pem -noout -text
    *
    * #curl --http2 -I 'https://www.fantuz.net/nslookup.php?name=google.it'
    * HTTP/2 200 
@@ -2057,8 +2032,8 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
   curl_easy_setopt(hnd, CURLOPT_USERAGENT, "curl/7.59.0-DEV");
   curl_easy_setopt(hnd, CURLOPT_MAXREDIRS, 2L); /* delegation, RD bit set ? default 50 */
 
-  //curl_easy_setopt(hnd, CURLOPT_HTTP_VERSION, (long)CURL_HTTP_VERSION_2TLS);
-  curl_easy_setopt(hnd, CURLOPT_HTTP_VERSION, (long)CURL_HTTP_VERSION_2_PRIOR_KNOWLEDGE);
+  curl_easy_setopt(hnd, CURLOPT_HTTP_VERSION, (long)CURL_HTTP_VERSION_2TLS);
+  //curl_easy_setopt(hnd, CURLOPT_HTTP_VERSION, (long)CURL_HTTP_VERSION_2_PRIOR_KNOWLEDGE);
   curl_easy_setopt(hnd, CURLOPT_SSL_ENABLE_ALPN, 1L);
   curl_easy_setopt(hnd, CURLOPT_SSL_ENABLE_NPN, 1L);
   curl_easy_setopt(hnd, CURLOPT_SSL_VERIFYPEER, 2L);
@@ -2083,9 +2058,8 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
   /* ret on (hnd) is the H2 cousin of original ret used above for (ch), now temporarely commented out */
 
   //if (!(host == NULL) && !(host == "") && !(host == ".") && !(host == "(null)")) {
-  //if (!host == NULL ) {
   if (sizeof(host) > 3 ) {
-    printf(" *** HOST				: %s\n", host);
+    //printf(" *** HOST				: %s\n", host);
     ret = curl_easy_perform(hnd);
     //free(host);
   } else {
@@ -2105,13 +2079,12 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
       //curl_slist_free_all(hosting);
       //curl_share_cleanup(curlsh);
 
-      /*this will satisfy the client, with a SERVFAIL at least */
       free(n);
       http_response = "0.0.0.0";
       return http_response;
   }
  
-  /* Can't resolve host or packet too big (up to 4096 in UDP and 65595 in TCP) */
+  /* Can't resolve host or packet too big (up to 4096 in UDP and 65535 in TCP) */
   if ((strlen(http_response) > 512) || (strncmp(http_response, "0.0.0.0", 7) == 0)) {
       // insert error answers here, as NXDOMAIN, SERVFAIL etc
       /* In BIND 8 the SOA record (minimum parameter) was used to define the zone default TTL value. */
@@ -2124,7 +2097,6 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
       curl_easy_cleanup(ch);
       curl_slist_free_all(list);
       //curl_share_cleanup(curlsh);
-      /* this will satisfy the client, with a SERVFAIL at least */
       http_response = "0.0.0.0";
       return http_response;
   }
@@ -2147,10 +2119,7 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
 /* This is our thread function.  It is like main() but for a thread */
 void *threadFunc(void *arg) {
   struct readThreadParams *params = (struct readThreadParams*)arg;
-  
-  //struct dns_request *xdns_req = (struct dns_request *)params->xhostname;
   struct sockaddr_in *yclient = (struct sockaddr_in *)params->yclient;
-  //struct sockaddr_in *xclient = (struct sockaddr_in *)params->xclient;
   struct dns_request *dns_req = malloc(sizeof(struct dns_request));
   struct dns_request *xhostname = (struct dns_request *)params->xhostname;
   size_t request_len = params->xrequestlen;
@@ -2262,10 +2231,8 @@ void *threadFunc(void *arg) {
     printf(" *** ERROR: xsockfd %d - yhostname %s \r\n", xsockfd, yhostname);
     build_dns_response(sockfd, yclient, xhostname, rip, DNS_MODE_ERROR, request_len, ttl, proto);
     close(sockfd);
-    //yhostname == NULL;
     params->xhostname->hostname == NULL;
     //params->xhostname == NULL;
-    /* critical section */
     //pthread_exit(NULL);
     exit(EXIT_SUCCESS);
     //return;
@@ -2286,7 +2253,6 @@ void *threadFunc(void *arg) {
     if (EXT_DEBUG) { printf("destroy NOT-OK\n"); }
   }
   
-  /* critical section, quit the thread, thread-bomb situation here */
   //pthread_exit(NULL);
   exit(EXIT_SUCCESS);
 }
@@ -2670,7 +2636,6 @@ int main(int argc, char *argv[]) {
     if (!(solt == -1)) { printf(" *** sockfd -> select() contains %d bytes\n",solt); }
 
     //if (cnt == 0) {
-      //newsockfd = fd;
       //flag = 1;
       //request_len_tcp = recvfrom(fd,request_tcp,TCP_DATAGRAM_SIZE,MSG_DONTWAIT,(struct sockaddr *)&client_tcp,&client_len_tcp);
       /*
@@ -2692,24 +2657,20 @@ int main(int argc, char *argv[]) {
       //newsockfd = accept(fd, (struct sockaddr *) &client, &client_len);
       //request_len_tcp = recvfrom(newsockfd,request_tcp,TCP_DATAGRAM_SIZE,MSG_WAITALL,(struct sockaddr *)&client,&client_len);
       
-      // BUG
+    // BUG
     int silt = select(fd, fd, NULL, NULL, &read_timeout_micro);
-      //int silt = select(fd+1, fd, NULL, NULL, &read_timeout_micro);
+    //int silt = select(fd+1, fd, NULL, NULL, &read_timeout_micro);
       
-      //int newsockfd = fd;
     int newsockfd = accept(fd, (struct sockaddr *)&client_tcp,&client_len_tcp);
     fcntl(newsockfd, F_SETFL, FNDELAY);
       //fcntl(newsockfd, F_SETFL, O_NONBLOCK); //fcntl(fd, F_SETFL, O_ASYNC); //fcntl(fd, F_SETFL, FNDELAY);
     if (!(silt == -1)) {
 	printf(" *** newsockfd -> select() contains %d bytes\n",silt);
         //fcntl(newsockfd, F_SETFL, O_NONBLOCK);
-    //int newsockfd;
     }
     request_len_tcp = recvfrom(newsockfd,request_tcp,TCP_DATAGRAM_SIZE,MSG_WAITALL,(struct sockaddr *)&client_tcp,&client_len_tcp);
     //request_len_tcp = recvfrom(newsockfd,request_tcp,TCP_DATAGRAM_SIZE,MSG_DONTWAIT,(struct sockaddr *)&client_tcp,&client_len_tcp);
     cnt++;
-    //int new_socket = accept(int fd, struct sockaddr *serv_addr_tcp, socklen_t *addrlen);
-    //int newsockfd = accept(fd, (struct sockaddr *) &client_tcp, sizeof(client_tcp));
     //}
 
     //if ((accept(fd, (struct sockaddr *) &serv_addr, sizeof(serv_addr))) < 0) { printf("\nERROR IN INITIAL ACCEPT\n"); close(fd); } else { printf("\nNO ERROR IN INITIAL ACCEPT\n"); }
