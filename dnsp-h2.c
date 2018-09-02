@@ -61,14 +61,11 @@
 
 /* Stack size for cloned child */
 #define STACK_SIZE (1024 * 1024)    
-/* DELAY for CURL to wait ? do not remember, needs documentation */
-#define DELAY		    0
-
 /* how can it be influenced, this CURL MAXCONN parameter ? */
 /* kept for historical reasons, will not be useful in threaded model but comes back with H2 */
 #define MAXCONN          	    1
 #define UDP_DATAGRAM_SIZE	  512
-#define TCP_DATAGRAM_SIZE	  512 //4096
+#define TCP_DATAGRAM_SIZE	  512
 #define DNSREWRITE       	  512
 #define HTTP_RESPONSE_SIZE	 4096
 #define URL_SIZE		  512
@@ -84,9 +81,10 @@
 #define NUM_THREADS		    1
 #define NUM_HANDLER_THREADS	    1
 
-/* use nghttp2 library to establish, no ALPN/NPN */
-/* CURL is not enough, you need builting NGHTTP2 support */
+/* use nghttp2 library to establish, no ALPN/NPN. CURL is not enough, you need builting NGHTTP2 support */
 #define USE_NGHTTP2		    1
+/* DELAY for CURL to wait ? do not remember, needs documentation */
+#define DELAY		    0
 
 #define STR_SIZE 65536
 
@@ -245,14 +243,12 @@ struct readThreadParams {
     int xttl;
     int sockfd;
     int xsockfd;
-    //int digit;
-    //char* input;
     struct dns_request *xhostname;
     struct sockaddr_in *xclient;
     struct sockaddr_in *yclient;
     struct dns_request *xproto;
-    //struct dns_request *xdns_req;
     struct dns_request *dns_req;
+    //struct dns_request *xdns_req;
 };
 
 struct thread_info {    	/* Used as argument to thread_start() */
@@ -1025,7 +1021,6 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
       	}
 
       	pch = strtok(NULL, ". ");
-      	
       	//if (pch != ' ' && pch != '\t' && pch != NULL)
       	//if (pch == ' ' || pch == '\t' || pch == NULL || pch == '\n' || pch == '\r')
       	if (pch == NULL) {
@@ -1038,7 +1033,6 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
           }
       	}
       }
-
       *response++ = 0x00;
 
     } else if (dns_req->qtype == 0x05) {
@@ -1070,7 +1064,6 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
       	}
       	
       }
-
       *response++ = 0x00;
 
     } else if (dns_req->qtype == 0x0f) {
@@ -1117,7 +1110,6 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
           }
       	}
       }
-
       *response++ = 0x00;
     	
     } else if (dns_req->qtype == 0x01) {
@@ -1144,7 +1136,7 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
 
       response+=4;
       
-      } else {
+    } else {
       fprintf(stdout, " *** DNS_MODE_ISSUE, no headers to parse !\n");
       return;
     }
@@ -1155,10 +1147,11 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
     
     //(struct sockaddr *)xclient->sin_family = AF_INET;
     int yclient_len = sizeof(yclient);
-    yclient->sin_family = AF_INET;
     //yclient->sin_addr.s_addr = inet_addr("192.168.2.84"); // initial tests, my year of birth is 1984
+    yclient->sin_family = AF_INET;
     yclient->sin_port = yclient->sin_port;
-    memset(&(yclient->sin_zero), 0, sizeof(yclient->sin_zero)); // zero the rest of the struct 
+    // zero the rest of the struct 
+    memset(&(yclient->sin_zero), 0, sizeof(yclient->sin_zero));
     //memset(yclient, 0, 0);
 
     /* save HEX packet structure to file, i.e. for feeding caches, or directly serve HTTP content from the same daemon */
@@ -1211,16 +1204,9 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
     fclose(fout);
     */
 
-    /* TCP length header re-stamp */
+    /* TCP / DNS packet length 'header' re-stamp */
     if (protoq == 1) {
       int resulttt = NULL;
-
-      //finalresponse[0] = (uint8_t)(sizeof(&response) >> 8);
-      //finalresponse[0] = (uint8_t)(yclient_len >> 8);
-      //finalresponse[0] = (uint8_t)((sizeof(response) - sizeof(response_ptr)) >> 8);
-      //finalresponse[0] = (uint8_t)(sizeof(yclient) >> 8);
-      //finalresponse+=sizeof(response_ptr);
-      //finalresponse+=2;
 
       int norm2 = (response - response_ptr);
       if (DNSDUMP) { printf(" *** BYTES in norm2 -> %d\n",norm2); }
@@ -1240,9 +1226,6 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
 
       finalresponse+=(response-response_ptr);
       
-      //response = finalresponse;
-      //response_ptr = finalresponse_ptr;
-
       /*
       if (DNSDUMP) { 
 	printf(" *** finalresponse_ptr, response - response_ptr\n");
@@ -1314,7 +1297,6 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
   //fdatasync(sd);
 
   //flag = NULL;
-  
   //close(sd);
   //free(rip);
   //free(dns_req);
@@ -1513,7 +1495,9 @@ static int my_trace(CURL *handle, curl_infotype type, char *data, size_t size, v
     	tofree = str = strdup(my_str_literal);  // We own str's memory now.
     	while ((token = strsep(&str, ","))) printf(" ----> %s\n",token);
     	free(tofree);
-    	//printf(" -> %s", data);
+    	
+	//printf(" -> %s", data);
+	
 	/*
     	tokens = str_split(data, ',');
     	if (tokens != NULL)
@@ -2171,8 +2155,6 @@ void *threadFunc(void *arg) {
   struct dns_request *xhostname = (struct dns_request *)params->xhostname;
   size_t request_len = params->xrequestlen;
   //char *str;
-  //int test = params->digit;
-  //char* data = params->input;
   
   int wport = params->xwport, ret;
   
@@ -2837,7 +2819,7 @@ int main(int argc, char *argv[]) {
         readParams->xhostname = (struct dns_request *)dns_req_tcp;
         //readParams->xhostname = dns_req_tcp->hostname;
         //readParams->xdns_req = (struct dns_request *)&dns_req_tcp;
-	//cnt++;
+	cnt++;
       } else if (request_len_tcp == -1) {
 	flag = 0;
         dns_req = parse_dns_request(request, request_len, 0, 0);
@@ -2889,7 +2871,8 @@ int main(int argc, char *argv[]) {
           typeq = "A";
         } else if (dns_req_tcp->qtype == 0x0f) {
           typeq = "MX";
-        } // else { { dns_req->qtype == 0xff;} }
+        }
+	// else { { dns_req->qtype == 0xff;} }
 	if (EXT_DEBUG) {
           printf("TCP gotcha qtype: %x // %d\r\n",dns_req_tcp->qtype,dns_req_tcp->qtype); //PTR ?
           printf("TCP gotcha Tid  : %x // %d\r\n",dns_req_tcp->transaction_id,dns_req_tcp->transaction_id); //PTR ?
@@ -2974,8 +2957,6 @@ int main(int argc, char *argv[]) {
         //printf("readParams->xhostname			: %s\n", readParams->xhostname);
       }
 
-      //readParams->input = str;
-      //readParams->digit = test;
       //free(out_array);
     
       /* LEFT FOR HOUSEKEEPING: thread retuns if needed */
