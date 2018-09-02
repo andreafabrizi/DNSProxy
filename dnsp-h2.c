@@ -687,9 +687,11 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
   if (protoq == 1) {
     if (DNSDUMP) { printf(" *** TCP HEADER ON DNS WIRE PACKET: read tcp_size		: %d\n",(uint8_t)(dns_req->tcp_size)); }
     if (DNSDUMP) { printf(" *** TCP HEADER ON DNS WIRE PACKET: read dns_req		: %d\n",(uint8_t)(sizeof(dns_req) - 2)); }
-    int norm = (dns_req->tcp_size + finalresponse - finalresponse_ptr);
+    //int norm = (finalresponse - finalresponse_ptr);
+    int norm = (dns_req->tcp_size + finalresponse - finalresponse_ptr - 2);
     //response[0] = 0x00;
     //response[1] = 0x35; // testing with 55 bytes responses, as for A news.infomaniak.com
+    printf(" *** VALUE OF norm -> %d\n", norm);
     response[0] = (uint8_t)(norm >> 8);
     response[1] = (uint8_t)norm;
     //response[0] = (uint8_t)(dns_req->tcp_size >> 8);
@@ -870,7 +872,7 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
 
     quotient = ttl;
 
-    //printf(" *** TTL SET\n");
+    printf(" *** TTL SET\n");
     /* I still have issues in HEX/INT/CHAR conversions ... please help !! */
     
     //while(quotient!=0) {
@@ -887,7 +889,7 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
 
       quotient = quotient / 16;
 
-      if (EXT_DEBUG) { printf("\tTemp    : %u, %2x\n",temp,temp); }
+      if (DNSDUMP) { printf("\tTemp    : %u, %2x\n",temp,temp); }
       
       //sprintf(response++,"%x",temp);
 
@@ -899,7 +901,7 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
       //*response++ = temp;
       //response+=1;
       
-      if (EXT_DEBUG) { printf("\tQuotient: %u, %2x\n",quotient,quotient); }
+      if (DNSDUMP) { printf("\tQuotient: %u, %2x\n",quotient,quotient); }
       
       //hex[i++]= temp;
       //printf("QQQ: %x",temp);
@@ -995,7 +997,7 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
     /* 0x08 - backspace \010 octal, 0x09 - horizontal tab, 0x0a - linefeed, 0x0b - vertical tab \013 octal, 0x0c - form feed, 0x0d - carriage return, 0x20 - space */ 
     
     if (DNSDUMP) {
-      printf(" *** before answer: response_ptr, response - response_ptr + 2\n");
+      printf(" *** UDP answer: response_ptr, response - response_ptr\n");
       hexdump(response_ptr, response - response_ptr);
     }
 
@@ -1215,9 +1217,8 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
 
     /* TCP length header re-stamp */
     if (protoq == 1) {
-      int resulttt = 0;
-      int resulqqq = 0;
-      int resultq = 0;
+      int resulttt = NULL;
+      //int resulttt = (dns_req->tcp_size + sizeof(response_ptr) - 3);
 
       //finalresponse[0] = (uint8_t)(sizeof(&response) >> 8);
       //finalresponse[0] = (uint8_t)(yclient_len >> 8);
@@ -1226,10 +1227,11 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
       //finalresponse+=sizeof(response_ptr);
       //finalresponse+=2;
 
-      /* experimental fix to allow testing autosize TCP */
-      int norm2 = (dns_req->tcp_size + sizeof(response_ptr) - 1);
-      if (DNSDUMP) { printf("%d artificial bytes\n",norm2); }
-      //int norm2 = (dns_req->tcp_size + finalresponse - finalresponse_ptr + sizeof(response_ptr));
+      //int norm2 = (sizeof(response_ptr) - 1);
+      int norm2 = (dns_req->tcp_size + sizeof(response_ptr) - 3);
+
+      if (DNSDUMP) { printf(" *** BYTES IN norm2 -> %d\n",norm2); }
+      
       finalresponse[0] = (uint8_t)(norm2 >> 8);
       finalresponse[1] = (uint8_t)norm2;
       //finalresponse[0] = 0x00;
@@ -1246,36 +1248,13 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
       //finalresponse+=2;
 
       /* start off 3rd byte to leave the overwritten tcp_size value intact */
-      for (int i=2; i< sizeof(response_ptr); i++) {
+      for (int i=2; i < (response - response_ptr); i++) {
           resulttt <<= 8;
           resulttt |= response_ptr[i];
-          //resulttt |= response_ptr[i];
-          finalresponse[i] = resulttt;
+          finalresponse_ptr[i]+= resulttt;
           //*finalresponse++ = resulttt;
-          resulqqq++;
-          //finalresponse+=sizeof(resulttt);
       }
       
-      //finalresponse+=sizeof(resulqqq);
-      finalresponse+=resulqqq;
-      
-      /*
-      for (int t=2; i< (sizeof(dns_req->qtype) + 2); t++) {
-          resulttt <<= 8;
-          resulttt |= response_ptr[t];
-          finalresponse[t] = resulttt;
-          *finalresponse++ = resulttt;
-          resultq++;
-          //finalresponse+=sizeof(resulttt);
-      }
-      */
-      
-      //finalresponse+=sizeof(resulqqq);
-
-      //finalresponse+=sizeof(resultq);
-      //finalresponse+=resulqqq;
-      //finalresponse+=sizeof(yclient);
-
       //finalresponse+=sizeof(response_ptr)+2;
       //*finalresponse++ = &response_ptr;
 
@@ -1284,27 +1263,34 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
       //*finalresponse++ = &response;
       //finalresponse += sizeof(response);
       
+      //*finalresponse++ = response_ptr;
       //*finalresponse++ = &response_ptr;
       //finalresponse += sizeof(&response - &response_ptr);
 
       if (DNSDUMP) { 
         printf(" *** finalresponse_ptr, finalresponse - finalresponse_ptr\n");
         hexdump(finalresponse_ptr, finalresponse - finalresponse_ptr);
+        printf(" *** TCP SENT %d bytes of finalresponse (not including +2 for TCP)\n", finalresponse - finalresponse_ptr);
+
+        printf(" *** response_ptr, response - response_ptr\n");
+        hexdump(response_ptr, response - response_ptr);
+        printf(" *** TCP SENT %d bytes of response (not including +2 for TCP)\n", response - response_ptr);
+
         printf(" *** finalresponse_ptr, response - response_ptr\n");
         hexdump(finalresponse_ptr, response - response_ptr);
-        printf("SENT %d bytes of TCP finalresponse\n\n", finalresponse - finalresponse_ptr);
-        printf("SENT %d bytes of TCP response (including +2)\n", response - response_ptr);
+	printf(" *** TCP SENT %d bytes of finalresponse\n\n", finalresponse - finalresponse_ptr);
+
+        hexdump(finalresponse_ptr, sizeof(finalresponse_ptr));
       }
     }
 
-    /* send back onto the same socket. we allow for independent threds, see other notes about the topic */
+    /* send back onto the same socket */
     bytes_sent = sendto(sd, response_ptr, response - response_ptr, MSG_DONTWAIT, (struct sockaddr *)yclient, 16);
 
     /* dump to udpwireformat */
     if (DNSDUMP) {
-      printf(" *** response_ptr, response - response_ptr\n"); 
+      printf(" *** DUMP OF response_ptr, OF LENGTH OF response - response_ptr\n"); 
       hexdump(response_ptr, response - response_ptr);
-      printf(" *** A VALID PARSE HAPPENED\n");
     }
 
     close(sd);
@@ -1347,7 +1333,8 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
   }
 
   /* DNS VOLUME calculation, UDP and TCP compatible */
-  if (DEBUG) { printf("SENT %d bytes\n", (uint32_t)bytes_sent); }
+  //if (DEBUG) { printf(" *** SENT %d bytes\n", (uint32_t)bytes_sent); }
+  if (DNSDUMP) { printf(" *** SENT %d bytes\n", (uint32_t)bytes_sent); }
   
   /* that sync/datasync slows down, and honestly is not needed when having no disk access or very very big sockets/queues .. */
   //fdatasync(sd);
@@ -1532,7 +1519,6 @@ static int my_trace(CURL *handle, curl_infotype type, char *data, size_t size, v
     break;
   case CURLINFO_HEADER_IN:
     text = "<= Recv header";
-    printf("-----\n");
     /* Parsing header as tokens, find "cache-control" and extract TTL validity */
     //char** tokens;
     char *compare;
@@ -1543,6 +1529,7 @@ static int my_trace(CURL *handle, curl_infotype type, char *data, size_t size, v
     //dump(text, num, (unsigned char *)data, size, 1);
 
     if(cacheheaderfound == 0) {
+    	printf("-----\n");
     	dump(text, num, (unsigned char *)data, size, 0);
      
     	/* More general pattern */
@@ -2350,6 +2337,7 @@ int main(int argc, char *argv[]) {
   int sockfd, fd, port = DEFAULT_LOCAL_PORT, wport = DEFAULT_WEB_PORT, proxy_port = 0, c;
   int r = 0;
   int ttl_in;
+  //int ttl_in = NULL;
   char *stack;            /* Start of stack buffer */
   char *stackTop;         /* End of stack buffer */
   pid_t pid;
