@@ -57,13 +57,11 @@
 
 #define errExit(msg)		do { perror(msg); exit(EXIT_FAILURE); } while (0)
 #define handle_error(msg)	do { perror(msg); exit(EXIT_FAILURE); } while (0)
-#define VERSION           "2.1"
+#define VERSION           "2.2"
 
 /* Stack size for cloned child */
 #define STACK_SIZE (1024 * 1024)    
-/* how can it be influenced, this CURL MAXCONN parameter ? */
-/* kept for historical reasons, will not be useful in threaded model but comes back with H2 */
-#define MAXCONN          	    1
+#define MAXCONN          	    2
 #define UDP_DATAGRAM_SIZE	  512
 #define TCP_DATAGRAM_SIZE	  512
 #define DNSREWRITE       	  512
@@ -74,11 +72,11 @@
 #define TYPEQ		    	    2
 #define DEFAULT_LOCAL_PORT	   53
 #define DEFAULT_WEB_PORT 	   80
-#define DEFAULT_PRX_PORT 	 1080
+#define DEFAULT_PRX_PORT 	 1080 // 9050, 8080
 
 /* experimental options for threaded model, not in use at the moment */
 #define NUMT			        1
-#define NUM_THREADS		        1
+#define NUM_THREADS		        2
 #define NUM_HANDLER_THREADS	    1
 
 /* use nghttp2 library to establish, no ALPN/NPN. CURL is not enough, you need builting NGHTTP2 support */
@@ -117,7 +115,7 @@
 #define NUM_HANDLES 4
 #define OUTPUTFILE "dl"
 
-int DEBUG, DNSDUMP, DEBUGCURL, EXT_DEBUG;
+int DEBUG, DNSDUMP, DEBUGCURL, EXT_DEBUG, CNT_DEBUG, THR_DEBUG;
 char* substring(char*, int, int);
 
 static char encoding_table[] = {'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H',
@@ -439,35 +437,39 @@ static void *hexdump(void *mem, unsigned int len) {
 //};
 
 void usage(void) {
-    fprintf(stderr, "\n dnsp %s, copyright @ 2018 Massimiliano Fantuzzi, MIT License\n\n"
+    fprintf(stderr, "\n dnsp-h2 %s, copyright 2018 @ Massimiliano Fantuzzi HB9GUS, MIT License\n\n"
                        " usage: dnsp-h2 [-l [local_host]] [-p [local_port:53,5353,..]] [-H [proxy_host]] [-r [proxy_port:8118,8888,3128,9500..]] \n"
 		       "\t\t [-w [lookup_port:80,443,..]] [-s [lookup_script]]\n\n"
                        " OPTIONS:\n"
                        "      -l\t\t Local server address	(optional)\n"
-                       "      -p\t\t Local server port	(optional, defaults to 53)\n"
-                       "      -H\t\t Cache proxy address	(strongly suggested)\n"
-                       "      -r\t\t Cache proxy port	(strongly suggested)\n"
+                       "      -p\t\t Local server port	(defaults to 53)\n"
+                       "      -H\t\t Cache proxy address	(suggested)\n"
+                       "      -r\t\t Cache proxy port	(suggested)\n"
                        "      -u\t\t Cache proxy username	(optional)\n"
                        "      -k\t\t Cache proxy password	(optional)\n"
                        "      -s\t\t Lookup script URL	(mandatory option)\n"
-                       "      -w\t\t Lookup port		(obsolete, defaults to 80/443 for HTTP/HTTPS)\n"
+                       "      -w\t\t Lookup port		(optional)\n"
                        "\n"
-                       " TESTING/DEV OPTIONS:\n"
+                       " DEVELOPERS OPTIONS:\n"
                        "      -T\t\t Force TTL to be [0-2147483647] as per RFC 2181 (useful for testing, 4 bytes)\n"
                        "      -Z\t\t Force TCP size of response to be 2 bytes at choice (useful for testing TCP listener, 2 bytes)\n"
                        "      -n\t\t Enable DNS UDP RAW FORMAT DUMP\n"
                        "      -v\t\t Enable DEBUG\n"
-                       "      -X\t\t Enable EXTRA_DEBUG\n"
-                       "      -C\t\t Enable CURL VERBOSE, useful to debug cache issues, dig down into HSTS/HTTPS quirks or anything else\n"
+                       "      -X\t\t Enable EXTRA DEBUG\n"
+                       "      -R\t\t Enable THREAD DEBUG\n"
+                       "      -N\t\t Enable COUNTERS\n"
+                       "      -C\t\t CURL VERBOSE, useful to debug cache issues, certificates, quirks or anything else\n"
 		       "\n"
-                       " WIP OPTIONS:\n"
+                       " TESTING OPTIONS:\n"
                        "      -I\t\t Upgrade Insecure Requests, debug HSTS, work in progress\n"
                        "      -R\t\t Enable CURL resolve mechanism, avoiding extra gethostbyname (DO NOT USE)\n"
-                       "      -t\t\t Stack size in format	0x1000000 (MB)\n"
+                       "      -t\t\t Stack size in format 0x1000000 (MB)\n"
                        "\n"
-		       " Example HTTPS direct :  dnsp -s https://php-dns.appspot.com/\n"
-		       " Example HTTP direct  :  dnsp -s http://www.fantuz.net/nslookup.php\n"
-                       " Example HTTP w/cache :  dnsp -r 8118 -H http://myproxy.example.com/ -s http://www.fantuz.net/nslookup.php\n\n"
+                " Example with direct HTTPS :  dnsp -s https://php-dns.appspot.com/\n"
+                " Example with direct HTTP  :  dnsp -s http://www.fantuz.net/nslookup.php\n"
+                " Example with proxy HTTP + cache :  dnsp -r 8118 -H http://myproxy.example.com/ -s http://www.fantuz.net/nslookup.php\n\n"
+                "\n\n"
+                " Undergoing TTL tests: dnsp-h2 -T 86400 -v -X -C -s https://php-dns.appspot.com/\n\n"
     ,VERSION);
     exit(EXIT_FAILURE);
 }
@@ -540,8 +542,8 @@ struct dns_request *parse_dns_request(const char *udp_request, size_t request_le
     if (proton  == 1) {
       dns_req = malloc(sizeof(struct dns_request) + 2);
       if (EXT_DEBUG) {
-        printf("\n *** TCP detected .. dns_req->tcp_size IN	: (%08x) // (%d)\n", (uint8_t) dns_req->tcp_size,dns_req->tcp_size);
-        printf("\n *** TCP detected .. sizeof(udp_request) IN	: (%08x) // (%d)\n", (uint8_t) sizeof(udp_request),sizeof(udp_request));
+        printf("\n *** TCP .. dns_req->tcp_size IN	: (%08x) // (%d)\n", (uint8_t) dns_req->tcp_size,dns_req->tcp_size);
+        printf("\n *** TCP .. sizeof(udp_request) IN	: (%08x) // (%d)\n", (uint8_t) sizeof(udp_request),sizeof(udp_request));
       }
       //udp_request//response[1] = (uint8_t)(dns_req->transaction_id >> 8);
       dns_req->tcp_size = (uint8_t)udp_request[1] + (uint16_t)(udp_request[0] << 8);
@@ -549,8 +551,8 @@ struct dns_request *parse_dns_request(const char *udp_request, size_t request_le
     } else {
       dns_req = malloc(sizeof(struct dns_request));
       if (EXT_DEBUG) {
-	 printf("\n *** UDP detected .. sizeof(udp_request) IN	: %08x // %d\n", (uint8_t) sizeof(udp_request),sizeof(udp_request));
-	 printf("\n *** UDP detected .. dns_req->tcp_size IN	: (%08x) // (%d)\n", (uint8_t) dns_req->tcp_size,dns_req->tcp_size);
+    	 printf("\n *** UDP .. sizeof(udp_request) IN	: %08x // %d\n", (uint8_t) sizeof(udp_request),sizeof(udp_request));
+    	 printf("\n *** UDP .. dns_req->tcp_size IN	: (%08x) // (%d)\n", (uint8_t) dns_req->tcp_size,dns_req->tcp_size);
       }
     }
 
@@ -650,11 +652,11 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
 
   if (DEBUG) {
           printf("\n");
-	  /*
-	  printf("BUILD-yclient->sin_addr.s_addr		: %u\n", (uint32_t)(yclient->sin_addr).s_addr);
+    	  /*
+    	  printf("BUILD-yclient->sin_addr.s_addr		: %u\n", (uint32_t)(yclient->sin_addr).s_addr);
           printf("BUILD-yclient->sin_port			: %u\n", (uint32_t)(yclient->sin_port));
           printf("BUILD-yclient->sin_family		: %d\n", (uint32_t)(yclient->sin_family));
-	  */
+    	  */
           printf("BUILD-xrequestlen			: %d\n", (uint32_t)(xrequestlen));
           printf("BUILD-ttl				: %d\n", (uint32_t)(ttl));
           printf("BUILD-Xsockfd				: %u\n", xsockfd);
@@ -667,8 +669,8 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
           //char xx = base64_encode(dns_req->hostname, (uint8_t)(xrequestlen)-1, (uint8_t)(xrequestlen)-1);
           //printf(xx);
           //printf("base64-hostname				: %s\n", base64_encode(tt, sizeof(dns_req->hostname), 512));
-          //printf("base64-hostname				: %s\n", xx); 
-	  //printf("base64-hostname				: %s\n", Base64encode(rr, dns_req->hostname, (uint8_t)(xrequestlen)));
+          //printf("base64-hostname				: %s\n", xx);
+          //printf("base64-hostname				: %s\n", Base64encode(rr, dns_req->hostname, (uint8_t)(xrequestlen)));
   }
 
   response = malloc(UDP_DATAGRAM_SIZE);
@@ -676,6 +678,7 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
 
   finalresponse = malloc(TCP_DATAGRAM_SIZE);
   bzero(finalresponse, TCP_DATAGRAM_SIZE);
+
   //bzero(dns_req->query, sizeof(dns_req->query));
   //memcpy(dns_req->query, udp_request, sizeof(dns_req->query)-1);
 
@@ -685,7 +688,7 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
   response_ptr = response;
   finalresponse_ptr = finalresponse;
 
-  /* DNS header added when using TCP, represents the lenght in 2-bytes for the corresponding UDP/DNS usual wireformat. limit 65K */
+  /* DNS header added when using TCP, represents the lenght in 2-bytes for the corresponding UDP/DNS usual wireformat. limit 64K */
   if (protoq == 1) {
     int norm = (dns_req->tcp_size);
     //response[0] = 0x00; //response[1] = 0x35; // testing with 55 bytes responses, as for A news.infomaniak.com
@@ -1675,26 +1678,22 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
 
   /* curl setup */
   /* read: https://curl.haxx.se/libcurl/c/threadsafe.html to implement sharing and locks between threads */
-
   ch = curl_easy_init();
 
   /* set specific nifty options for multi handlers or none at all */
-
   /*
   easy = curl_easy_init();
   //setup(easy);
   //setup(easy, lookup_script);
   setup(easy, n);
-
   // add the easy transfer
   curl_multi_add_handle(multi_handle, easy);
-
   curl_multi_setopt(multi_handle, CURLMOPT_PIPELINING, CURLPIPE_MULTIPLEX);
   curl_multi_setopt(multi_handle, CURLMOPT_PUSHFUNCTION, server_push_callback);
   curl_multi_setopt(multi_handle, CURLMOPT_PUSHDATA, &transfers);
   */
 
-  /* placeholder for DNS-over-HTTP (DoH) POST method choice, to become a CLI option */
+  /* placeholder for DNS-over-HTTP (DoH) GET/POST method choice, to become a CLI option */
   //curl_setopt($ch,CURLOPT_POST,1);
   //curl_setopt($ch,CURLOPT_POSTFIELDS,'customer_id='.$cid.'&password='.$pass);
 
@@ -1712,8 +1711,6 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
   //curl_easy_setopt(ch, CURLOPT_SSL_ENABLE_ALPN, 1L);
   curl_easy_setopt(ch, CURLOPT_SSL_ENABLE_NPN, 1L);
   //curl_easy_setopt(ch, CURLOPT_SSLVERSION, CURL_SSLVERSION_TLSv1_2);
-  //curl_easy_setopt(ch, CURLOPT_SSLVERSION, CURL_SSLVERSION_TLSv1_3);
-  //curl_easy_setopt(ch, CURLOPT_SSLVERSION, CURL_SSLVERSION_SSLv3);
   //curl_easy_setopt(ch, CURLOPT_SSLVERSION, CURL_SSLVERSION_DEFAULT); //CURL_SSLVERSION_TLSv1
   //curl_easy_setopt(ch, CURLOPT_SSLENGINE, "dynamic");
   //curl_easy_setopt(ch, CURLOPT_SSLENGINE_DEFAULT, 1L);
@@ -1791,8 +1788,7 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
   //curl_easy_setopt(ch, CURLOPT_CAPATH, "/usr/share/ca-certificates/mozilla");
   //curl_easy_setopt(ch, CURLOPT_CAINFO, "/etc/ssl/certs/Comodo_AAA_Services_root.pem");
 
-  /* Cloudflare is using COMODO CA */
-  /* We shall avoid gzip as it clashes with OCSP validation .. */
+  /* Cloudflare is using COMODO CA thus we shall avoid gzip as it clashes with OCSP validation .. */
   //curl_easy_setopt(ch, CURLOPT_ENCODING, "gzip, deflate, br, sdch");
   //curl_easy_setopt(ch, CURLOPT_ENCODING, "br");
 
@@ -2090,7 +2086,7 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
       return http_response;
   }
  
-  /* Can't resolve host or packet too big (up to 4096 in UDP and 65535 in TCP) */
+  /* Can't resolve DOH query, or packet too big (up to 4096 in UDP and 65535 in TCP) */
   if ((strlen(http_response) > 512) || (strncmp(http_response, "0.0.0.0", 7) == 0)) {
       // insert error answers here, as NXDOMAIN, SERVFAIL etc
       /* In BIND 8 the SOA record (minimum parameter) was used to define the zone default TTL value. */
@@ -2154,9 +2150,9 @@ void *threadFunc(void *arg) {
   /* shall I use trylock or lock ? */
   //if (pthread_mutex_lock(&mutex))
   if (pthread_mutex_trylock(&mutex)) {
-    if (EXT_DEBUG) { printf("initial lock OK\n"); }
+    if (EXT_DEBUG) { printf(" *** initial lock OK\n"); }
   } else {
-    if (EXT_DEBUG) { printf("initial lock NOT-OK\n"); }
+    if (EXT_DEBUG) { printf(" *** initial lock NOT OK\n"); }
   }
   
   if (EXT_DEBUG) {
@@ -2211,18 +2207,19 @@ void *threadFunc(void *arg) {
 
   if ((rip != NULL) && (strncmp(rip, "0.0.0.0", 7) != 0)) {
     if (DEBUG) {
-	printf("THREAD qsize				: %u\n", (uint32_t)request_len);
-	printf("THREAD typeq				: %s\n", typeq);
-	printf("THREAD dns_req->qtype			: %d\n", dns_req->qtype);
-	/*
-	printf("THREAD V-socket-Xsockfd			: %u\n", xsockfd);
-	printf("THREAD V-socket- sockfd			: %u\n", sockfd);
-	printf("THREAD V-xclient->sin_addr.s_addr	: %u\n", (uint32_t)(yclient->sin_addr).s_addr);
-	*/
-	//printf("THREAD V-xclient->sin_port		: %u\n", (uint32_t)(yclient->sin_port));
-	//printf("THREAD V-xclient->sin_family		: %u\n", (uint32_t)(yclient->sin_family));
-	//printf("THREAD V-xclient->sin_addr.s_addr		: %s\n",(char *)(xclient->sin_family));
+	    printf("THREAD qsize				: %u\n", (uint32_t)request_len);
+	    printf("THREAD typeq				: %s\n", typeq);
+	    printf("THREAD dns_req->qtype			: %d\n", dns_req->qtype);
+	    /*
+	    printf("THREAD V-socket-Xsockfd			: %u\n", xsockfd);
+	    printf("THREAD V-socket- sockfd			: %u\n", sockfd);
+	    printf("THREAD V-xclient->sin_addr.s_addr	: %u\n", (uint32_t)(yclient->sin_addr).s_addr);
+	    */
+	    //printf("THREAD V-xclient->sin_port		: %u\n", (uint32_t)(yclient->sin_port));
+	    //printf("THREAD V-xclient->sin_family		: %u\n", (uint32_t)(yclient->sin_family));
+	    //printf("THREAD V-xclient->sin_addr.s_addr		: %s\n",(char *)(xclient->sin_family));
     }
+
     build_dns_response(sockfd, yclient, xhostname, rip, DNS_MODE_ANSWER, request_len, ttl, proto);
       
   } else if ( strstr(dns_req->hostname, "hamachi.cc") != NULL ) {
@@ -2248,15 +2245,15 @@ void *threadFunc(void *arg) {
   pthread_setspecific(glob_var_key_ip, NULL);
   
   if (pthread_mutex_unlock(&mutex)) {
-    if (EXT_DEBUG) { printf("unlock OK for thread/process ID: %d\n", getpid()); }
+    if (EXT_DEBUG) { printf(" *** mutex unlock OK for thread ID: %d\n", getpid()); }
   } else {
-    if (EXT_DEBUG) { printf("unlock NOT-OK\n"); }
+    if (EXT_DEBUG) { printf(" *** mutex unlock NOT OK for thread ID: %d\n", getpid()); }
   } 
   
   if (pthread_mutex_destroy(&mutex)) {
-    if (EXT_DEBUG) { printf("destroy OK\n"); }
+    if (EXT_DEBUG) { printf(" *** mutex destroy OK\n"); }
   } else {
-    if (EXT_DEBUG) { printf("destroy NOT-OK\n"); }
+    if (EXT_DEBUG) { printf(" *** mutex destroy NOT OK\n"); }
   }
   
   //pthread_exit(NULL);
@@ -2283,7 +2280,7 @@ int main(int argc, char *argv[]) {
 
   opterr = 0;
      
-  /* deactivating mutexes, leaving all placeholders */
+  /* deactivating mutexes, placeholders */
   /*
   //sem_t mutex;
   sem_t sem;
@@ -2314,7 +2311,7 @@ int main(int argc, char *argv[]) {
   /* Command line args */
   // while ((c = getopt_long(argc, argv, short_opt, long_opt, NULL)) != -1)
   
-  while ((c = getopt (argc, argv, "T:s:p:l:r:H:t:w:u:k:hvCXn")) != -1)
+  while ((c = getopt (argc, argv, "T:s:p:l:r:H:t:w:u:k:hvNRCXn")) != -1)
   switch (c)
    {
       case 't':
@@ -2349,27 +2346,37 @@ int main(int argc, char *argv[]) {
               
       case 'C':
           DEBUGCURL = 1;
-          fprintf(stderr," *** verbose CURL ON\n");
+          fprintf(stderr," *** VERBOSE CURL ON\n");
       break;
 
       case 'X':
           EXT_DEBUG = 1;
           fprintf(stderr," *** EXTENDED DEBUG ON\n");
       break;
+      
+      case 'R':
+          THR_DEBUG = 1;
+          fprintf(stderr," *** THREAD DEBUG ON\n");
+      break;
+      
+      case 'N':
+          CNT_DEBUG = 1;
+          fprintf(stderr," *** COUNTERS ON\n");
+      break;
 
       case 'v':
           DEBUG = 1;
-          fprintf(stderr," *** DEBUG ON\n");
+          fprintf(stderr," *** BASE DEBUG ON\n");
       break;
 
       case 'T':
           ttl_in = atoi(optarg);
-          fprintf(stderr," *** TTL SET TO %d, 4 bytes, 0-2147483647 seconds (RFC 2181)\n",ttl_in);
+          fprintf(stderr," *** TTL SET TO %d, %x, 4 bytes, 0-2147483647 seconds (RFC 2181)\n",ttl_in,ttl_in);
       break;
 
       case 'n':
           DNSDUMP = 1;
-          fprintf(stderr," *** DNSDUMP HEX-MODE ON\n");
+          fprintf(stderr," *** HEX DNSDUMP ON\n");
       break;
       
       case 'l':
@@ -2424,12 +2431,12 @@ int main(int argc, char *argv[]) {
   }
 
   if (proxy_host != NULL) {
-      fprintf(stderr, "Yay !! HTTP caching proxy configured, continuing with support of HTTP cache\n");
-      fprintf(stderr, "Using proxy-host: %s\n",proxy_host);
+      fprintf(stderr, "### Yay !! HTTP caching proxy configured, continuing with support of HTTP cache ###\n");
+      fprintf(stderr, "### Using proxy-host: %s ###\n",proxy_host);
       //proxy_host = proxy_address;
       //fprintf(stderr, "Bind proxy string: %s\n",proxy_address);
   } else {
-      fprintf(stderr, "No HTTP caching proxy configured, continuing without HTTP cache\n");
+      fprintf(stderr, "### No HTTP caching proxy configured, continuing without HTTP cache ###\n");
   }	
 
   if (bind_address == NULL) { bind_address = "127.0.0.1"; bind_address_tcp = "127.0.0.1"; }
@@ -2700,8 +2707,7 @@ int main(int argc, char *argv[]) {
     sleep(1);           
     */
     
-    /* Give child time to change its hostname */
-    /* CLONE process/thread */
+    /* Give child time to change its hostname while CLONE process/thread */
     // pid = clone(fn, stack_aligned, CLONE_VM | SIGCHLD, arg);
     // pid = clone(childFunc, stackTop, CLONE_NEWUTS | SIGCHLD, argv[1]);
     // posix_spawn()
@@ -2741,7 +2747,7 @@ int main(int argc, char *argv[]) {
 
       if (request_len == -1) {
         flag = 1;
-        if (EXT_DEBUG) { fprintf(stderr, "QUANTITY TCP: %x - %d\n", request_tcp, request_len_tcp); }
+        if (CNT_DEBUG) { fprintf(stderr, "QUANTITY TCP: %x - %d\n", request_tcp, request_len_tcp); }
         if ((request_len_tcp == -1)) {
           flag = 3;
           /* critical section */
@@ -2787,7 +2793,7 @@ int main(int argc, char *argv[]) {
       } else if (request_len_tcp == -1) {
     	flag = 0;
         dns_req = parse_dns_request(request, request_len, 0, 0);
-        if (EXT_DEBUG) { fprintf(stderr, "QUANTITY UDP: %x - %d\n", request, request_len); }
+        if (CNT_DEBUG) { fprintf(stderr, "QUANTITY UDP: %x - %d\n", request, request_len); }
 	    //cnt++;
         readParams->sockfd = sockfd;
         readParams->xproto = 0;
@@ -2838,7 +2844,7 @@ int main(int argc, char *argv[]) {
         // else { { dns_req->qtype == 0xff;} }
     	if (EXT_DEBUG) {
           printf("TCP gotcha qtype: %x // %d\r\n",dns_req_tcp->qtype,dns_req_tcp->qtype); //PTR ?
-          printf("TCP gotcha Tid  : %x // %d\r\n",dns_req_tcp->transaction_id,dns_req_tcp->transaction_id); //PTR ?
+          printf("TCP gotcha tid  : %x // %d\r\n",dns_req_tcp->transaction_id,dns_req_tcp->transaction_id); //PTR ?
     	}
       } else if (flag == 0) {
         if (dns_req->qtype == 0x02) {
@@ -2855,18 +2861,18 @@ int main(int argc, char *argv[]) {
         // else { { dns_req->qtype == 0xff;} }
     	if (EXT_DEBUG) {
           printf("TCP gotcha qtype: %x // %d\r\n",dns_req->qtype,dns_req->qtype); //PTR ?
-          printf("TCP gotcha Tid  : %x // %d\r\n",dns_req->transaction_id,dns_req->transaction_id); //PTR ?
+          printf("TCP gotcha tid  : %x // %d\r\n",dns_req->transaction_id,dns_req->transaction_id); //PTR ?
 	    }
       } else if ( flag == 3) {
         //pthread_join(pth[i],NULL);
     	printf("flag is NULL or equal 3\n");
     	flag = NULL;
     	//break;
-    	//return;
+    	return;
         //continue;
       }
 
-      /* PLACEHOLDER FOR HTTP options, DoH full-spec, CLOUD deploys */
+      /* placeholder for HTTP options */
       //	  readParams->max_req_client = 10;
       //	  readParams->random = 0;
       //	  readParams->ssl = 0;
@@ -2925,23 +2931,19 @@ int main(int argc, char *argv[]) {
       /* LEFT FOR HOUSEKEEPING: thread retuns if needed */
       tinfo = calloc(NUMT, sizeof(struct thread_info));
       if (tinfo == NULL) handle_error("calloc");
-
       /* AS DISCUSSED, I am now sticking to monolithic/vfork */
-      /* Waiting stable specs for DNS-over-HTTP https://tools.ietf.org/html/draft-ietf-doh-dns-over-https-04 */
-    
-      /* Here just checking if any issue in creating a new THREAD ? NO issuses BTW errore means error in italian :) */
       //int errore = pthread_create(&tid[i], NULL, threadFunc, &data_array[i]);
       //if (i=sizeof(pth)) { i = 0 ;}
     
       if (pthread_mutex_trylock(&mutex)) {
       //ret = pthread_create(&pth[i],NULL,threadFunc,readParams);
-        if (EXT_DEBUG) { printf("PTHREAD lock OK ...\n"); }
+        if (THR_DEBUG) { printf("*** thread lock OK ...\n"); }
       } else {
-        if (EXT_DEBUG) { printf("PTHREAD lock NOT OK ...\n"); }
+        if (THR_DEBUG) { printf("*** thread lock NOT OK ...\n"); }
       }
     
       /* Spin the well-instructed thread ! */
-      if (DEBUG) { printf("flag: %d, count TCP: %d, count UDP: %d\n",flag,cnt,cntudp); }
+      if (CNT_DEBUG) { printf("### flag: %d, count TCP: %d, count UDP: %d ###\n",flag,cnt,cntudp); }
       threadFunc(readParams);
       ret = pthread_create(&pth[i],&attr,threadFunc,readParams);
           
@@ -2949,7 +2951,7 @@ int main(int argc, char *argv[]) {
       //sem_wait(&mutex);
       //sem_post(&mutex);
     
-      /* USEFUL for future with QUIC support (multipath/UDP) */
+      /* QUIC support */
       for(r=0; r < NUMT*NUM_THREADS; r++) {
       	if(0 != ret) {
       	  fprintf(stderr, "Couldn't run thread number %d, errno %d\n", i, ret);
@@ -2967,7 +2969,7 @@ int main(int argc, char *argv[]) {
         //tidd = pthread_self();
         //fprintf(stderr, "self r - %d \n",pthread_self(pth[i]));
     
-        if (DEBUG) {
+        if (THR_DEBUG) {
           //fprintf(stderr, "pth i - %d \n",(uint16_t)pth[i]);
           //fprintf(stderr, "pth r - %d \n",(uint16_t)pth[r]);
           //printf("OUTSIDE-THREAD-resolved-address: %s\n",ip);
@@ -2981,7 +2983,7 @@ int main(int argc, char *argv[]) {
         nnn++;
       }
     
-      //if (nnn > NUMT*NUM_THREADS * 2) { wait(NULL); }
+      if (nnn > NUMT*NUM_THREADS) { wait(NULL); }
       //if (nnn < NUMT*NUM_THREADS) { wait(NULL); }
 
       printf(" *** Thread/process ID : %d\n", getpid());
@@ -3003,10 +3005,9 @@ int main(int argc, char *argv[]) {
       // RECOVER FROM THREAD BOMB SITUATION
       //if (DEBUG) { printf(" *** BIG FAULT with thread/process ID : %d\n", getpid()); }
       if (nnn > NUM_THREADS) {wait(NULL);}
-      //wait(NULL);
+      wait(NULL);
       
       /* sometimes you just need to take a break, or continue .. */
-      //exit(EXIT_SUCCESS);
     
       /* Span N number of threads */
       /*
@@ -3022,10 +3023,10 @@ int main(int argc, char *argv[]) {
       //pthread_mutex_lock(&mutex);
       /*
       if (pthread_mutex_unlock(&mutex)) {
-          //printf("unlock OK\n");
-	  continue;
+        //printf("mutex unlock OK\n");
+	    continue;
       } else {
-          printf("unlock NOT OK\n");
+        printf("mutex unlock NOT OK\n");
       }
       */
     
@@ -3034,7 +3035,7 @@ int main(int argc, char *argv[]) {
     
       /* JOIN THREADS, rejoin and terminate threaded section */
       //if(pthread_join(pth[i], NULL)) {
-	//fprintf(stderr, "Finished serving client %s on socket %u \n",(struct sockaddr_in *)&client->sin_addr.s_addr,sockfd);
+        //fprintf(stderr, "Finished serving client %s on socket %u \n",(struct sockaddr_in *)&client->sin_addr.s_addr,sockfd);
       //}
     
       /* LOCKS AND MUTEXES */
@@ -3042,17 +3043,17 @@ int main(int argc, char *argv[]) {
       // DO NOT USE
       //sem_post(&mutex); // sem_post is fun and dangerous
       
-      //continue;
-
-      //break;
       /* THREAD JOIN ENDING, RELEASE */
       //pthread_join(pth[i],NULL);
       /* not in main() */
       //pthread_exit(NULL);
+      if (THR_DEBUG) {fprintf(stderr, "Finished joining thread i-> %d, nnn-> %d \n",i,nnn);}
     
+      //break;
+      //return;
       continue;
-      //if (DEBUG) {fprintf(stderr, "Finished joining thread i-> %d, nnn-> %d \n",i,nnn);}
       //exit(EXIT_FAILURE); // did we ?
+      //exit(EXIT_SUCCESS);
     }
   }
 }

@@ -1,10 +1,10 @@
 # DNS Proxy over HTTP(S)
 
 ## Why DNSP ?
-A new idea in terms of transport of DNS messaging, outside of its original design.
-DNS-over-HTTP is currently being evaluated by IETF as workgroup/proposal.
-(c.f. https://tools.ietf.org/html/draft-ietf-doh-dns-over-https-14)
-An header schema for HTTP/2 client has been outlined, WIP implementation details.
+A new idea in terms of transport of DNS messaging, outside of its original design!
+DNS-over-HTTP has been published as RFC (c.f. 
+https://www.rfc-editor.org/rfc/rfc8484.txt, https://tools.ietf.org/html/rfc8484).
+An header schema for HTTP/2 client has been outlined, implementation details stable.
 
 On my side, no roadmaps - just the burning desire to see DoH being implemented and
  deployed. In different ways, as DOH format, as JSON and as textual formats.
@@ -17,7 +17,7 @@ an external PHP script and standardised HTTP requests/headers (D-o-H compatible)
 
 ## Build
 
-DNSP will take care to recreate a well-formed UDP/TCP packet in reply to client.
+DNSP will take care to create a well-formed UDP/TCP packet as reply to the client.
 
 The core PHP-script can be hosted anywhere, i.e. on Google Cloud Platform.
 
@@ -31,8 +31,8 @@ proxy (i.e. TOR, enterprise-proxy, locked-down countries).
 Most of users will run DNSP directly through HTTPS w/out caching & extra proxy.
 The DNSP server will just talk to remote resolver webservice, w/out any cache.
 
-FYI, a cache is often availaible "in the network" when using HTTP, no real need
-for an extra local cache (HTTP/2 and HTTPS make it difficult to cache locally).
+As we all know, "a cache" is often availaible "in the network" when it comes to
+HTTP, no real need for extra local cache (HTTP/2 and HTTPS make local cache uneasy).
 
 If you can't access "secured" VPN tunnels to resolve names externally (i.e.
 TOR users, Chinese walls), DNSProxy is a rapid and efficient solution for you.
@@ -66,17 +66,21 @@ As bonus, this software is TOR-friendly and requires minimal resources. Enjoy !
 
 Features:
 - being DNS-over-HTTP compliant, and even more (older standards supported).
-- FOLLOWLOCATION, spawns threads to enable HTTP browser cache preemption for the benefit of the user experience.
-- HTTP/2 ready. Talks HTTP/2 in different combination of ALPN, NPN, Update, SSL & co.
-- HTTP/2 was set as the minimut base by DOH/IETF spec doc, so I wanted to conform (easy with libCURL or nghttp2).
-- HTTP/2 PUSH being tested, for smoother and opportunistic DNS answers (remember, no ID field in doh!).
+- FOLLOWLOCATION, spawns threads to enable HTTP browser cache preemption
+    for the benefit of the user experience.
+- HTTP/2 ready. Talks HTTP/2 in different combinations of ALPN, NPN, Update & co.
+- HTTP/2 was set as the minimum requirement in the IETF DOH RFC, conform is 
+    easy with libCURL, lesser with nghttp2,
+- HTTP/2 PUSH being tested, for smoother and opportunistic DNS answers. Remember, 
+    there's no ID field in doh!
 - ability to dump DNS response packet, then serve such content via local HTTP webserver
-  (not in DNSP intents, but possible for the benefit and simplicity of DOH adoption !)
-- ability to set specific headers according to cache requirements, i.e. translate DNS TTL validity to HTTP cache Validity :)
+    (not in DNSP intents, but possible for the benefit and simplicity of DOH adoption !)
+- ability to set specific headers according to cache requirements,
+    i.e. translate DNS TTL validity to HTTP cache Validity :)
 
 To recap, in order to start resolving "anonymous DNS" over HTTP, all you need is:
 - a PHP-server hosting the *nslookup-doh.php* resolver script
-- the C software, available in source or compiled (all libs linked within, Makefile does).
+- the C software, available as source or compiled
 
 ## Caching answers in the network
 
@@ -213,10 +217,11 @@ Is a big piece of curl/threaded code that helps people _transporting_ and _shari
 #### WIP:
 * use Warning headers to signal something
 
-#### UNOFFICIAL DOH SERVER LIST
+#### SEMI-OFFICIAL DOH SERVER LIST
 * 1.1.1.1
 * 8.8.8.8
 * 9.9.9.9
+* see list on https://github.com/curl/curl/wiki/DNS-over-HTTPS#publicly-available-servers
 
 #### Version 2 - March 2018:
 * DOH-ready: raw DNS request printout (for server), base64 encoding of hostname parameter in 
@@ -246,12 +251,13 @@ Is a big piece of curl/threaded code that helps people _transporting_ and _shari
 * other thought and implementations pending
 * fixed README and easen installation/testing procedure
 * deleted some junk files, renamed dirs for clarity
-* multiversion PHP 5/7, depending on hosting provider (due to slightly different implementation of print(), some headers, random css, substantial differences between h1/h2, etc).
+* multiversion PHP 5/7, depending on hosting provider (due to slightly different
+    implementation of print(), random css, substantial differences between h1/h2, headers, etc).
 
 #### Version 1.01 - March 2017:
 * going back to either threads or vfork...
 * want to implement DNSSEC somehow
-* having few issues caching on ClouFlare-alike caches (304 not showing anymore ? want more of them).
+* having few issues caching on ClouFlare-alike caches (304 no-more ?). Probably fault of Etag
 * done more crashtest, memleak, timing tests
 * it really works with millions query
 * published and improved a Varnish configuration as well
@@ -344,7 +350,7 @@ Values should end with bits 0d0a. on any server (HEX is easy to read):
 00000010: 742e 636f 6d0d 0a                        t.com..
 ```
 
-## Testing dnsp-h2 with DNS-over-HTTP/2 IETF proposal design
+## Testing dnsp-h2 with DNS-over-HTTPS RFC
 
 ![alt text](https://raw.githubusercontent.com/fantuz/DNSProxy/master/capture-http2.png)
 
@@ -547,7 +553,7 @@ max@trinity:~/DNSProxy$
 * https://www.reddit.com/user/fantamix/comments/7yotib/dnsp_a_dns_proxy_to_avoid_dns_leakage/
 * https://www.reddit.com/r/hacking/comments/7zjbv2/why_to_use_a_dns_proxy_why_shall_it_be/
 * https://tools.ietf.org/html/draft-ietf-dnsop-dns-wireformat-http-01
-* https://tools.ietf.org/html/draft-ietf-doh-dns-over-https-03
+* https://tools.ietf.org/html/draft-ietf-doh-dns-over-https-14
 * https://www.meetup.com/it-IT/Geneva-Legal-Hackers/messages/boards/thread/51438161
 
 ## License
