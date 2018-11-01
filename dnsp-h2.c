@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2018 Massimiliano Fantuzzi HB3YOE/HB9GUS <max@fantuz.net> <superfantuz@gmail.com>
+ * Copyright (c) 2013-2018 Massimiliano Fantuzzi HB3YOE/HB9GUS <superfantuz@gmail.com>
 
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -76,7 +76,7 @@
 
 /* experimental options for threaded model, not in use at the moment */
 #define NUMT			        1
-#define NUM_THREADS		        2
+#define NUM_THREADS		        1
 #define NUM_HANDLER_THREADS	    1
 
 /* use nghttp2 library to establish, no ALPN/NPN. CURL is not enough, you need builting NGHTTP2 support */
@@ -451,13 +451,13 @@ void usage(void) {
                        "      -w\t\t Lookup port		(optional)\n"
                        "\n"
                        " DEVELOPERS OPTIONS:\n"
-                       "      -T\t\t Force TTL to be [0-2147483647] as per RFC 2181 (useful for testing, 4 bytes)\n"
-                       "      -Z\t\t Force TCP size of response to be 2 bytes at choice (useful for testing TCP listener, 2 bytes)\n"
-                       "      -n\t\t Enable DNS UDP RAW FORMAT DUMP\n"
+                       "      -T\t\t Override TTL to be [0-2147483647] as per RFC 2181 (useful for testing, 4 bytes)\n"
+                       "      -Z\t\t Override TCP size of response to be 2 bytes at choice (testing TCP listeners, 2 bytes)\n"
+                       "      -n\t\t Enable DNS/UDP raw dump output\n"
                        "      -v\t\t Enable DEBUG\n"
-                       "      -X\t\t Enable EXTRA DEBUG\n"
-                       "      -R\t\t Enable THREAD DEBUG\n"
-                       "      -N\t\t Enable COUNTERS\n"
+                       "      -X\t\t Enable extra DEBUG\n"
+                       "      -R\t\t Enable thread DEBUG\n"
+                       "      -N\t\t Enable counters\n"
                        "      -C\t\t CURL VERBOSE, useful to debug cache issues, certificates, quirks or anything else\n"
 		       "\n"
                        " TESTING OPTIONS:\n"
@@ -467,9 +467,9 @@ void usage(void) {
                        "\n"
                 " Example with direct HTTPS :  dnsp -s https://php-dns.appspot.com/\n"
                 " Example with direct HTTP  :  dnsp -s http://www.fantuz.net/nslookup.php\n"
-                " Example with proxy HTTP + cache :  dnsp -r 8118 -H http://myproxy.example.com/ -s http://www.fantuz.net/nslookup.php\n\n"
+                " Example with proxy HTTP + cache :  dnsp -r 8118 -H http://your.proxy.com/ -s http://www.fantuz.net/nslookup.php\n\n"
                 "\n\n"
-                " Undergoing TTL tests: dnsp-h2 -T 86400 -v -X -C -s https://php-dns.appspot.com/\n\n"
+                " Undergoing TTL tests: dnsp-h2 -T 86400 -v -X -C -n -s https://php-dns.appspot.com/ 2>&1\n\n"
     ,VERSION);
     exit(EXIT_FAILURE);
 }
@@ -605,8 +605,8 @@ struct dns_request *parse_dns_request(const char *udp_request, size_t request_le
             return NULL;
         }
 
-        strncat(dns_req->hostname, udp_request, len); /* Append the current label to dns_req->hostname */
-        strncat(dns_req->hostname, ".", 1); /* Append a '.' */
+        strncat(dns_req->hostname, udp_request, len);   /* Append the current label to dns_req->hostname */
+        strncat(dns_req->hostname, ".", 1);             /* Append a dot '.' */
         dns_req->hostname_len+=len+1;
         udp_request+=len;
     }
@@ -1231,25 +1231,25 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
 
       finalresponse+=(response-response_ptr);
       
-      /*
       if (DNSDUMP) { 
-	printf(" *** finalresponse_ptr, response - response_ptr\n");
+    	printf(" *** finalresponse_ptr, response - response_ptr\n");
         hexdump(finalresponse_ptr, response - response_ptr);
-	printf(" *** TCP SENT %d bytes of finalresponse\n\n", finalresponse - finalresponse_ptr);
+	    printf(" *** TCP SENT %d bytes of finalresponse\n\n", finalresponse - finalresponse_ptr);
 
         printf(" *** finalresponse_ptr, finalresponse - finalresponse_ptr\n");
         hexdump(finalresponse_ptr, finalresponse - finalresponse_ptr);
         printf(" *** TCP SENT %d bytes of finalresponse (including +2 for TCP)\n", finalresponse - finalresponse_ptr);
       }
-      */
-      
+
       /* send contents back onto the same socket */
       bytes_sent = sendto(sd, finalresponse_ptr, finalresponse - finalresponse_ptr, MSG_DONTWAIT, (struct sockaddr *)yclient, 16);
 
     }
 
+    if (protoq != 1) {
     /* send contents back onto the same socket */
     bytes_sent = sendto(sd, response_ptr, response - response_ptr, MSG_DONTWAIT, (struct sockaddr *)yclient, 16);
+    }
 
     /* dump to udpwireformat */
     if (DNSDUMP) {
@@ -2717,7 +2717,7 @@ int main(int argc, char *argv[]) {
     //if (pid == 0) 
     //if (clone(parse_dns_request, stack_aligned, CLONE_VM | SIGCHLD, request, request_len)) 
     
-    /* still monolithic, takes millions of queries but thread/processes can be parallelised easily in C or in CURL */
+    /* still monolithic, takes loads of queries. Can be parallelised easily in C or in libcurl */
     if (vfork() == 0) {
     
       /* housekeeping, semaphores' logic */
@@ -2951,7 +2951,6 @@ int main(int argc, char *argv[]) {
       //sem_wait(&mutex);
       //sem_post(&mutex);
     
-      /* QUIC support */
       for(r=0; r < NUMT*NUM_THREADS; r++) {
       	if(0 != ret) {
       	  fprintf(stderr, "Couldn't run thread number %d, errno %d\n", i, ret);
@@ -3001,13 +3000,12 @@ int main(int argc, char *argv[]) {
     
     } else {
     
+      /* sometimes you just need to take a break, or continue .. */
       nnn++;
       // RECOVER FROM THREAD BOMB SITUATION
       //if (DEBUG) { printf(" *** BIG FAULT with thread/process ID : %d\n", getpid()); }
       if (nnn > NUM_THREADS) {wait(NULL);}
       wait(NULL);
-      
-      /* sometimes you just need to take a break, or continue .. */
     
       /* Span N number of threads */
       /*
