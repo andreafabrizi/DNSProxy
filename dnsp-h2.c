@@ -66,7 +66,7 @@
 #define TCP_DATAGRAM_SIZE	  512
 #define DNSREWRITE       	  512
 #define HTTP_RESPONSE_SIZE	 4096
-#define URL_SIZE		  512
+#define URL_SIZE		      512
 #define DNS_MODE_ANSWER  	    0
 #define DNS_MODE_ERROR   	    1
 #define TYPEQ		    	    2
@@ -84,7 +84,7 @@
 /* DELAY for CURL to wait ? do not remember, needs documentation */
 #define DELAY                   0
 
-#define STR_SIZE 65536
+#define STR_SIZE            65536
 
 #ifndef CURLPIPE_MULTIPLEX
 #error "too old libcurl, can't do HTTP/2 server push!"
@@ -465,9 +465,9 @@ void usage(void) {
                        "      -R\t\t Enable CURL resolve mechanism, avoiding extra gethostbyname (DO NOT USE)\n"
                        "      -t\t\t Stack size in format 0x1000000 (MB)\n"
                        "\n"
-                " Example with direct HTTPS :  dnsp -s https://php-dns.appspot.com/\n"
-                " Example with direct HTTP  :  dnsp -s http://www.fantuz.net/nslookup.php\n"
-                " Example with proxy HTTP + cache :  dnsp -r 8118 -H http://your.proxy.com/ -s http://www.fantuz.net/nslookup.php\n\n"
+                " Example with direct HTTPS :  dnsp-h2 -s https://php-dns.appspot.com/\n"
+                " Example with direct HTTP  :  dnsp-h2 -s http://www.fantuz.net/nslookup.php\n"
+                " Example with proxy HTTP + cache :  dnsp-h2 -r 8118 -H http://your.proxy.com/ -s http://www.fantuz.net/nslookup.php\n\n"
                 "\n\n"
                 " Undergoing TTL tests: dnsp-h2 -T 86400 -v -X -C -n -s https://php-dns.appspot.com/ 2>&1\n\n"
     ,VERSION);
@@ -1229,7 +1229,7 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
           finalresponse_ptr[i]+= resulttt;
       }
 
-      finalresponse+=(response-response_ptr);
+      finalresponse+=(response-response_ptr-2);
       
       if (DNSDUMP) { 
     	printf(" *** finalresponse_ptr, response - response_ptr\n");
@@ -1242,20 +1242,22 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
       }
 
       /* send contents back onto the same socket */
-      bytes_sent = sendto(sd, finalresponse_ptr, finalresponse - finalresponse_ptr, MSG_DONTWAIT, (struct sockaddr *)yclient, 16);
+      bytes_sent = sendto(sd, finalresponse_ptr, finalresponse - finalresponse_ptr, MSG_EOR, (struct sockaddr *)yclient, 16);
+      //bytes_sent = sendto(sd, finalresponse_ptr, finalresponse - finalresponse_ptr, MSG_MORE, (struct sockaddr *)yclient, 16);
 
     }
 
-    if (protoq != 1) {
+    //if (protoq == NULL) {
     /* send contents back onto the same socket */
     bytes_sent = sendto(sd, response_ptr, response - response_ptr, MSG_DONTWAIT, (struct sockaddr *)yclient, 16);
-    }
 
     /* dump to udpwireformat */
     if (DNSDUMP) {
       printf(" *** DUMP OF response_ptr, OF LENGTH OF response - response_ptr\n"); 
       hexdump(response_ptr, response - response_ptr);
     }
+
+    //}
 
     close(sd);
 
