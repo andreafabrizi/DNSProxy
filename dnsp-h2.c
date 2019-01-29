@@ -84,7 +84,7 @@
 /* DELAY for CURL to wait ? do not remember, needs documentation */
 #define DELAY                   0
 
-#define STR_SIZE            65536
+//#define STR_SIZE            65536
 
 #ifndef CURLPIPE_MULTIPLEX
 #error "too old libcurl, can't do HTTP/2 server push!"
@@ -115,7 +115,7 @@
 #define NUM_HANDLES 4
 #define OUTPUTFILE "dl"
 
-int DEBUG, DNSDUMP, DEBUGCURL, EXT_DEBUG, CNT_DEBUG, THR_DEBUG;
+int DEBUG, DNSDUMP, DEBUGCURL, EXT_DEBUG, CNT_DEBUG, THR_DEBUG, LOCK_DEBUG;
 char* substring(char*, int, int);
 
 static char encoding_table[] = {'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H',
@@ -218,7 +218,6 @@ pthread_key_t glob_var_key_ip;
 pthread_key_t glob_var_key_client;
 static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 //static pthread_mutex_t mutex = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
-//pthread_mutex_t mutex = PTHREAD_ERRORCHECK_MUTEX_INITIALIZER_NP;
 pthread_mutexattr_t MAttr;
 
 #ifdef TLS
@@ -274,8 +273,7 @@ struct dns_response
 };
 
 /*
-void start_thread(pthread_t *mt)
-{
+void start_thread(pthread_t *mt) {
     mystruct *data = malloc(sizeof(*data));
     ...;
     pthread_create(mt, NULL, do_work_son, data);
@@ -283,8 +281,7 @@ void start_thread(pthread_t *mt)
 */
 
 /*
-void start_thread(pthread_t *mt)
-{
+void start_thread(pthread_t *mt) {
     //mystruct local_data = {};
     //mystruct *data = malloc(sizeof(*data));
     struct readThreadParams local_data = {};
@@ -657,11 +654,11 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
           printf("BUILD-yclient->sin_port			: %u\n", (uint32_t)(yclient->sin_port));
           printf("BUILD-yclient->sin_family		: %d\n", (uint32_t)(yclient->sin_family));
     	  */
-          printf("BUILD-xrequestlen			: %d\n", (uint32_t)(xrequestlen));
-          printf("BUILD-ttl				: %d\n", (uint32_t)(ttl));
-          printf("BUILD-Xsockfd				: %u\n", xsockfd);
-          printf("BUILD- sockfd				: %d\n", sockfd);
-          printf("BUILD-proto				: %d\n", protoq);
+          printf("-> BUILD-xrequestlen			: %d\n", (uint32_t)(xrequestlen));
+          printf("-> BUILD-ttl				: %d\n", (uint32_t)(ttl));
+          printf("-> BUILD-Xsockfd			: %u\n", xsockfd);
+          printf("-> BUILD- sockfd			: %d\n", sockfd);
+          printf("-> BUILD-proto				: %d\n", protoq);
 
           //printf("%s\n", b64_encode((dns_req->hostname),sizeof(dns_req->hostname)));
           //printf("ff						: %s\n", hexdump(dns_req->query[0], 512));
@@ -2165,12 +2162,12 @@ void *threadFunc(void *arg) {
   pthread_key_create(&key_i, NULL);
   //str=(char*)arg;
   
-  /* shall I use trylock or lock ? */
+  /* shall we use trylock or lock ? */
   //if (pthread_mutex_lock(&mutex))
   if (pthread_mutex_trylock(&mutex)) {
-    if (EXT_DEBUG) { printf(" *** initial lock OK\n"); }
+    if (LOCK_DEBUG) { printf(" *** Locking .............. OK\n"); }
   } else {
-    if (EXT_DEBUG) { printf(" *** initial lock NOT OK\n"); }
+    if (LOCK_DEBUG) { printf(" *** Locking .......... NOT OK\n"); }
   }
   
   if (EXT_DEBUG) {
@@ -2208,9 +2205,9 @@ void *threadFunc(void *arg) {
   
   if (EXT_DEBUG) {
     printf("\n");
-    printf("THREAD CURL-RET-CODE			: %d\n", ret);
-    printf("THREAD CURL-RESULT			: [%s]\n", rip);
-    printf("THREAD-MODE-ANSWER			: %d\n", DNS_MODE_ANSWER);
+    printf("-> THREAD CURL-RET-CODE			: %d\n", ret);
+    printf("-> THREAD CURL-RESULT			: [%s]\n", rip);
+    printf("-> THREAD-MODE-ANSWER			: %d\n", DNS_MODE_ANSWER);
     /*
     printf("THREAD-proxy-host			: %s\n", params->xproxy_host);
     printf("THREAD-proxy-port			: %d\n", params->xproxy_port);
@@ -2225,9 +2222,10 @@ void *threadFunc(void *arg) {
 
   if ((rip != NULL) && (strncmp(rip, "0.0.0.0", 7) != 0)) {
     if (DEBUG) {
-	    printf("THREAD qsize				: %u\n", (uint32_t)request_len);
-	    printf("THREAD typeq				: %s\n", typeq);
-	    printf("THREAD dns_req->qtype			: %d\n", dns_req->qtype);
+        printf("\n");
+	    printf("-> THREAD qsize				: %u\n", (uint32_t)request_len);
+	    printf("-> THREAD typeq				: %s\n", typeq);
+	    printf("-> THREAD dns_req->qtype		: %d\n", dns_req->qtype);
 	    /*
 	    printf("THREAD V-socket-Xsockfd			: %u\n", xsockfd);
 	    printf("THREAD V-socket- sockfd			: %u\n", sockfd);
@@ -2263,15 +2261,15 @@ void *threadFunc(void *arg) {
   pthread_setspecific(glob_var_key_ip, NULL);
   
   if (pthread_mutex_unlock(&mutex)) {
-    if (EXT_DEBUG) { printf(" *** mutex unlock OK for thread ID: %d\n", getpid()); }
+    if (LOCK_DEBUG) { printf(" *** Mutex unlock ........  OK (thread ID: %d)\n", getpid()); }
   } else {
-    if (EXT_DEBUG) { printf(" *** mutex unlock NOT OK for thread ID: %d\n", getpid()); }
+    if (LOCK_DEBUG) { printf(" *** Mutex unlock ..... NOT OK (thread ID: %d)\n", getpid()); }
   } 
   
   if (pthread_mutex_destroy(&mutex)) {
-    if (EXT_DEBUG) { printf(" *** mutex destroy OK\n"); }
+    if (LOCK_DEBUG) { printf(" *** Mutex destroy .........OK\n\n"); }
   } else {
-    if (EXT_DEBUG) { printf(" *** mutex destroy NOT OK\n"); }
+    if (LOCK_DEBUG) { printf(" *** Mutex destroy .... NOT OK\n\n"); }
   }
   
   //pthread_exit(NULL);
@@ -2340,7 +2338,7 @@ int main(int argc, char *argv[]) {
   /* Command line args */
   // while ((c = getopt_long(argc, argv, short_opt, long_opt, NULL)) != -1)
   
-  while ((c = getopt (argc, argv, "T:s:p:l:r:H:t:w:u:k:hvNRCXn")) != -1)
+  while ((c = getopt (argc, argv, "T:s:p:l:r:H:t:w:u:k:hvNRCLXn")) != -1)
   switch (c)
    {
       case 't':
@@ -2378,6 +2376,11 @@ int main(int argc, char *argv[]) {
           fprintf(stderr," *** VERBOSE CURL ....... ON\n");
       break;
 
+      case 'L':
+          LOCK_DEBUG = 1;
+          fprintf(stderr," *** LOCK DEBUG ......... ON\n");
+      break;
+
       case 'X':
           EXT_DEBUG = 1;
           fprintf(stderr," *** EXTENDED DEBUG ..... ON\n");
@@ -2400,7 +2403,7 @@ int main(int argc, char *argv[]) {
 
       case 'T':
           ttl_in = atoi(optarg);
-          fprintf(stderr," *** TTL SET TO %d (dec) / %x (hex). 4 bytes, 0-2147483647 sec (RFC 2181)\n",ttl_in,ttl_in);
+          fprintf(stderr," ### TTL set to %d dec / %x hex. 4 bytes, 0-2147483647 sec (RFC 2181) ###\n",ttl_in,ttl_in);
       break;
 
       case 'n':
@@ -2674,6 +2677,7 @@ int main(int argc, char *argv[]) {
     
     /* wrong ... DO NOT USE */
     //sem_wait(&mutex);
+
     pthread_mutex_trylock(&mutex);
     //pthread_mutex_destroy(&mutex);
 
@@ -3009,8 +3013,8 @@ int main(int argc, char *argv[]) {
           //printf("OUTSIDE-THREAD-resolved-address: %d\n",ret);
           //printf("OUTSIDE-THREAD-resolved-address: %d\n",glob_var_key_ip);
           //printf("OUTSIDE-THREAD-log: pid [%u] - hostname %s - size %d ip %s\r\n", ret, dns_req->hostname, request_len, ip);
-          printf("OUTSIDE-THREAD-log: size %d\n",request_len);
-          fprintf(stderr, " *** Finished joining thread i-> %d, nnn-> %d, r-> %d \n",i,nnn,r);
+          fprintf(stderr, "---> OUTSIDE-THREAD-log: size %d\n",request_len);
+          fprintf(stderr, "---> Finished joining thread i-> %d, nnn-> %d, r-> %d \n",i,nnn,r);
         }
         i++;
         nnn++;
@@ -3079,7 +3083,7 @@ int main(int argc, char *argv[]) {
       //pthread_join(pth[i],NULL);
       /* not in main() */
       //pthread_exit(NULL);
-      if (THR_DEBUG) {fprintf(stderr, "Finished joining thread i-> %d, nnn-> %d \n",i,nnn);}
+      if (THR_DEBUG) { fprintf(stderr, "---> Finished joining thread i-> %d, nnn-> %d \n",i,nnn); }
     
       //break;
       //return;
