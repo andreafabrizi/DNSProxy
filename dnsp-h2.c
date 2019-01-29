@@ -1277,7 +1277,7 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
       free(finalresponse_ptr);
     }
 
-    //close(sd);
+    close(sd);
     //free(response_ptr);
     //free(finalresponse_ptr);
     free(rip);

@@ -119,38 +119,42 @@ host yourself as many *nslookup-doh.php* scripts as you can, or send it on a fri
 The more DNSP resolvers around the world, the less DNS queries will be traceable (TOR leaking problem).
 
 ```bash
- dnsp 2, copyright @ 2018 Massimiliano Fantuzzi, HB3YOE, MIT License
-
- usage: dnsp [-l [local_host]] [-p [local_port:53,5353,..]] [-H [proxy_host]] [-r [proxy_port:8118,8888,3128,9500..]] 
-		 [-w [lookup_port:80,443,..]] [-s [lookup_script]]
+ dnsp-h2 2.2, copyright 2018 @ Massimiliano Fantuzzi HB9GUS, MIT License
 
  usage: dnsp-h2 [-l [local_host]] [-p [local_port:53,5353,..]] [-H [proxy_host]] [-r [proxy_port:8118,8888,3128,9500..]] 
 		 [-w [lookup_port:80,443,..]] [-s [lookup_script]]
 
  OPTIONS:
       -l		 Local server address	(optional)
-      -p		 Local server port	(optional, defaults to 53)
-      -H		 Cache proxy address	(strongly suggested)
-      -r		 Cache proxy port	(strongly suggested)
+      -p		 Local server port	(defaults to 53)
+      -H		 Cache proxy address	(suggested)
+      -r		 Cache proxy port	(suggested)
       -u		 Cache proxy username	(optional)
       -k		 Cache proxy password	(optional)
       -s		 Lookup script URL	(mandatory option)
-      -w		 Lookup port		(obsolete, defaults to 80/443 for HTTP/HTTPS)
+      -w		 Lookup port		(optional)
 
- TESTING/DEV OPTIONS:
-      -T		 Force TTL to be [int] (useful for autotest)
-      -n		 Enable DNS DUMP
+ DEVELOPERS OPTIONS:
+      -T		 Override TTL to be [0-2147483647] as per RFC 2181 (useful for testing, 4 bytes)
+      -Z		 Override TCP size of response to be 2 bytes at choice (testing TCP listeners, 2 bytes)
+      -n		 Enable DNS/UDP raw dump output
       -v		 Enable DEBUG
-      -C		 Enable CURL VERBOSE, useful to spot cache issues or dig down into HSTS/HTTPS quirks
- WIP OPTIONS:
-      -I		 Upgrade Insecure Requests, HSTS work in progress
+      -X		 Enable extra DEBUG
+      -R		 Enable thread DEBUG
+      -N		 Enable counters
+      -C		 CURL VERBOSE, useful to debug cache issues, certificates, quirks or anything else
+
+ TESTING OPTIONS:
+      -I		 Upgrade Insecure Requests, debug HSTS, work in progress
       -R		 Enable CURL resolve mechanism, avoiding extra gethostbyname (DO NOT USE)
-      -t		 Stack size in format	0x1000000 (MB)
+      -t		 Stack size in format 0x1000000 (MB)
 
- Example HTTPS direct :  dnsp-h2 -s https://www.fantuz.net/nslookup-doh.php
- Example HTTP direct  :  dnsp -s http://www.fantuz.net/nslookup.php
- Example HTTP w/cache :  dnsp -r 8118 -H http://myproxy.example.com/ -s http://www.fantuz.net/nslookup.php
+ Example with direct HTTPS :  dnsp-h2 -s https://php-dns.appspot.com/
+ Example with direct HTTP  :  dnsp-h2 -s http://www.fantuz.net/nslookup.php
+ Example with proxy HTTP + cache :  dnsp-h2 -r 8118 -H http://your.proxy.com/ -s http://www.fantuz.net/nslookup.php
 
+ Undergoing TTL tests: ./dnsp-h2 -T 86400 -v -X -C -n -s https://php-dns.appspot.com/ 2>&1
+ or strace -xx -s 1024 -vvv -ff -e network ./dnsp-h2 -T 86400 -v -X -n -s https://php-dns.appspot.com/ 2>&1 | egrep -v '(ble)$|tor)$|+$|ched$)
 ```
 
 ## Building
@@ -210,8 +214,8 @@ Is a big piece of curl/threaded code that helps people _transporting_ and _shari
 ## Changelog:
 
 #### TODO:
-* get on DNSSEC as extra
-* adding NGHTTP2 along or in place of CURL. Would be a better/faster way to support H2 dialog
+* DNSSEC tests ?
+* to use NGHTTP2 in place of CURL. A faster way to support H2 (anyways, CURL requires NGHTTP2)
 * implementing request/response headers PHP, according to new content type "application/dns"
 
 #### WIP:
@@ -223,6 +227,9 @@ Is a big piece of curl/threaded code that helps people _transporting_ and _shari
 * 9.9.9.9
 * see list on https://github.com/curl/curl/wiki/DNS-over-HTTPS#publicly-available-servers
 
+#### Version 2.2 - January 2019:
+* completed TCP & UDP listeners
+
 #### Version 2 - March 2018:
 * DOH-ready: raw DNS request printout (for server), base64 encoding of hostname parameter in 
   GET/POST (for client)
@@ -232,11 +239,10 @@ Is a big piece of curl/threaded code that helps people _transporting_ and _shari
   (Not interesting except in particular scenarios, as browsing through high-delay satellite networks).
 * added the arduino+ethernet library with the new select() function (sorry for delay, was easy)
 * DNSP for HTTP/1 version freeze, development on H2 only (till Hackathon 101 London 17-18/3).
-* Added TCP query/response support in a thread on its own !
+* Added TCP query/response support !
 
 #### Version 1.6 - March 2018:
-* sneak peak: REDIS ready _via https://github.com/redis/hiredis_
-* more community = more test
+* almost REDIS-ready _via https://github.com/redis/hiredis_
 * finally fixed infamous proxy settings (not hardcoded they were stopped by mutex leftover).
 * removed and commented references to different DNSP modes (threaded/forked, mutex, semaphores).
 * finally will update informations to strongly suggest SQUID in place of POLIPO (I loved it, but is EOL)
