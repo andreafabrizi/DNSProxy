@@ -1240,16 +1240,11 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
         hexdump(finalresponse_ptr, finalresponse - finalresponse_ptr);
       }
 
-      //write(sd, (const char*)finalresponse_ptr, finalresponse - finalresponse_ptr); 
       // MSG_OOB, MSG_NOSIGNAL, MSG_EOR, MSG_MORE, MSG_WAITALL, MSG_CONFIRM, MSG_DONTWAIT
       // msg_flags=MSG_TRUNC|MSG_DONTWAIT|MSG_EOR|MSG_WAITALL|MSG_CONFIRM|MSG_ERRQUEUE|MSG_MORE|MSG_WAITFORONE
       //sendto(sd, finalresponse_ptr, finalresponse - finalresponse_ptr, MSG_EOR, (struct sockaddr *)yclient, 16);
+      //write(sd, (const char*)finalresponse_ptr, finalresponse - finalresponse_ptr); 
       
-      //wait(NULL); 
-      //fdatasync(sd);
-      //shutdown(sd,SHUT_RD);
-      //close(sd);
-      //response_ptr=finalresponse_ptr;
     }
 
     //fdatasync(sd);
@@ -1275,6 +1270,7 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
       close(sd);
       free(response_ptr);
       free(finalresponse_ptr);
+      return;
     }
 
     close(sd);
@@ -2379,37 +2375,37 @@ int main(int argc, char *argv[]) {
               
       case 'C':
           DEBUGCURL = 1;
-          fprintf(stderr," *** VERBOSE CURL ON\n");
+          fprintf(stderr," *** VERBOSE CURL ....... ON\n");
       break;
 
       case 'X':
           EXT_DEBUG = 1;
-          fprintf(stderr," *** EXTENDED DEBUG ON\n");
+          fprintf(stderr," *** EXTENDED DEBUG ..... ON\n");
       break;
       
       case 'R':
           THR_DEBUG = 1;
-          fprintf(stderr," *** THREAD DEBUG ON\n");
+          fprintf(stderr," *** THREAD DEBUG ....... ON\n");
       break;
       
       case 'N':
           CNT_DEBUG = 1;
-          fprintf(stderr," *** COUNTERS ON\n");
+          fprintf(stderr," *** COUNTERS ........... ON\n");
       break;
 
       case 'v':
           DEBUG = 1;
-          fprintf(stderr," *** BASE DEBUG ON\n");
+          fprintf(stderr," *** BASE DEBUG.......... ON\n");
       break;
 
       case 'T':
           ttl_in = atoi(optarg);
-          fprintf(stderr," *** TTL SET TO %d, %x, 4 bytes, 0-2147483647 seconds (RFC 2181)\n",ttl_in,ttl_in);
+          fprintf(stderr," *** TTL SET TO %d (dec) / %x (hex). 4 bytes, 0-2147483647 sec (RFC 2181)\n",ttl_in,ttl_in);
       break;
 
       case 'n':
           DNSDUMP = 1;
-          fprintf(stderr," *** HEX DNSDUMP ON\n");
+          fprintf(stderr," *** HEX DNSDUMP ........ ON\n");
       break;
       
       case 'l':
@@ -2464,12 +2460,12 @@ int main(int argc, char *argv[]) {
   }
 
   if (proxy_host != NULL) {
-      fprintf(stderr, "### Yay !! HTTP caching proxy configured, continuing with support of HTTP cache ###\n");
-      fprintf(stderr, "### Using proxy-host: %s ###\n",proxy_host);
+      fprintf(stderr, " ### Yay !! A caching proxy was configured. Cache-acceleration activated ###\n");
+      fprintf(stderr, " ### Using proxy-host: %s ###\n",proxy_host);
       //proxy_host = proxy_address;
       //fprintf(stderr, "Bind proxy string: %s\n",proxy_address);
   } else {
-      fprintf(stderr, "### No HTTP caching proxy configured, continuing without HTTP cache ###\n");
+      fprintf(stderr, " ### No caching proxy was configured. Running without cache-acceleration ###\n");
   }	
 
   if (bind_address == NULL) { bind_address = "127.0.0.1"; bind_address_tcp = "127.0.0.1"; }
@@ -2811,7 +2807,10 @@ int main(int argc, char *argv[]) {
     	if ((flag != 3)) {
 	      dns_req_tcp = parse_dns_request(request_tcp, request_len_tcp, 1, 0);
     	} else {
-    	  printf(" *** exiting :(\n");
+          printf(" *** flag is NULL (3). closing fd\n");
+    	  //printf(" *** exiting :(\n");
+          close(newsockfd);
+          close(fd);
     	  exit(EXIT_SUCCESS);
     	}
 	
@@ -2841,7 +2840,7 @@ int main(int argc, char *argv[]) {
     	cntudp++;
       } else {
     	flag = 3;
-        printf("flag is NULL and closing fd\n");
+        printf(" *** flag is NULL (3). closing fd\n");
         close(newsockfd);
         //dns_req = parse_dns_request(request, request_len, 0, 1);
         //pthread_mutex_destroy(&mutex);
@@ -2978,7 +2977,7 @@ int main(int argc, char *argv[]) {
       }
     
       /* Spin the well-instructed thread ! */
-      if (CNT_DEBUG) { printf("### flag: %d, count TCP: %d, count UDP: %d ###\n",flag,cnt,cntudp); }
+      if (CNT_DEBUG) { printf(" ### flag: %d, count TCP: %d, count UDP: %d ###\n",flag,cnt,cntudp); }
       threadFunc(readParams);
       ret = pthread_create(&pth[i],&attr,threadFunc,readParams);
           
@@ -2988,7 +2987,7 @@ int main(int argc, char *argv[]) {
     
       for(r=0; r < NUMT*NUM_THREADS; r++) {
       	if(0 != ret) {
-      	  fprintf(stderr, "Couldn't run thread number %d, errno %d\n", i, ret);
+      	  fprintf(stderr, " ### Couldn't run thread number %d, errno %d\n", i, ret);
           //char *vvv = pthread_getspecific(glob_var_key_ip);
           //printf("GLOBAL-FAIL-IP: %s\n", vvv);
         } else {
