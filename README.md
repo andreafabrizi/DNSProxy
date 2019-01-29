@@ -298,21 +298,30 @@ Is a big piece of curl/threaded code that helps people _transporting_ and _shari
 
 ## Testing dnsp & HTTP/0.9, 1.0, 1.1
 
-To test if DNS proxy is working correctly, you can use tcpdump. Or simply run the program (v1 or v2)
-as follows:
+To test if DNSProxy is working correctly, you can use tcpdump and check integrity of DNS messages.
+Simply run one of the two available programs as follows.
 
+To start a pre-h2 (non-standard) DOH server, type:
 ```bash
-dnsp-h2 -l 127.0.0.1 -s https://www.fantuz.net/nslookup-doh.php
 dnsp -l 127.0.0.1 -s https://www.fantuz.net/nslookup.php
 ```
-Open a new terminal and invoke **dig** to resolve a sample hostname against your brand-new 
-localhost instance of DNSP:
+If you prefer to run an HTTP2-compliant server (as per DOH RFC-8484), type:
+```bash
+dnsp-h2 -l 127.0.0.1 -s https://www.fantuz.net/nslookup-doh.php
+```
+Note that dnsp (the pre-DOH version of DNSProxy) is kept only for backwards compatibility and may
+disappear at any time. Please use only dnsp-h2 by default. Eventually push commits into the latter one.
 
+At this point, you might want to start your traffic capture, either wireshark, tshark or tcpdump.
+
+Now open a new terminal and invoke **dig** (or **nslookup**) to resolve a sample hostname against
+our brand-new server instance of DNSP:
+
+Type the following command to test UDP listener:
 ```bash
 dig news.google.com @127.0.0.1
 ```
-The result must be something like this, no errors or warning shall be trown:
-
+The result shall correspond to this output, no errors or warning shall be trown.
 ```
 ; <<>> DiG 9.10.3-P4-Ubuntu <<>> news.google.com @127.0.0.1
 ;; global options: +cmd
@@ -331,10 +340,11 @@ news.google.com.    524549  IN  A   216.58.206.142
 ;; WHEN: Tue Jan 29 21:00:49 CET 2019
 ;; MSG SIZE  rcvd: 49
 ```
-
+A similar command is to be run order to test TCP listener:
 ```bash
 dig +tcp facebook.com @127.0.0.1
 ```
+Again, resulrs should correspond to the following output.
 
 ```
 ; <<>> DiG 9.10.3-P4-Ubuntu <<>> +tcp facebook.com @127.0.0.1
@@ -355,8 +365,14 @@ facebook.com.       524549  IN  A   185.60.216.35
 ;; MSG SIZE  rcvd: 46
 ```
 
-If the test query works, you can safely replace the "nameserver" entries on /etc/resolv.conf
-and immediately point ALL DNS TRAFFIC towards DNSP, leveraging DOH (DNS-over-HTTP) capabilites.
+If any of the test queries work, you can safely replace the current "nameserver" entries within
+/etc/resolv.conf and point ALL DNS TRAFFIC towards DNSP, by inserting such a line:
+```
+nameserver 127.0.0.1
+```
+
+If configuration and testing completed successfully, you are now ready to run a DOH peer server, 
+and profit of DNS-over-HTTP(S) services as described by RFC-8484.
 
 ## Changelog
 
