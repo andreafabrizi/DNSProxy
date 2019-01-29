@@ -65,14 +65,12 @@ As bonus, this software is TOR-friendly and requires minimal resources. Enjoy !
 ```
 
 Features:
-- being DNS-over-HTTP compliant, and even more (older standards supported).
+- DNS-over-HTTPS compliant with RFC-8484, plus older non-standards supported.
 - FOLLOWLOCATION, spawns threads to enable HTTP browser cache preemption
     for the benefit of the user experience.
 - HTTP/2 ready. Talks HTTP/2 in different combinations of ALPN, NPN, Update & co.
-- HTTP/2 was set as the minimum requirement in the IETF DOH RFC, conform is 
-    easy with libCURL, lesser with nghttp2,
-- HTTP/2 PUSH being tested, for smoother and opportunistic DNS answers. Remember, 
-    there's no ID field in doh!
+- as HTTP/2 is the minimum requirement for DOH (see RFC-8484), to comply is easy
+    using libCURL, lesser with nghttp2,
 - ability to dump DNS response packet, then serve such content via local HTTP webserver
     (not in DNSP intents, but possible for the benefit and simplicity of DOH adoption !)
 - ability to set specific headers according to cache requirements,
@@ -217,6 +215,7 @@ Is a big piece of curl/threaded code that helps people _transporting_ and _shari
 * DNSSEC tests ?
 * to use NGHTTP2 in place of CURL. A faster way to support H2 (anyways, CURL requires NGHTTP2)
 * implementing request/response headers PHP, according to new content type "application/dns"
+* implement HTTP/2 PUSH, for smoother and opportunistic DNS answers. Remember, there's no ID field in DOH !
 
 #### WIP:
 * use Warning headers to signal something
@@ -310,27 +309,50 @@ Open a new terminal and invoke **dig** to resolve a sample hostname against your
 localhost instance of DNSP:
 
 ```bash
-dig www.google.com @127.0.0.1
+dig news.google.com @127.0.0.1
 ```
 The result must be something like this, no errors or warning shall be trown:
 
 ```
-; <<>> DiG 9.8.1-P1 <<>> www.google.com @127.0.0.1
+; <<>> DiG 9.10.3-P4-Ubuntu <<>> news.google.com @127.0.0.1
 ;; global options: +cmd
 ;; Got answer:
-;; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: 29155
+;; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: 17828
 ;; flags: qr aa rd ra; QUERY: 1, ANSWER: 1, AUTHORITY: 0, ADDITIONAL: 0
 
 ;; QUESTION SECTION:
-;www.google.com. 		IN	A
+;news.google.com.       IN  A
 
 ;; ANSWER SECTION:
-www.google.com.		3600	IN	A	173.194.64.106
+news.google.com.    524549  IN  A   216.58.206.142
 
-;; Query time: 325 msec
+;; Query time: 303 msec
 ;; SERVER: 127.0.0.1#53(127.0.0.1)
-;; WHEN: Fri May 17 11:52:08 2013
-;; MSG SIZE  rcvd: 48
+;; WHEN: Tue Jan 29 21:00:49 CET 2019
+;; MSG SIZE  rcvd: 49
+```
+
+```bash
+dig +tcp facebook.com @127.0.0.1
+```
+
+```
+; <<>> DiG 9.10.3-P4-Ubuntu <<>> +tcp facebook.com @127.0.0.1
+;; global options: +cmd
+;; Got answer:
+;; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: 9475
+;; flags: qr aa rd ra; QUERY: 1, ANSWER: 1, AUTHORITY: 0, ADDITIONAL: 0
+
+;; QUESTION SECTION:
+;facebook.com.          IN  A
+
+;; ANSWER SECTION:
+facebook.com.       524549  IN  A   185.60.216.35
+
+;; Query time: 277 msec
+;; SERVER: 127.0.0.1#53(127.0.0.1)
+;; WHEN: Tue Jan 29 21:00:50 CET 2019
+;; MSG SIZE  rcvd: 46
 ```
 
 If the test query works, you can safely replace the "nameserver" entries on /etc/resolv.conf
@@ -356,7 +378,7 @@ Values should end with bits 0d0a. on any server (HEX is easy to read):
 00000010: 742e 636f 6d0d 0a                        t.com..
 ```
 
-## Testing dnsp-h2 with DNS-over-HTTPS RFC
+## Testing dnsp-h2 with DNS-over-HTTPS, RFC-8484
 
 ![alt text](https://raw.githubusercontent.com/fantuz/DNSProxy/master/capture-http2.png)
 
