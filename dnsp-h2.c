@@ -647,7 +647,7 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
        *finalresponse_ptr;
        //typeq,
   int i,ppch, check = 0;
-  ssize_t bytes_sent, bytes_sent_udp;
+  ssize_t bytes_sent, bytes_sent_tcp, bytes_sent_udp;
   ssize_t bytes_encoded;
 
   if (DEBUG) {
@@ -1214,7 +1214,7 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
     /* TCP DNS packet length-header re-stamping */
     if (protoq == 1) {
       int resulttt = NULL;
-      int norm2 = (response - response_ptr);
+      int norm2 = (response - response_ptr-2); // account for 2 extra tcp bytes
       check = 1;
       if (DNSDUMP) { printf(" *** BYTES in norm2 -> %d\n",norm2); }
       
@@ -1243,30 +1243,16 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
       //write(sd, (const char*)finalresponse_ptr, finalresponse - finalresponse_ptr); 
       // MSG_OOB, MSG_NOSIGNAL, MSG_EOR, MSG_MORE, MSG_WAITALL, MSG_CONFIRM, MSG_DONTWAIT
       // msg_flags=MSG_TRUNC|MSG_DONTWAIT|MSG_EOR|MSG_WAITALL|MSG_CONFIRM|MSG_ERRQUEUE|MSG_MORE|MSG_WAITFORONE
-      //bytes_sent = sendto(sd, finalresponse_ptr, finalresponse - finalresponse_ptr, MSG_EOR, (struct sockaddr *)yclient, 16);
-      sendto(sd, finalresponse_ptr, finalresponse - finalresponse_ptr, MSG_TRUNC, (struct sockaddr *)yclient, 16);
-      //bytes_sent += sendto(sd, NULL, 0, MSG_EOR, (struct sockaddr *)yclient, 16);
-      //wait(bytes_sent); 
-      wait(NULL); 
+      //sendto(sd, finalresponse_ptr, finalresponse - finalresponse_ptr, MSG_EOR, (struct sockaddr *)yclient, 16);
+      
+      //wait(NULL); 
       //fdatasync(sd);
       //shutdown(sd,SHUT_RD);
       //close(sd);
-      //free(finalresponse_ptr);
-      //return;
-      //exit(0);
       //response_ptr=finalresponse_ptr;
     }
 
     //fdatasync(sd);
-    /* send contents back onto the same socket */
-    if (check == 0) {
-      sendto(sd, (const char*)response_ptr, response - response_ptr, 0, (struct sockaddr *)yclient, 16);
-      //wait(bytes_sent_udp);
-    } else {
-      shutdown(sd,SHUT_RD);
-      close(sd);
-    }
-    wait(NULL);
 
     /* dump to udpwireformat */
     if (DNSDUMP) {
@@ -1275,11 +1261,27 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
       hexdump(response_ptr, response - response_ptr);
     }
 
-    close(sd);
+    /* send contents back onto the same socket */
+    if (check != 1) {
+      bytes_sent_udp = sendto(sd, (const char*)response_ptr, response - response_ptr, 0, (struct sockaddr *)yclient, 16);
+      wait(bytes_sent_udp);
+      close(sd);
+      free(response_ptr);
+      check = 0;
+    } else if (protoq == 1) {
+      bytes_sent_tcp = sendto(sd, finalresponse_ptr, finalresponse - finalresponse_ptr, MSG_EOR, (struct sockaddr *)yclient, 16);
+      wait(bytes_sent_tcp); 
+      shutdown(sd,SHUT_RD);
+      close(sd);
+      free(response_ptr);
+      free(finalresponse_ptr);
+    }
+
+    //close(sd);
+    //free(response_ptr);
+    //free(finalresponse_ptr);
     free(rip);
     free(dns_req);
-    free(response_ptr);
-    check = 0;
     return;
 
   } else if (mode == DNS_MODE_ERROR) {
@@ -1318,9 +1320,8 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
 
   if (DNSDUMP) { printf(" *** SENT %d bytes\n", (uint32_t)bytes_sent); }
   
-  //fdatasync(sd);
-
   //flag = NULL;
+  //fdatasync(sd);
   //close(sd);
   //free(rip);
   //free(dns_req);
@@ -2565,8 +2566,7 @@ int main(int argc, char *argv[]) {
   
   if (fd<0) { printf(" *** %s",strerror(errno)); }
 
-  //int reuseatwo = 1, reuseptwo = 1;
-  int reuseatwo = 0, reuseptwo = 0;
+  int reuseatwo = 1, reuseptwo = 1;
   if (setsockopt(fd,SOL_SOCKET,SO_REUSEPORT, (const char*)&reuseptwo,sizeof(reuseptwo))==-1) { printf("%s",strerror(errno)); }
   if (setsockopt(fd,SOL_SOCKET,SO_REUSEADDR, (const char*)&reuseatwo,sizeof(reuseatwo))==-1) { printf("%s",strerror(errno)); }
 
