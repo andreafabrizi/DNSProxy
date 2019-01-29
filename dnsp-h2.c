@@ -468,8 +468,8 @@ void usage(void) {
                 " Example with direct HTTPS :  dnsp-h2 -s https://php-dns.appspot.com/\n"
                 " Example with direct HTTP  :  dnsp-h2 -s http://www.fantuz.net/nslookup.php\n"
                 " Example with proxy HTTP + cache :  dnsp-h2 -r 8118 -H http://your.proxy.com/ -s http://www.fantuz.net/nslookup.php\n\n"
-                "\n\n"
-                " Undergoing TTL tests: dnsp-h2 -T 86400 -v -X -C -n -s https://php-dns.appspot.com/ 2>&1\n\n"
+                " Undergoing TTL tests: ./dnsp-h2 -T 86400 -v -X -C -n -s https://php-dns.appspot.com/ 2>&1\n"
+                " or strace -xx -s 1024 -vvv -ff -e network ./dnsp-h2 -T 86400 -v -X -n -s https://php-dns.appspot.com/ 2>&1 | egrep -v '(ble\)$|tor\)$|\+$|ched$)\n\n'"
     ,VERSION);
     exit(EXIT_FAILURE);
 }
@@ -542,8 +542,8 @@ struct dns_request *parse_dns_request(const char *udp_request, size_t request_le
     if (proton  == 1) {
       dns_req = malloc(sizeof(struct dns_request) + 2);
       if (EXT_DEBUG) {
-        printf("\n *** TCP .. dns_req->tcp_size IN	: (%08x) // (%d)\n", (uint8_t) dns_req->tcp_size,dns_req->tcp_size);
-        printf("\n *** TCP .. sizeof(udp_request) IN	: (%08x) // (%d)\n", (uint8_t) sizeof(udp_request),sizeof(udp_request));
+        printf(" *** TCP .. dns_req->tcp_size IN	: (%08x) // (%d)\n", (uint8_t) dns_req->tcp_size,dns_req->tcp_size);
+        printf(" *** TCP .. sizeof(udp_request) IN	: (%08x) // (%d)\n", (uint8_t) sizeof(udp_request),sizeof(udp_request));
       }
       //udp_request//response[1] = (uint8_t)(dns_req->transaction_id >> 8);
       dns_req->tcp_size = (uint8_t)udp_request[1] + (uint16_t)(udp_request[0] << 8);
@@ -551,8 +551,8 @@ struct dns_request *parse_dns_request(const char *udp_request, size_t request_le
     } else {
       dns_req = malloc(sizeof(struct dns_request));
       if (EXT_DEBUG) {
-    	 printf("\n *** UDP .. sizeof(udp_request) IN	: %08x // %d\n", (uint8_t) sizeof(udp_request),sizeof(udp_request));
-    	 printf("\n *** UDP .. dns_req->tcp_size IN	: (%08x) // (%d)\n", (uint8_t) dns_req->tcp_size,dns_req->tcp_size);
+    	 printf(" *** UDP .. sizeof(udp_request) IN	: %08x // %d\n", (uint8_t) sizeof(udp_request),sizeof(udp_request));
+    	 printf(" *** UDP .. dns_req->tcp_size IN	: (%08x) // (%d)\n", (uint8_t) dns_req->tcp_size,dns_req->tcp_size);
       }
     }
 
@@ -646,8 +646,8 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
        *response_ptr,
        *finalresponse_ptr;
        //typeq,
-  int i,ppch;
-  ssize_t bytes_sent;
+  int i,ppch, check = 0;
+  ssize_t bytes_sent, bytes_sent_udp;
   ssize_t bytes_encoded;
 
   if (DEBUG) {
@@ -1189,8 +1189,7 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
     fprintf(fout, "%s", init_line);
 
     // NOT USEFUL TO USE A WHILE-LOOP (got from CURLLIB examples)
-    //while(!feof(stdin))
-    //{
+    while(!feof(stdin)){
         //count = fread(buff, sizeof(char), sizeof(buff) / sizeof(char), stdin);
     	count = sizeof(response);
 
@@ -1205,7 +1204,7 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
                 line_length = 0;
             }
         }
-    //}
+    }
     
     fseek(fout, -2, SEEK_CUR);
     fprintf(fout, " };\n");
@@ -1215,8 +1214,8 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
     /* TCP DNS packet length-header re-stamping */
     if (protoq == 1) {
       int resulttt = NULL;
-
       int norm2 = (response - response_ptr);
+      check = 1;
       if (DNSDUMP) { printf(" *** BYTES in norm2 -> %d\n",norm2); }
       
       finalresponse[0] = (uint8_t)(norm2 >> 8);
@@ -1229,41 +1228,59 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
           finalresponse_ptr[i]+= resulttt;
       }
 
-      finalresponse+=(response-response_ptr-2);
+      finalresponse+=(response-response_ptr);
       
       if (DNSDUMP) { 
-    	printf(" *** finalresponse_ptr, response - response_ptr\n");
+	    printf(" *** TCP SENT %d bytes of finalresponse\n", finalresponse - finalresponse_ptr);
+    	printf(" *** DUMP OF finalresponse_ptr, response - response_ptr\n");
         hexdump(finalresponse_ptr, response - response_ptr);
-	    printf(" *** TCP SENT %d bytes of finalresponse\n\n", finalresponse - finalresponse_ptr);
 
-        printf(" *** finalresponse_ptr, finalresponse - finalresponse_ptr\n");
-        hexdump(finalresponse_ptr, finalresponse - finalresponse_ptr);
         printf(" *** TCP SENT %d bytes of finalresponse (including +2 for TCP)\n", finalresponse - finalresponse_ptr);
+        printf(" *** DUMP OF finalresponse_ptr, finalresponse - finalresponse_ptr\n");
+        hexdump(finalresponse_ptr, finalresponse - finalresponse_ptr);
       }
 
-      /* send contents back onto the same socket */
-      bytes_sent = sendto(sd, finalresponse_ptr, finalresponse - finalresponse_ptr, MSG_EOR, (struct sockaddr *)yclient, 16);
-      //bytes_sent = sendto(sd, finalresponse_ptr, finalresponse - finalresponse_ptr, MSG_MORE, (struct sockaddr *)yclient, 16);
-
+      //write(sd, (const char*)finalresponse_ptr, finalresponse - finalresponse_ptr); 
+      // MSG_OOB, MSG_NOSIGNAL, MSG_EOR, MSG_MORE, MSG_WAITALL, MSG_CONFIRM, MSG_DONTWAIT
+      // msg_flags=MSG_TRUNC|MSG_DONTWAIT|MSG_EOR|MSG_WAITALL|MSG_CONFIRM|MSG_ERRQUEUE|MSG_MORE|MSG_WAITFORONE
+      //bytes_sent = sendto(sd, finalresponse_ptr, finalresponse - finalresponse_ptr, MSG_EOR, (struct sockaddr *)yclient, 16);
+      sendto(sd, finalresponse_ptr, finalresponse - finalresponse_ptr, MSG_TRUNC, (struct sockaddr *)yclient, 16);
+      //bytes_sent += sendto(sd, NULL, 0, MSG_EOR, (struct sockaddr *)yclient, 16);
+      //wait(bytes_sent); 
+      wait(NULL); 
+      //fdatasync(sd);
+      //shutdown(sd,SHUT_RD);
+      //close(sd);
+      //free(finalresponse_ptr);
+      //return;
+      //exit(0);
+      //response_ptr=finalresponse_ptr;
     }
 
-    //if (protoq == NULL) {
+    //fdatasync(sd);
     /* send contents back onto the same socket */
-    bytes_sent = sendto(sd, response_ptr, response - response_ptr, MSG_DONTWAIT, (struct sockaddr *)yclient, 16);
+    if (check == 0) {
+      sendto(sd, (const char*)response_ptr, response - response_ptr, 0, (struct sockaddr *)yclient, 16);
+      //wait(bytes_sent_udp);
+    } else {
+      shutdown(sd,SHUT_RD);
+      close(sd);
+    }
+    wait(NULL);
 
     /* dump to udpwireformat */
     if (DNSDUMP) {
+      printf(" *** XXX SENT %d bytes of response\n", response - response_ptr);
       printf(" *** DUMP OF response_ptr, OF LENGTH OF response - response_ptr\n"); 
       hexdump(response_ptr, response - response_ptr);
     }
 
-    //}
-
     close(sd);
-
     free(rip);
     free(dns_req);
     free(response_ptr);
+    check = 0;
+    return;
 
   } else if (mode == DNS_MODE_ERROR) {
 
@@ -1278,8 +1295,10 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
     yclient->sin_port = yclient->sin_port;
     memset(&(yclient->sin_zero), 0, sizeof(yclient->sin_zero)); // zero the rest of the struct 
     //memset(yclient, 0, 0);
+
     if (DNSDUMP) { hexdump(response_ptr, response - response_ptr ); }
-    bytes_sent = sendto(sd, response_ptr, response - response_ptr, MSG_DONTWAIT, (struct sockaddr *)yclient, 16);
+
+    bytes_sent = sendto(sd, response_ptr, response - response_ptr, MSG_EOR, (struct sockaddr *)yclient, 16);
     printf(" *** AN ERRONEOUS PARSE HAPPENED\n");
     close(sd);
     //free(rip);
@@ -2263,6 +2282,17 @@ void *threadFunc(void *arg) {
 }
 
 int main(int argc, char *argv[]) {
+  /* clear the master and temp sets */
+
+  /* master file descriptor list */
+  //fd_set master;
+
+  /* temp file descriptor list for select() */
+  //fd_set read_fds;
+
+  //FD_ZERO(&master);
+  //FD_ZERO(&read_fds);
+
   int sockfd, fd, port = DEFAULT_LOCAL_PORT, wport = DEFAULT_WEB_PORT, proxy_port = 0, c;
   int r = 0;
   int ttl_in;
@@ -2535,7 +2565,8 @@ int main(int argc, char *argv[]) {
   
   if (fd<0) { printf(" *** %s",strerror(errno)); }
 
-  int reuseatwo = 1, reuseptwo = 1;
+  //int reuseatwo = 1, reuseptwo = 1;
+  int reuseatwo = 0, reuseptwo = 0;
   if (setsockopt(fd,SOL_SOCKET,SO_REUSEPORT, (const char*)&reuseptwo,sizeof(reuseptwo))==-1) { printf("%s",strerror(errno)); }
   if (setsockopt(fd,SOL_SOCKET,SO_REUSEADDR, (const char*)&reuseatwo,sizeof(reuseatwo))==-1) { printf("%s",strerror(errno)); }
 
@@ -2561,8 +2592,8 @@ int main(int argc, char *argv[]) {
   //if (bind(fd,(struct sockaddr *) &serv_addr->ai_addr, sizeof(serv_addr))==-1) { printf("%s",strerror(errno)); }
   
   //int xxx = sizeof(serv_addr);
-  //if (bind(fd,(struct sockaddr *) &serv_addr, sizeof(serv_addr)==-1)) { printf("%s",strerror(errno)); }
-  bind(fd, (struct sockaddr *) &serv_addr_tcp, sizeof(serv_addr_tcp));
+  if (bind(fd, (struct sockaddr *) &serv_addr_tcp, sizeof(serv_addr_tcp)) ==-1) { printf("%s",strerror(errno)); }
+  //bind(fd, (struct sockaddr *) &serv_addr_tcp, sizeof(serv_addr_tcp));
   if ((listen(fd, SOMAXCONN)==-1)) { printf("%s",strerror(errno)); }
   int cnt = 0;
   int cntudp = 0;
@@ -2604,13 +2635,21 @@ int main(int argc, char *argv[]) {
   fcntl(sockfd, F_SETFL, O_NONBLOCK);
   //fcntl(sockfd, F_SETFL, FNDELAY);
 
+  /* add the listener to the master set */
+  //FD_SET(fd, &master);
+
   /* TCP listener */
   fcntl(fd, F_SETFL, O_NONBLOCK);
   //fcntl(fd, F_SETFL, O_ASYNC);
   //fcntl(fd, F_SETFL, FNDELAY);
 
-  while (1) {
+  /* Run forever */
+  for (;;) {
+  //while (1) {
     
+    /* copy it */
+    //read_fds = master;
+     
     char *ip = NULL;
     char request[UDP_DATAGRAM_SIZE + 1];
     char request_tcp[TCP_DATAGRAM_SIZE + 1];
@@ -2643,12 +2682,8 @@ int main(int argc, char *argv[]) {
     //pthread_mutex_destroy(&mutex);
 
     request_len = recvfrom(sockfd,request,UDP_DATAGRAM_SIZE,0,(struct sockaddr *)&client,&client_len);
-
-    // BUG
-    int solt = select(sockfd, sockfd, NULL, NULL, &read_timeout_micro);
-    //int solt = select(sockfd+1, sockfd, NULL, NULL, &read_timeout_micro);
-
-    if (!(solt == -1)) { printf(" *** sockfd -> select() contains %d bytes\n",solt); }
+    int recv_udp = select(sockfd, sockfd, NULL, NULL, &read_timeout_micro);
+    if (!(recv_udp == -1)) printf(" *** sockfd -> select() contains %d bytes\n",recv_udp);
 
     //if (cnt == 0) {
       //flag = 1;
@@ -2667,25 +2702,25 @@ int main(int argc, char *argv[]) {
       //fcntl(newsockfd, F_SETFL, O_NONBLOCK);
       //fcntl(newsockfd, F_SETFL, O_ASYNC);
       //setsockopt(newsockfd, SOL_SOCKET, SO_RCVTIMEO, &read_timeout_micro, sizeof read_timeout_micro);
-      
       //close(fd);
       //newsockfd = accept(fd, (struct sockaddr *) &client, &client_len);
       //request_len_tcp = recvfrom(newsockfd,request_tcp,TCP_DATAGRAM_SIZE,MSG_WAITALL,(struct sockaddr *)&client,&client_len);
       
-    // BUG
-    int silt = select(fd, fd, NULL, NULL, &read_timeout_micro);
-    //int silt = select(fd+1, fd, NULL, NULL, &read_timeout_micro);
-      
+    int recv_tcp = select(fd, fd, NULL, NULL, &read_timeout_micro);
     int newsockfd = accept(fd, (struct sockaddr *)&client_tcp,&client_len_tcp);
-    fcntl(newsockfd, F_SETFL, FNDELAY);
-      //fcntl(newsockfd, F_SETFL, O_NONBLOCK); //fcntl(fd, F_SETFL, O_ASYNC); //fcntl(fd, F_SETFL, FNDELAY);
-    if (!(silt == -1)) {
-	printf(" *** newsockfd -> select() contains %d bytes\n",silt);
-        //fcntl(newsockfd, F_SETFL, O_NONBLOCK);
-    }
+    fcntl(newsockfd, F_SETFL, O_NONBLOCK);
+    //fcntl(fd, F_SETFL, O_NONBLOCK);
+    //fcntl(newsockfd, F_SETFL, FNDELAY);
+    //fcntl(fd, F_SETFL, O_ASYNC);
+    //fcntl(fd, F_SETFL, FNDELAY);
+    
+    if (!(recv_tcp == -1)) printf(" *** newsockfd -> select() contains %d bytes\n",recv_tcp);
+    
+    //FD_SET(newsockfd, &master); /* add to master set */
+
     request_len_tcp = recvfrom(newsockfd,request_tcp,TCP_DATAGRAM_SIZE,MSG_WAITALL,(struct sockaddr *)&client_tcp,&client_len_tcp);
-    //request_len_tcp = recvfrom(newsockfd,request_tcp,TCP_DATAGRAM_SIZE,MSG_DONTWAIT,(struct sockaddr *)&client_tcp,&client_len_tcp);
     cnt++;
+
     //}
 
     //if ((accept(fd, (struct sockaddr *) &serv_addr, sizeof(serv_addr))) < 0) { printf("\nERROR IN INITIAL ACCEPT\n"); close(fd); } else { printf("\nNO ERROR IN INITIAL ACCEPT\n"); }
@@ -2753,14 +2788,13 @@ int main(int argc, char *argv[]) {
         if ((request_len_tcp == -1)) {
           flag = 3;
           /* critical section */
+          close(fd); //NEW
           exit(EXIT_SUCCESS);
         }
 		if (cnt == 0) {
           // BUG
           int selt = select(fd, fd, NULL, NULL, &read_timeout_micro); 
-          //int selt = select(fd+1, fd, NULL, NULL, &read_timeout_micro); 
           readParams->sockfd = fd;
-	  
           if (!(selt == -1)) {
             printf(" *** fd -> select(), %d\n",(selt));
           }
@@ -2768,9 +2802,7 @@ int main(int argc, char *argv[]) {
         } else {
           // BUG
           int selt = select(newsockfd, newsockfd, NULL, NULL, &read_timeout_micro); 
-          //int selt = select(newsockfd+1, newsockfd, NULL, NULL, &read_timeout_micro); 
     	  readParams->sockfd = newsockfd;
-    	  //if (selt > 0)
 	      if (!(selt == -1)) {
     	    printf(" *** newsockfd -> select(), %d\n",(selt));
           }
@@ -2792,6 +2824,7 @@ int main(int argc, char *argv[]) {
         //readParams->xhostname = dns_req_tcp->hostname;
         //readParams->xdns_req = (struct dns_request *)&dns_req_tcp;
     	cnt++;
+        close(fd);
       } else if (request_len_tcp == -1) {
     	flag = 0;
         dns_req = parse_dns_request(request, request_len, 0, 0);
@@ -2862,8 +2895,8 @@ int main(int argc, char *argv[]) {
         }
         // else { { dns_req->qtype == 0xff;} }
     	if (EXT_DEBUG) {
-          printf("TCP gotcha qtype: %x // %d\r\n",dns_req->qtype,dns_req->qtype); //PTR ?
-          printf("TCP gotcha tid  : %x // %d\r\n",dns_req->transaction_id,dns_req->transaction_id); //PTR ?
+          printf("UDP gotcha qtype: %x // %d\r\n",dns_req->qtype,dns_req->qtype); //PTR ?
+          printf("UDP gotcha tid  : %x // %d\r\n",dns_req->transaction_id,dns_req->transaction_id); //PTR ?
 	    }
       } else if ( flag == 3) {
         //pthread_join(pth[i],NULL);
@@ -2881,7 +2914,7 @@ int main(int argc, char *argv[]) {
       //	  readParams->uselogin = 1;
     
       if (ttl_in == NULL) {
-        printf("TTL not set, forcing 84600 for test\n");
+        printf(" *** TTL not set, forcing 84600 for test\n");
     	ttl = 86400;
       } else {
         ttl = ttl_in;
@@ -2913,7 +2946,7 @@ int main(int argc, char *argv[]) {
       //if ((!(readParams->xhostname == NULL)) || (!(readParams->xhostname->hostname == NULL))) 
 
       if ((dns_req->hostname == NULL) && (dns_req_tcp->hostname == NULL)) {
-    	printf("met no-host condition ! fail flag: %d, count TCP: %d, count UDP: %d\n",flag,cnt,cntudp);
+    	printf(" *** met no-host condition ! fail flag: %d, count TCP: %d, count UDP: %d\n",flag,cnt,cntudp);
     	//readParams->xhostname = "www.example.com";
     	//printf("new hostname: %s\n", readParams->xhostname);
     	//flag == NULL;
