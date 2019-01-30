@@ -646,7 +646,7 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
     	  */
           printf("-> BUILD-xrequestlen			: %d\n", (uint32_t)(xrequestlen));
           printf("-> BUILD-ttl				: %d\n", (uint32_t)(ttl));
-          printf("-> BUILD-xtcpoff				: %d\n", (uint32_t)(xtcpoff));
+          printf("-> BUILD-xtcpoff			: %d\n", (uint32_t)(xtcpoff));
           printf("-> BUILD-Xsockfd			: %u\n", xsockfd);
           printf("-> BUILD- sockfd			: %d\n", sockfd);
           printf("-> BUILD-proto				: %d\n", protoq);
@@ -2281,7 +2281,7 @@ int main(int argc, char *argv[]) {
   //FD_ZERO(&master);
   //FD_ZERO(&read_fds);
 
-  int sockfd, fd, port = DEFAULT_LOCAL_PORT, wport = DEFAULT_WEB_PORT, proxy_port = 0, c, r = 0, ttl_in, tcp_z_offset;
+  int sockfd, fd, port = DEFAULT_LOCAL_PORT, wport = DEFAULT_WEB_PORT, proxy_port = 0, c, r = 0, ttl_in, tcp_z_offset = TCP_Z_OFFSET;
   //int ttl_in = NULL;
   char *stack;            /* Start of stack buffer */
   char *stackTop;         /* End of stack buffer */
@@ -2328,7 +2328,6 @@ int main(int argc, char *argv[]) {
   
   /* Command line args */
   // while ((c = getopt_long(argc, argv, short_opt, long_opt, NULL)) != -1)
-  
   while ((c = getopt (argc, argv, "T:s:p:l:r:H:t:w:u:k:Z:hvNRCLXn")) != -1)
   switch (c)
    {
@@ -2340,8 +2339,10 @@ int main(int argc, char *argv[]) {
       case 'Z':
           tcp_z_offset = atoi(optarg);
           if (tcp_z_offset <= 0) {
-              fprintf(stdout," *** Invalid offset !\n");
+              fprintf(stdout," *** Invalid TCP offset !\n");
               exit(EXIT_FAILURE);
+          } else {
+              fprintf(stdout," *** TCP offset set to %d\n",tcp_z_offset);
           }
       break;
 
@@ -2909,12 +2910,14 @@ int main(int argc, char *argv[]) {
         ttl = ttl_in;
       }
     
+      /*
       if (tcp_z_offset > 0) {
         fprintf(stderr," *** TCP_Z_OFFSET set to %d\n",tcp_z_offset);
       } else {
-        tcp_z_offset = 2;
+        tcp_z_offset = TCP_Z_OFFSET;
         fprintf(stderr," *** TCP_Z_OFFSET not set, using 2 as default for A type.");
       }
+      */
 
       readParams->xlookup_script = lookup_script;
       readParams->xtypeq = typeq;

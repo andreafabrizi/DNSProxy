@@ -65,11 +65,11 @@ As bonus, this software is TOR-friendly and requires minimal resources. Enjoy !
 ```
 
 Features:
-- DNS-over-HTTPS compliant with RFC-8484, plus older non-standards supported.
+- DNS-over-HTTPS compliant with RFC 8484, plus older non-standards supported.
 - FOLLOWLOCATION, spawns threads to enable HTTP browser cache preemption
     for the benefit of the user experience.
 - HTTP/2 ready. Talks HTTP/2 in different combinations of ALPN, NPN, Update & co.
-- as HTTP/2 is the minimum requirement for DOH (see RFC-8484), to comply is easy
+- as HTTP/2 is the minimum requirement for DOH (see RFC 8484), to comply is easy
     using libCURL, lesser with nghttp2,
 - ability to dump DNS response packet, then serve such content via local HTTP webserver
     (not in DNSP intents, but possible for the benefit and simplicity of DOH adoption !)
@@ -135,12 +135,13 @@ The more DNSP resolvers around the world, the less DNS queries will be traceable
  DEVELOPERS OPTIONS:
       -T		 Override TTL to be [0-2147483647] as per RFC 2181 (useful for testing, 4 bytes)
       -Z		 Override TCP size of response to be 2 bytes at choice (testing TCP listeners, 2 bytes)
-      -n		 Enable DNS/UDP raw dump output
-      -v		 Enable DEBUG
-      -X		 Enable extra DEBUG
-      -R		 Enable thread DEBUG
-      -N		 Enable counters
-      -C		 CURL VERBOSE, useful to debug cache issues, certificates, quirks or anything else
+      -n		 Enable DNS raw dump
+      -v		 Enable debug
+      -X		 Enable EXTRA debug
+      -R		 Enable THREADS debug
+      -L		 Enable LOCKS debug
+      -N		 Enable COUNTERS debug
+      -C		 Enable CURL debug, useful to debug cache issues, certificates & algos, quirks and anything else
 
  TESTING OPTIONS:
       -I		 Upgrade Insecure Requests, debug HSTS, work in progress
@@ -157,9 +158,9 @@ The more DNSP resolvers around the world, the less DNS queries will be traceable
 
 ## Building
 
-Building is easy on Linux, Mac... UNIX and Windows as well.
-Based on CURL C library, pthread, SSL/TLS and other strong standards.
-A recent version of CURL is needed to leverage HTTP/2 capabilities.
+Build is easy on Linux, Mac... UNIX and Windows.
+Based on CURL C library, pthread, SSL/TLS and various other strong standards.
+A recent version of CURL is needed to leverage HTTP/2 capabilities (nghttp2).
 
 `apt-get install libcurl4-openssl-dev curl libsslcommon2-dev \
 libssl-dev ca-certs brotli gnutls-bin openssl libtlsh-dev`
@@ -301,11 +302,11 @@ Is a big piece of curl/threaded code that helps people _transporting_ and _shari
 To test if DNSProxy is working correctly, you can use tcpdump and check integrity of DNS messages.
 Simply run one of the two available programs as follows.
 
-To start a pre-h2 (non-standard) DOH server, type:
+To start a pre-h2 (non-standard HTTP/1.1) DOH server, type:
 ```bash
 dnsp -l 127.0.0.1 -s https://www.fantuz.net/nslookup.php
 ```
-If you prefer to run an HTTP2-compliant server (as per DOH RFC-8484), type:
+If you prefer to run an HTTP2-compliant server (as per DoH's RFC 8484), type:
 ```bash
 dnsp-h2 -l 127.0.0.1 -s https://www.fantuz.net/nslookup-doh.php
 ```
@@ -372,7 +373,7 @@ nameserver 127.0.0.1
 ```
 
 If configuration and testing completed successfully, you are now ready to run a DOH peer server, 
-and profit of DNS-over-HTTP(S) services as described by RFC-8484.
+and profit of DNS-over-HTTP(S) services as described by RFC 8484.
 
 ## Changelog
 
@@ -394,7 +395,7 @@ Values should end with bits 0d0a. on any server (HEX is easy to read):
 00000010: 742e 636f 6d0d 0a                        t.com..
 ```
 
-## Testing dnsp-h2 with DNS-over-HTTPS, RFC-8484
+## Testing dnsp-h2 with DNS-over-HTTPS, RFC 8484
 
 ![alt text](https://raw.githubusercontent.com/fantuz/DNSProxy/master/capture-http2.png)
 
