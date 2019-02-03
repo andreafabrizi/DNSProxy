@@ -94,9 +94,8 @@
 //#define for_each_item(item, list) \
 //	    for(T * item = list->head; item != NULL; item = item->next)
 
-/* This little trick will just make sure that we don't enable pipelining for
-   libcurls old enough to not have this symbol. It is _not_ defined to zero in
-   a recent libcurl header. */ 
+/* This little trick will just make sure that we don't enable pipelining for libcurls old enough
+  to not have this symbol. It is _not_ defined to zero in a recent libcurl header. */ 
 //#ifndef CURLPIPE_MULTIPLEX
 //#define CURLPIPE_MULTIPLEX 0
 //#endif
@@ -689,7 +688,7 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
     if (DNSDUMP) {
       printf(" *** TCP HEADER ON DNS WIRE PACKET: read tcp_size		: %d\n",(uint8_t)(dns_req->tcp_size));
       printf(" *** TCP HEADER ON DNS WIRE PACKET: read dns_req		: %d\n",(uint8_t)(sizeof(dns_req) - 2));
-      printf(" *** VALUE of norm -> %d\n", norm);
+      //printf(" *** VALUE of norm -> %d\n", norm);
     }
   }
 
@@ -858,14 +857,16 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
     /* TTL (4 hours to begin with, recently added thread callback, missing only HTTP interpretation of header, correctly generated on PHP) */
     /* 0000: Cache-control: public, max-age=276, s-maxage=276 */
 
-    long int decimalNumber,remainder,quotient;
     int i=1,j,temp;
+    long int decimalNumber,remainder,quotient;
     char hex[5];
     unsigned char buf[4];
 
-    /* I still have issues in HEX/INT/CHAR conversions ... please help !! */
+    /* TODO TTL FIX */
+    /* Issues with HEX/INT/CHAR conversion ... please help !! */
     quotient = ttl;
     
+    if (DNSDUMP) { printf("\t        : dec\thex\n"); }
     //while(quotient!=0) {
     while(quotient!=1) {
       if (quotient <10) break;
@@ -880,7 +881,7 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
 
       quotient = quotient / 16;
 
-      if (DNSDUMP) { printf("\tTemp    : %u, %2x\n",temp,temp); }
+      if (DNSDUMP) { printf("\tTemp    : %u\t%2x\n",temp,temp); }
       //sprintf(response++,"%x",temp);
 
       /*
@@ -890,7 +891,7 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
 
       //*response++ = temp;
       //response+=1;
-      if (DNSDUMP) { printf("\tQuotient: %u, %2x\n",quotient,quotient); }
+      if (DNSDUMP) { printf("\tQuotient: %u\t%2x\n",quotient,quotient); }
       
       //hex[i++]= temp;
       //printf("QQQ: %x",temp);
@@ -906,11 +907,11 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
       //if (DNSDUMP) { generic_print(be32(buf, hex), sizeof buf); }
     }
     
+    if (DNSDUMP) { printf("\n *** Final:  "); }
     for (j = i -1 ;j> 0;j--) printf("%c\n",hex[j]);
-    //return 0;
+    if (DNSDUMP) { printf("\n"); }
 
-    int a[25], c=0, x;
-    int dec = ttl;
+    int a[25], c=0, x, dec = ttl;
 
     while(dec>0) {
       if (dec < 10) break;
@@ -921,25 +922,27 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
       c++;
     }
 
-    /*
     //sprintf(response++,"%x",c);
-    //if (DNSDUMP) { printf(" *** HEXA PRE-CONVERSION: %d\n",c); }
+    if (DNSDUMP) { printf(" *** HEX pre-conversion : %d\n",c); }
     for(x=c-1;x>=0;x--) {
     	if(a[x]>=10) {
+            if (DNSDUMP) { printf(" *** HEX in-conversion  : %d --> ",c); }
     		printf("%c",a[x]+55);
+    		printf("\n");
     	} else {
+            if (DNSDUMP) { printf(" *** HEX in-conversion  : %d --> ",c); }
     		printf("%d",a[x]);
+    		printf("\n");
     	}
     	//sprintf(response++,"%x",c);
-    	// recover this
+    	// recover that
     	//response+= c;
     }
     printf("\n");
-    */
 
     // \*response++= sprintf(hex,"%x",quotient);
     
-    //if (DNSDUMP) { printf(" *** HEXA POST-CONVERSION: %d\n",c); }
+    if (DNSDUMP) { printf(" *** HEX post-conversion: %d\n",c); }
     //printf("----DECIMAL Q: %lu\n",quotient);
 
     /* If you are a bit acquainted with hex you dont need to convert to binary. */
@@ -962,8 +965,8 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
     printf("len HEX: %d\n",sizeof(ttl));
     */
     
-    /* The TTL was always kept in mind in DNSP development, but mostly overwritten for sake of simplicity & caching. */
-    /* With the advent of DNS-over-HTTPS draft, the need to respect and expire caches became imperative */
+    /* The TTL "value" was foundation in DNSP development, sometimes overwritten for sake of simplicity & caching. */
+    /* With the advent of DNS-over-HTTPS draft, the need to respect (and properly expire) caches became imperative */
 
     /* 14400, 4 hours */
     /*
@@ -987,7 +990,6 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
       printf(" *** raw-answer: response_ptr, response - response_ptr\n");
       hexdump(response_ptr, response - response_ptr);
     }
-
 
     /* DNS request TYPE parsing */
     if (dns_req->qtype == 0x0c) {
@@ -1201,7 +1203,6 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
     /* TCP DNS packet length-header re-stamping */
     if (protoq == 1) {
       int resulttt = NULL;
-      //int norm2 = (response - response_ptr - TCP_Z_OFFSET); // account for 2 extra tcp bytes
       int norm2 = (response - response_ptr - xtcpoff); // account for 2 extra tcp bytes
       check = 1;
       if (DNSDUMP) { printf(" *** BYTES in norm2 -> %d\n",norm2); }
@@ -1235,8 +1236,6 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
       
     }
 
-    //fdatasync(sd);
-
     /* dump to udpwireformat */
     if (DNSDUMP) {
       printf(" *** XXX SENT %d bytes of response\n", response - response_ptr);
@@ -1264,6 +1263,7 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
     close(sd);
     //free(response_ptr);
     //free(finalresponse_ptr);
+    //fdatasync(sd);
     free(rip);
     free(dns_req);
     return;
@@ -1305,11 +1305,7 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
   if (DNSDUMP) { printf(" *** SENT %d bytes\n", (uint32_t)bytes_sent); }
   
   //flag = NULL;
-  //fdatasync(sd);
-  //close(sd);
   //free(rip);
-  //free(dns_req);
-  //free(response_ptr);
 }
 
 /* homemade substingy func */
@@ -1459,6 +1455,7 @@ pub struct curl_fileinfo {
 /* A folded header is a header that continues on a subsequent line and starts with a whitespace. */
 /* Such folds will be passed to the header callback as a separate one, although strictly it is just a continuation of the previous line. */
 /* A complete HTTP header that is passed to this function can be up to CURL_MAX_HTTP_HEADER (100K) bytes. */
+
 static int my_trace(CURL *handle, curl_infotype type, char *data, size_t size, void *userp) {
   const char *text;
   int num = hnd2num(handle);
@@ -2282,7 +2279,6 @@ int main(int argc, char *argv[]) {
   //FD_ZERO(&read_fds);
 
   int sockfd, fd, port = DEFAULT_LOCAL_PORT, wport = DEFAULT_WEB_PORT, proxy_port = 0, c, r = 0, ttl_in, tcp_z_offset = TCP_Z_OFFSET;
-  //int ttl_in = NULL;
   char *stack;            /* Start of stack buffer */
   char *stackTop;         /* End of stack buffer */
   pid_t pid;
@@ -2403,7 +2399,7 @@ int main(int argc, char *argv[]) {
 
       case 'T':
           ttl_in = atoi(optarg);
-          fprintf(stderr," ### TTL set to %d dec / %x hex. 4 bytes, 0-2147483647 sec (RFC 2181) ###\n",ttl_in,ttl_in);
+          fprintf(stderr," *** Response TTL set to dec %d / hex %x. 4 bytes field, 0-2147483647 sec (RFC 2181) ***\n",ttl_in,ttl_in);
       break;
 
       case 'n':
@@ -2757,10 +2753,10 @@ int main(int argc, char *argv[]) {
        * DNSP IMPLEMENTS DOMAIN BLACKLISTING, AUTHENTICATION, SSL, THREADS... simple and effective !
       */
     
-      int ret, proto, xsockfd, xwport = wport; // web port, deprecated
-      int ttl; // strictly 4 bytes, 0-2147483647 (RFC 2181)
       //int test = 42; // the answer, used in alpha development
       //char* str = "maxnumberone"; // another pun
+      int ret, proto, xsockfd, xwport = wport; // web port, deprecated
+      int ttl; // strictly 4 bytes, 0-2147483647 (RFC 2181)
       char* xlookup_script = lookup_script, xtypeq = typeq;
       struct dns_request *xhostname;
       struct sockaddr_in *xclient, *yclient;
