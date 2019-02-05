@@ -623,7 +623,7 @@ struct dns_request *parse_dns_request(const char *udp_request, size_t request_le
 }
 
 /* Builds and sends the dns response datagram */
-void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request *dns_req, const char *ip, int mode, size_t xrequestlen, int ttl, int protoq, int xtcpoff) {
+void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request *dns_req, const char *ip, int mode, size_t xrequestlen, long int ttl, int protoq, int xtcpoff) {
   char *rip = malloc(256 * sizeof(char));
   //str=(char*)arg; //char *str, *arg;
   //struct dns_request *dns_req, sockaddr_in *client;
@@ -850,26 +850,36 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
     }
     
     /* Class IN */
-    /* other classes to be supported, not sure is WANTED but shall be implemented for compatibility */
+    /* other classes to be supported, not sure is a MUST but shall be implemented for general compatibility */
     *response++ = 0x00;
     *response++ = 0x01;
 
-    /* TTL (4 hours to begin with, recently added thread callback, missing only HTTP interpretation of header, correctly generated on PHP) */
+    /* TTL: fixed 4 hours to begin with. Pending interpretation of HTTP headers, WIP */
     /* 0000: Cache-control: public, max-age=276, s-maxage=276 */
 
-    int i=1,j,temp;
-    long int decimalNumber,remainder,quotient;
+    int i=1, j, temp;
+    long int decimalNumber = ttl, remainder, quotient;
     char hex[5];
     unsigned char buf[4];
 
-    /* TODO TTL FIX */
-    /* Issues with HEX/INT/CHAR conversion ... please help !! */
-    quotient = ttl;
+    /* TODO TTL: issues with HEX/INT/CHAR conversion ... please help !! */
+    //quotient = ttl;
+    quotient = decimalNumber;
     
+    /*
     if (DNSDUMP) { printf("\t        : dec\thex\n"); }
-    //while(quotient!=0) {
-    while(quotient!=1) {
-      if (quotient <10) break;
+    while(quotient!=0) {
+      //if (quotient <10) {
+      if (quotient <16) {
+        //response[0] = quotient;
+        //response++;
+        if (DNSDUMP) { printf("\tEND-Temp u x: %u\t%02x\n",temp,temp); }
+        if (DNSDUMP) { printf("\tEND-Temp u c: %u\t%c\n",temp,temp); }
+        //sprintf(response++,"%x",temp);
+        if (DNSDUMP) { printf("\tEND-Quot u x: %u\t%02x\n",quotient,quotient); }
+        if (DNSDUMP) { printf("\tEND-Quot u c: %u\t%c\n",quotient,quotient); }
+        break;
+      }
       temp = quotient % 16;
       
       // To convert integer into character
@@ -879,19 +889,18 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
         temp = temp + 55;
       }
 
-      quotient = quotient / 16;
+      //response[i++] = temp;
+      *response++ = temp;
+      //response[0] = a[x];
+      //response[0] = temp;
+      //response++;
 
-      if (DNSDUMP) { printf("\tTemp    : %u\t%2x\n",temp,temp); }
+      if (DNSDUMP) { printf("\tTemp   u x: %u\t%02x\n",temp,temp); }
+      if (DNSDUMP) { printf("\tTemp   u c: %u\t%c\n",temp,temp); }
       //sprintf(response++,"%x",temp);
-
-      /*
-      response[0] = quotient;
-      response++;
-      */
-
-      //*response++ = temp;
-      //response+=1;
-      if (DNSDUMP) { printf("\tQuotient: %u\t%2x\n",quotient,quotient); }
+      if (DNSDUMP) { printf("\tQuot   u x: %u\t%02x\n",quotient,quotient); }
+      //if (DNSDUMP) { printf("\tQuotient c: %u\t%02c\n",quotient,quotient); }
+      quotient = quotient / 16;
       
       //hex[i++]= temp;
       //printf("QQQ: %x",temp);
@@ -905,45 +914,71 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
       //sprintf(response++, "0x%x", (((unsigned)hex[0])<<16)+(((unsigned)hex[1])<<8)+(unsigned)hex[2]);
 
       //if (DNSDUMP) { generic_print(be32(buf, hex), sizeof buf); }
+
     }
+    */
     
-    if (DNSDUMP) { printf("\n *** Final:  "); }
-    for (j = i -1 ;j> 0;j--) printf("%c\n",hex[j]);
-    if (DNSDUMP) { printf("\n"); }
+    if (DNSDUMP) {
+        printf("\n *** Final:  ");
+        for (j = i -1 ;j> 0;j--) fprintf("%c\t",hex[j]);
+        printf("\n");
+    }
 
-    int a[25], c=0, x, dec = ttl;
+    int c=0, x;
+    long int dec = ttl;
+    char a[4];
 
-    while(dec>0) {
-      if (dec < 10) break;
+    //while(dec>0) {
+    while(dec!=0) {
+      if (dec < 16) break;
+      //if (dec < 10) break;
       a[c]=dec%16;
-      response[0] = a[c];
-      response++;
+      if( a[c] < 10)
+          a[c] = a[c] + 48;
+      else
+          temp = temp + 55;
+      //response[0] = a[c];
+      *response++ = a[c];
+      //response++;
+
       dec=dec/16;
       c++;
     }
 
     //sprintf(response++,"%x",c);
-    if (DNSDUMP) { printf(" *** HEX pre-conversion : %d\n",c); }
+    if (DNSDUMP) {
+        printf(" *** c    pre-conversion: %d\n",c); 
+        printf(" *** a[c] pre-conversion: %d\n\n",a[c]);
+    }
+
     for(x=c-1;x>=0;x--) {
     	if(a[x]>=10) {
-            if (DNSDUMP) { printf(" *** HEX in-conversion  : %d --> ",c); }
-    		printf("%c",a[x]+55);
-    		printf("\n");
+            if (DNSDUMP) {
+                printf(" *** c    in-conversion : %d \n",c);
+                printf(" *** a[x] in-conversion : %d \n",a[x]);
+                printf(" *** a[c] in-conversion : %d --> \n",a[c]);
+    		    printf("%c",a[x]+55);
+                printf(" ... a[x] BIGGER than 10\n\n",a[x]);
+            }
     	} else {
-            if (DNSDUMP) { printf(" *** HEX in-conversion  : %d --> ",c); }
-    		printf("%d",a[x]);
-    		printf("\n");
+            if (DNSDUMP) {
+                printf(" *** c    in-conversion : %d \n",c);
+                printf(" *** a[x] in-conversion : %d \n",a[x]);
+                printf(" *** a[c] in-conversion : %d --> ",a[c]);
+    		    printf("%d",a[x]);
+                printf(" ... a[x] smaller than 10\n\n",a[x]);
+            }
     	}
     	//sprintf(response++,"%x",c);
-    	// recover that
     	//response+= c;
     }
-    printf("\n");
-
     // \*response++= sprintf(hex,"%x",quotient);
     
-    if (DNSDUMP) { printf(" *** HEX post-conversion: %d\n",c); }
-    //printf("----DECIMAL Q: %lu\n",quotient);
+    if (DNSDUMP) {
+        printf(" *** a[c] post-conversion %d\n",a[c]);
+        printf(" *** c    post-conversion %d\n",c);
+        //printf("----DECIMAL Q: %lu\n",quotient);
+    }
 
     /* If you are a bit acquainted with hex you dont need to convert to binary. */
     /* Just take the base-16 complement of each digit, and add 1 to the result. */
@@ -959,22 +994,22 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
     
     /*
     *response+= sprintf(hex,"%x",quotient);
-    *response++= sprintf(hex,"%x",quotient);
     sprintf(response++,"%x",ttl);
     printf("TTL HEX: %x\n",ttl);
     printf("len HEX: %d\n",sizeof(ttl));
     */
     
     /* The TTL "value" was foundation in DNSP development, sometimes overwritten for sake of simplicity & caching. */
-    /* With the advent of DNS-over-HTTPS draft, the need to respect (and properly expire) caches became imperative */
+    /* With the advent of DNS-over-HTTPS RFC standard, the need to serve (and properly expire) caches became imperative */
+    /* RFC 2181: "Maximum of 2^31 - 1.  When transmitted, this value shall be encoded in the less significant 31 bits of the 32 bit TTL field,
+     * with the most significant, or sign, bit set to zero. Implementations should treat TTL values received with the most
+     * significant bit set as if the entire value received was zero. Implementations are always free to place an upper bound on any TTL
+     * received, and treat any larger values as if they were that upper bound. 
+     * The TTL specifies a maximum time to live, not a mandatory time to live."
+    */
 
     /* 14400, 4 hours */
-    /*
-    *response++ = 0x00;
-    *response++ = 0x00;
-    *response++ = 0x38;
-    *response++ = 0x40;
-    */
+    /* *response++ = 0x00; *response++ = 0x00; *response++ = 0x38; *response++ = 0x40; */
 
     /*
     for (j = i -1 ;j> 0;j--)
@@ -2139,7 +2174,7 @@ void *threadFunc(void *arg) {
   
   int xsockfd = params->xsockfd;
   int sockfd = params->sockfd;
-  int ttl = params->xttl;
+  long int ttl = params->xttl;
   int tcp_z_offset = params->xtcpoff;
 
   int proto = params->xproto;
