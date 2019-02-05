@@ -86,6 +86,13 @@
 #define DELAY                   0
 
 //#define STR_SIZE            65536
+#define REV(X) ((X << 24) | (( X & 0xff00 ) << 8) | (( X >> 8) & 0xff00 ) | ( X >> 24 ))
+//#define RET(X) ((X << 24) | (((X>>16)<<24)>>16) | (((X<<16)>>24)<<16) | (X>>24))
+
+#define R1(X) ((X & 0x000000ff ) << 24 )
+#define R2(X) ((X & 0x0000ff00 ) <<  8 )
+#define R3(X) ((X & 0x00ff0000 ) >>  8 )
+#define R4(X) ((X & 0xff000000 ) >> 24 )
 
 #ifndef CURLPIPE_MULTIPLEX
 #error "too old libcurl, can't do HTTP/2 server push!"
@@ -843,7 +850,7 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
         response[1] = 0x02;
         response+=2;
     } else {
-        printf(" *** NO PARSE HAPPENED\n\n");
+        printf("\n *** NO PARSE HAPPENED\n\n");
         return NULL;
         //*response++ = 0x00;
         //*response++ = 0x01;
@@ -859,71 +866,79 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
 
     int i=1, j, temp;
     long int decimalNumber = ttl, remainder, quotient;
-    char hex[5];
-    unsigned char buf[4];
+    char hex[4];
+    unsigned char buf[4] = "0x00000000";
 
-    /* TODO TTL: issues with HEX/INT/CHAR conversion ... please help !! */
-    //quotient = ttl;
+    /* TTL conversion: issues with HEX/INT/CHAR conversion ... please help !! */
     quotient = decimalNumber;
-    
-    /*
-    if (DNSDUMP) { printf("\t        : dec\thex\n"); }
+    //sprintf(response++,"%x",quotient);
+
+    if (DNSDUMP) { printf("\t\t  : dec\thex\n"); }
     while(quotient!=0) {
       //if (quotient <10) {
       if (quotient <16) {
         //response[0] = quotient;
         //response++;
-        if (DNSDUMP) { printf("\tEND-Temp u x: %u\t%02x\n",temp,temp); }
-        if (DNSDUMP) { printf("\tEND-Temp u c: %u\t%c\n",temp,temp); }
+        if (DNSDUMP) { printf("\tEND-Rest u x: %u\t%02x\n",temp,temp); }
+        if (DNSDUMP) { printf("\tEND-Rest u c: %u\t%c\n",temp,temp); }
         //sprintf(response++,"%x",temp);
         if (DNSDUMP) { printf("\tEND-Quot u x: %u\t%02x\n",quotient,quotient); }
         if (DNSDUMP) { printf("\tEND-Quot u c: %u\t%c\n",quotient,quotient); }
         break;
       }
+
       temp = quotient % 16;
       
+      /*
       // To convert integer into character
       if( temp < 10) {
         temp = temp + 48;
       } else {
         temp = temp + 55;
       }
-
+      */
+      
       //response[i++] = temp;
       *response++ = temp;
       //response[0] = a[x];
-      //response[0] = temp;
-      //response++;
+      //*response++;
 
-      if (DNSDUMP) { printf("\tTemp   u x: %u\t%02x\n",temp,temp); }
-      if (DNSDUMP) { printf("\tTemp   u c: %u\t%c\n",temp,temp); }
+      if (DNSDUMP) { printf("\tRest   u x: %u\t%02x\n",temp,temp); }
+      if (DNSDUMP) { printf("\tRest   u c: %u\t%c\n",temp,temp); }
       //sprintf(response++,"%x",temp);
+      printf(" *** fwd: %02x\n", quotient);
+      printf(" *** rev: %02x\n", REV(quotient));
+    
       if (DNSDUMP) { printf("\tQuot   u x: %u\t%02x\n",quotient,quotient); }
       //if (DNSDUMP) { printf("\tQuotient c: %u\t%02c\n",quotient,quotient); }
       quotient = quotient / 16;
+      if (DNSDUMP) { printf("\tQuot   u x: %u\t%02x\n",quotient,quotient); }
+      //if (DNSDUMP) { printf("\tQuotient c: %u\t%02c\n",quotient,quotient); }
       
-      //hex[i++]= temp;
+      //hex[i++] = temp;
       //printf("QQQ: %x",temp);
       //if (temp = 0) break;
       
       //sprintf(hex,"%x",quotient);
-      //*response++= puts(hex);
+      //\*response++= puts(hex);
       //puts(response++);
       //sprintf(response++,"%x",quotient);
       //response[0]+= quotient;
       //sprintf(response++, "0x%x", (((unsigned)hex[0])<<16)+(((unsigned)hex[1])<<8)+(unsigned)hex[2]);
-
-      //if (DNSDUMP) { generic_print(be32(buf, hex), sizeof buf); }
-
     }
-    */
+
+    //if (DNSDUMP) { generic_print(be32(buf, hex), sizeof buf); }
+    //if (DNSDUMP) { generic_print(be32(hex, buf), sizeof buf); }
+
+    //*response++ = hex;
     
     if (DNSDUMP) {
         printf("\n *** Final:  ");
-        for (j = i -1 ;j> 0;j--) fprintf("%c\t",hex[j]);
+        //for (j = i -1 ;j> 0;j--) fprintf("%c\t",hex[j]);
         printf("\n");
     }
 
+    /*
     int c=0, x;
     long int dec = ttl;
     char a[4];
@@ -956,7 +971,7 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
             if (DNSDUMP) {
                 printf(" *** c    in-conversion : %d \n",c);
                 printf(" *** a[x] in-conversion : %d \n",a[x]);
-                printf(" *** a[c] in-conversion : %d --> \n",a[c]);
+                printf(" *** a[c] in-conversion : %d --> ",a[c]);
     		    printf("%c",a[x]+55);
                 printf(" ... a[x] BIGGER than 10\n\n",a[x]);
             }
@@ -972,13 +987,14 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
     	//sprintf(response++,"%x",c);
     	//response+= c;
     }
-    // \*response++= sprintf(hex,"%x",quotient);
+    //\*response++= sprintf(hex,"%x",quotient);
     
     if (DNSDUMP) {
         printf(" *** a[c] post-conversion %d\n",a[c]);
         printf(" *** c    post-conversion %d\n",c);
         //printf("----DECIMAL Q: %lu\n",quotient);
     }
+    */
 
     /* If you are a bit acquainted with hex you dont need to convert to binary. */
     /* Just take the base-16 complement of each digit, and add 1 to the result. */
@@ -1010,6 +1026,8 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
 
     /* 14400, 4 hours */
     /* *response++ = 0x00; *response++ = 0x00; *response++ = 0x38; *response++ = 0x40; */
+    /* 86400, 24 hours */
+    /* *response++ = 0x00; *response++ = 0x01; *response++ = 0x51; *response++ = 0x80; */
 
     /*
     for (j = i -1 ;j> 0;j--)
