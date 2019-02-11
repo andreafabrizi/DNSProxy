@@ -46,6 +46,9 @@
 #include <pthread.h>
 #include "b64.h"
 
+//#include <iostream>
+//#include <cstdio>
+//#include <cstring>
 //#include <base64.h>
 //#include "hexdump.h"
 
@@ -87,15 +90,17 @@
 
 //#define STR_SIZE            65536
 #define REV(X) ((X << 24) | (( X & 0xff00 ) << 8) | (( X >> 8) & 0xff00 ) | ( X >> 24 ))
-//#define RET(X) ((X << 24) | (((X>>16)<<24)>>16) | (((X<<16)>>24)<<16) | (X>>24))
-
-#define R1(X) ((X & 0x000000ff ) << 24 )
-#define R2(X) ((X & 0x0000ff00 ) <<  8 )
-#define R3(X) ((X & 0x00ff0000 ) >>  8 )
-#define R4(X) ((X & 0xff000000 ) >> 24 )
+#define R4(X) ((X >> 24 ) &0xff)
+#define R3(X) ((X >> 16) & 0xff )
+#define R2(X) ((X >> 8) & 0xff )
+#define R1(X) (X & 0xff )
+//#define R1(X) ((X & 0x000000ff ) << 24 )
+//#define R2(X) ((X & 0x0000ff00 ) <<  8 )
+//#define R3(X) ((X & 0x00ff0000 ) >>  8 )
+//#define R4(X) ((X & 0xff000000 ) >> 24 )
 
 #ifndef CURLPIPE_MULTIPLEX
-#error "too old libcurl, can't do HTTP/2 server push!"
+#error " ### libcurl too old, can't use HTTP/2 server push!"
 #endif
 
 //#define for_each_item(item, list) \
@@ -172,7 +177,7 @@ void copy_string(char *target, char *source) {
    }
    *target = '\0';
 }
- 
+
 unsigned char *base64_decode(const char *data, size_t input_length, size_t *output_length) {
  
     if (decoding_table == NULL) build_decoding_table();
@@ -426,6 +431,38 @@ static void *hexdump(void *mem, unsigned int len) {
                         putchar('\n');
                 }
         }
+}
+
+unsigned reverse16binary(unsigned val) {
+    /* reverse bits in a 16-bit binary number */
+    unsigned rv = 0;
+    for (int bit = 0; bit < 16; bit++) {
+        int digit = (val >> bit) & 1;  // extract a digit
+        rv |= digit << (15 - bit);   // stick it in the result
+    }
+    return rv;
+}
+
+unsigned reverse16hex(unsigned val) {
+    /* reverse hex digits in a 16-bit binary number */
+    unsigned rv = 0;
+    for (int bit = 0; bit < 16; bit += 4) {
+        int digit = (val >> bit) & 0xf;  // extract a digit
+        rv |= digit << (12 - bit);   // stick it in the result
+    }
+    return rv;
+}
+
+unsigned reverse_general(unsigned val, int bits, int base) {
+    /* reverse base 2**"base" digits in a "bits"-bit binary number
+       bits must be <= sizeof(unsigned) * CHAR_BIT and a multiple of base
+       base must be < sizeof(unsigned) * CHAR_BIT */
+    unsigned rv = 0;
+    for (int bit = 0; bit < bits; bit += base) {
+        int digit = (val >> bit) & ((1 << base) - 1);  // extract a digit
+        rv |= digit << (bits - base - bit);   // stick it in the result
+    }
+    return rv;
 }
 
 //struct thread_data{
@@ -871,72 +908,72 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
 
     /* TTL conversion: issues with HEX/INT/CHAR conversion ... please help !! */
     quotient = decimalNumber;
-    //sprintf(response++,"%x",quotient);
 
-    if (DNSDUMP) { printf("\t\t  : dec\thex\n"); }
+    //if (DNSDUMP) { printf("\t\t  : dec\thex\n"); }
+
+	//reverse_general(unsigned val, int bits, int base);
+	printf("CIAO     -> %x\n", reverse_general(ttl, 32, 16));
+	printf("GEN-32   -> %d\n", reverse_general(quotient, 32, 16));
+	printf("GEN-16   -> %x\n", reverse_general(quotient, 16, 16));
+	printf("R-HEX    -> %x\n", reverse16hex(ttl));
+	printf("R-BIN    -> %x\n", reverse16binary(ttl));
+
+    //printf(" *** fwd: %02x\n", quotient);
+    //sprintf(response, "%x", quotient);
+    //sprintf(response,"%x+%08x",q,reverse_general(quotient,32,16));
+    //sprintf(response,"%x+%08x",q,quotient);
+    //sprintf(response,"%x",reverse_general(ttl,16,16));
+ 
+    int swapped = ((ttl>>24)&0xff) | // move byte 3 to byte 0
+                    ((ttl<<8)&0xff0000) | // move byte 1 to byte 2
+                    ((ttl>>8)&0xff00) | // move byte 2 to byte 1
+                    ((ttl<<24)&0xff000000); // byte 0 to byte 3
+
+    printf("TTL REV REV     %08x\n", REV(REV(ttl)));
+    printf("quotient REV    %08x\n", REV(quotient));
+    printf("quotient        %02x\n", quotient);
+    printf("swapped         %02x\n", swapped);
+
+    //sprintf(response,"%x",reverse_general(quotient,32,16));
+    //sprintf(response,"%08x", ((quotient << 24) | (((quotient >>16)<<24)>>16) | (((quotient<<16)>>24)<<16) | (quotient>>24)));
+
+    response[0] = R4(ttl);
+    response[1] = R3(ttl);
+    response[2] = R2(ttl);
+    response[3] = R1(ttl);
+    response+=4;
+
+    /*
     while(quotient!=0) {
       //if (quotient <10) {
       if (quotient <16) {
-        //response[0] = quotient;
-        //response++;
-        if (DNSDUMP) { printf("\tEND-Rest u x: %u\t%02x\n",temp,temp); }
-        if (DNSDUMP) { printf("\tEND-Rest u c: %u\t%c\n",temp,temp); }
-        //sprintf(response++,"%x",temp);
-        if (DNSDUMP) { printf("\tEND-Quot u x: %u\t%02x\n",quotient,quotient); }
-        if (DNSDUMP) { printf("\tEND-Quot u c: %u\t%c\n",quotient,quotient); }
+        printf("%1X\n", quotient);
         break;
       }
 
       temp = quotient % 16;
       
-      /*
       // To convert integer into character
       if( temp < 10) {
         temp = temp + 48;
+        //temp = temp - 30;
       } else {
         temp = temp + 55;
+        //temp = temp - 37;
       }
-      */
       
-      //response[i++] = temp;
-      *response++ = temp;
-      //response[0] = a[x];
-      //*response++;
-
-      if (DNSDUMP) { printf("\tRest   u x: %u\t%02x\n",temp,temp); }
-      if (DNSDUMP) { printf("\tRest   u c: %u\t%c\n",temp,temp); }
-      //sprintf(response++,"%x",temp);
-      printf(" *** fwd: %02x\n", quotient);
-      printf(" *** rev: %02x\n", REV(quotient));
-    
-      if (DNSDUMP) { printf("\tQuot   u x: %u\t%02x\n",quotient,quotient); }
-      //if (DNSDUMP) { printf("\tQuotient c: %u\t%02c\n",quotient,quotient); }
+      printf("%1X\n", temp);
       quotient = quotient / 16;
-      if (DNSDUMP) { printf("\tQuot   u x: %u\t%02x\n",quotient,quotient); }
-      //if (DNSDUMP) { printf("\tQuotient c: %u\t%02c\n",quotient,quotient); }
-      
-      //hex[i++] = temp;
-      //printf("QQQ: %x",temp);
-      //if (temp = 0) break;
-      
-      //sprintf(hex,"%x",quotient);
-      //\*response++= puts(hex);
-      //puts(response++);
-      //sprintf(response++,"%x",quotient);
-      //response[0]+= quotient;
-      //sprintf(response++, "0x%x", (((unsigned)hex[0])<<16)+(((unsigned)hex[1])<<8)+(unsigned)hex[2]);
     }
+    */
 
-    //if (DNSDUMP) { generic_print(be32(buf, hex), sizeof buf); }
-    //if (DNSDUMP) { generic_print(be32(hex, buf), sizeof buf); }
+	//int swapit = ((ttl>>24)&0xff) | // move byte 3 to byte 0
+    //                ((ttl<<8)&0xff0000) | // move byte 1 to byte 2
+    //                ((ttl>>8)&0xff00) | // move byte 2 to byte 1
+    //                ((ttl<<24)&0xff000000); // byte 0 to byte 3
 
-    //*response++ = hex;
-    
-    if (DNSDUMP) {
-        printf("\n *** Final:  ");
-        //for (j = i -1 ;j> 0;j--) fprintf("%c\t",hex[j]);
-        printf("\n");
-    }
+    //sprintf(response,"%08x",reverse_general(ttl,32,16));
+    //printf("%d\n", (unsigned char)strtol(swapit, NULL, 16));
 
     /*
     int c=0, x;
@@ -960,39 +997,23 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
       c++;
     }
 
-    //sprintf(response++,"%x",c);
-    if (DNSDUMP) {
-        printf(" *** c    pre-conversion: %d\n",c); 
-        printf(" *** a[c] pre-conversion: %d\n\n",a[c]);
-    }
-
     for(x=c-1;x>=0;x--) {
     	if(a[x]>=10) {
             if (DNSDUMP) {
-                printf(" *** c    in-conversion : %d \n",c);
-                printf(" *** a[x] in-conversion : %d \n",a[x]);
-                printf(" *** a[c] in-conversion : %d --> ",a[c]);
     		    printf("%c",a[x]+55);
                 printf(" ... a[x] BIGGER than 10\n\n",a[x]);
             }
     	} else {
             if (DNSDUMP) {
-                printf(" *** c    in-conversion : %d \n",c);
-                printf(" *** a[x] in-conversion : %d \n",a[x]);
-                printf(" *** a[c] in-conversion : %d --> ",a[c]);
     		    printf("%d",a[x]);
                 printf(" ... a[x] smaller than 10\n\n",a[x]);
             }
     	}
-    	//sprintf(response++,"%x",c);
-    	//response+= c;
     }
-    //\*response++= sprintf(hex,"%x",quotient);
     
     if (DNSDUMP) {
         printf(" *** a[c] post-conversion %d\n",a[c]);
         printf(" *** c    post-conversion %d\n",c);
-        //printf("----DECIMAL Q: %lu\n",quotient);
     }
     */
 
@@ -1008,13 +1029,6 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
      * I expect you would like this if bit pattern is changed to binary than hex :)
     */
     
-    /*
-    *response+= sprintf(hex,"%x",quotient);
-    sprintf(response++,"%x",ttl);
-    printf("TTL HEX: %x\n",ttl);
-    printf("len HEX: %d\n",sizeof(ttl));
-    */
-    
     /* The TTL "value" was foundation in DNSP development, sometimes overwritten for sake of simplicity & caching. */
     /* With the advent of DNS-over-HTTPS RFC standard, the need to serve (and properly expire) caches became imperative */
     /* RFC 2181: "Maximum of 2^31 - 1.  When transmitted, this value shall be encoded in the less significant 31 bits of the 32 bit TTL field,
@@ -1024,8 +1038,6 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
      * The TTL specifies a maximum time to live, not a mandatory time to live."
     */
 
-    /* 14400, 4 hours */
-    /* *response++ = 0x00; *response++ = 0x00; *response++ = 0x38; *response++ = 0x40; */
     /* 86400, 24 hours */
     /* *response++ = 0x00; *response++ = 0x01; *response++ = 0x51; *response++ = 0x80; */
 
@@ -1057,7 +1069,6 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
 
     } else if (dns_req->qtype == 0x02) { 
       // NS
-
       char *newline = strchr(ip,"\r\n\t");
       if ( newline ) *newline = 0;
       //printf ("%s",newline);
@@ -1851,11 +1862,11 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
   /* This timeout is deemed to become a parameter */
   curl_easy_setopt(ch, CURLOPT_TIMEOUT, 5);
   curl_easy_setopt(ch, CURLOPT_TCP_FASTOPEN, 1L);
-  curl_easy_setopt(ch, CURLOPT_TCP_NODELAY, 0L);		/* disable Nagle with 0, for bigger packets (full MSS) */
+  curl_easy_setopt(ch, CURLOPT_TCP_NODELAY, 0L);            /* disable Nagle with 0, for bigger packets (full MSS) */
   curl_easy_setopt(ch, CURLOPT_DNS_CACHE_TIMEOUT, 15);
-  curl_easy_setopt(ch, CURLOPT_DNS_USE_GLOBAL_CACHE, 1);	/* DNS CACHE WITHIN CURL, yes or not ? */
+  curl_easy_setopt(ch, CURLOPT_DNS_USE_GLOBAL_CACHE, 1);    /* DNS CACHE WITHIN CURL, yes or not ? */
   curl_easy_setopt(ch, CURLOPT_NOPROGRESS, 1L);
-  curl_easy_setopt(ch, CURLOPT_BUFFERSIZE, 8192L);		/* lowering from 100K to 8K */
+  curl_easy_setopt(ch, CURLOPT_BUFFERSIZE, 8192L);          /* lowering from 100K to 8K */
 
   if (DEBUGCURL) { curl_easy_setopt(ch, CURLOPT_VERBOSE,  1); } else { curl_easy_setopt(ch, CURLOPT_VERBOSE,  0); }
 
@@ -2363,7 +2374,7 @@ int main(int argc, char *argv[]) {
   int thr = 0;
   int *ptr[2];
 
-  /* The "-s" option specifies a stack size for our threads, I guess unlimited is not a good idea */
+  /* The "-s" option specifies a stack size for our threads. Unlimited is not a good idea */
   stack_size = -1;
 
   /*
@@ -2452,7 +2463,11 @@ int main(int argc, char *argv[]) {
 
       case 'T':
           ttl_in = atoi(optarg);
-          fprintf(stderr," *** Response TTL set to dec %d / hex %x. 4 bytes field, 0-2147483647 sec (RFC 2181) ***\n",ttl_in,ttl_in);
+          if ((ttl_in >= 2147483648) || (ttl_in <= 0) )  {
+            fprintf(stdout," *** Invalid TTL set. Please choose a value between 1 and 2147483647 seconds ...\n");
+            exit(EXIT_FAILURE);
+          }
+          fprintf(stdout," *** Response TTL set to dec %d / hex %x. 4 bytes field, 0-2147483647 sec (RFC 2181) ***\n",ttl_in,ttl_in);
       break;
 
       case 'n':
@@ -2512,12 +2527,12 @@ int main(int argc, char *argv[]) {
   }
 
   if (proxy_host != NULL) {
-      fprintf(stderr, " ### Yay !! A caching proxy was configured. Cache-acceleration activated ###\n");
+      fprintf(stderr, " ### Yay !! Cache-acceleration enabled, a caching proxy was configured. ###\n");
       fprintf(stderr, " ### Using proxy-host: %s ###\n",proxy_host);
       //proxy_host = proxy_address;
       //fprintf(stderr, "Bind proxy string: %s\n",proxy_address);
   } else {
-      fprintf(stderr, " ### No caching proxy was configured. Running without cache-acceleration ###\n");
+      fprintf(stderr, " ### Running without cache-acceleration as no caching proxy was configured. ###\n");
   }	
 
   if (bind_address == NULL) { bind_address = "127.0.0.1"; bind_address_tcp = "127.0.0.1"; }
