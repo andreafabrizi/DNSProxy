@@ -63,6 +63,7 @@
 #define VERSION           "2.2"
 
 #define TCP_Z_OFFSET            2
+#define TTL_IN_DEFAULT       3600
 /* Stack size for cloned child */
 #define STACK_SIZE (1024 * 1024)    
 #define MAXCONN          	    2
@@ -2342,7 +2343,7 @@ int main(int argc, char *argv[]) {
   //FD_ZERO(&master);
   //FD_ZERO(&read_fds);
 
-  int sockfd, fd, port = DEFAULT_LOCAL_PORT, wport = DEFAULT_WEB_PORT, proxy_port = 0, c, r = 0, ttl_in, tcp_z_offset = TCP_Z_OFFSET;
+  int sockfd, fd, port = DEFAULT_LOCAL_PORT, wport = DEFAULT_WEB_PORT, proxy_port = 0, c, r = 0, ttl_in = TTL_IN_DEFAULT, tcp_z_offset = TCP_Z_OFFSET;
   char *stack;            /* Start of stack buffer */
   char *stackTop;         /* End of stack buffer */
   pid_t pid;
@@ -2824,7 +2825,7 @@ int main(int argc, char *argv[]) {
       //int test = 42; // the answer, used in alpha development
       //char* str = "maxnumberone"; // another pun
       int ret, proto, xsockfd, xwport = wport; // web port, deprecated
-      int ttl; // strictly 4 bytes, 0-2147483647 (RFC 2181)
+      int ttl;
       char* xlookup_script = lookup_script, xtypeq = typeq;
       struct dns_request *xhostname;
       struct sockaddr_in *xclient, *yclient;
@@ -2968,8 +2969,8 @@ int main(int argc, char *argv[]) {
       //	  readParams->uselogin = 1;
     
       if (ttl_in == NULL) {
-        printf(" *** TTL not set, forcing 84600 for test\n");
-    	ttl = 86400;
+        printf(" *** TTL not set, forcing default value\n");
+    	ttl = TTL_IN_DEFAULT;
       } else {
         ttl = ttl_in;
       }
