@@ -117,43 +117,47 @@ host yourself as many *nslookup-doh.php* scripts as you can, or send it on a fri
 The more DNSP resolvers around the world, the less DNS queries will be traceable (TOR leaking problem).
 
 ```bash
- dnsp-h2 2.2, copyright 2018 @ Massimiliano Fantuzzi HB9GUS, MIT License
 
- usage: dnsp-h2 [-l [local_host]] [-p [local_port:53,5353,..]] [-H [proxy_host]] [-r [proxy_port:8118,8888,3128,9500..]] 
-		 [-w [lookup_port:80,443,..]] [-s [lookup_script]]
+ dnsp-h2 2.2, copyright 2010-2019 @ Massimiliano Fantuzzi HB9GUS, MIT License
+
+ usage: dnsp-h2 [-l [local_host]] [-p [local_port:53,5353,..]] [-H [proxy_host]]
+	[-r [proxy_port:8118,8888,3128,9500..]] [-w [lookup_port:80,443,..]]
+	-s <HTTP_URL_of_DOH-DNS_lookup_script_or_resolving_service>
 
  OPTIONS:
-      -l		 Local server address	(optional)
-      -p		 Local server port	(defaults to 53)
-      -H		 Cache proxy address	(suggested)
-      -r		 Cache proxy port	(suggested)
-      -u		 Cache proxy username	(optional)
-      -k		 Cache proxy password	(optional)
-      -s		 Lookup script URL	(mandatory option)
-      -w		 Lookup port		(optional)
+      -l	 Local server address	(optional)
+      -p	 Local server port	(defaults to 53)
+      -H	 Cache proxy address	(suggested)
+      -r	 Cache proxy port	(suggested)
+      -u	 Cache proxy username	(optional)
+      -k	 Cache proxy password	(optional)
+      -s	 Lookup script URL	(mandatory option)
+      -w	 Lookup port		(optional)
 
  DEVELOPERS OPTIONS:
-      -T		 Override TTL to be [0-2147483647] as per RFC 2181 (useful for testing, 4 bytes)
-      -Z		 Override TCP size of response to be 2 bytes at choice (testing TCP listeners, 2 bytes)
-      -n		 Enable DNS raw dump
-      -v		 Enable debug
-      -X		 Enable EXTRA debug
-      -R		 Enable THREADS debug
-      -L		 Enable LOCKS debug
-      -N		 Enable COUNTERS debug
-      -C		 Enable CURL debug, useful to debug cache issues, certificates & algos, quirks and anything else
+      -T	 Override TTL [0-2147483647] as per RFC 2181
+      -Z	 Override TCP size of response to be 2 bytes at choice
+      -n	 Enable DNS raw dump
+      -v	 Enable debug
+      -X	 Enable EXTRA debug
+      -R	 Enable THREADS debug
+      -L	 Enable LOCKS debug
+      -N	 Enable COUNTERS debug
+      -C	 Enable CURL debug, useful to debug cache, certs, TLS, etc
 
  TESTING OPTIONS:
-      -I		 Upgrade Insecure Requests, debug HSTS, work in progress
-      -R		 Enable CURL resolve mechanism, avoiding extra gethostbyname (DO NOT USE)
-      -t		 Stack size in format 0x1000000 (MB)
+      -I	 Upgrade Insecure Requests, debug HSTS, work in progress
+      -R	 Enable CURL resolve mechanism, avoiding extra gethostbyname
+      -t	 Stack size in format 0x1000000 (MB)
 
- Example with direct HTTPS :  dnsp-h2 -s https://php-dns.appspot.com/
- Example with direct HTTP  :  dnsp-h2 -s http://www.fantuz.net/nslookup.php
- Example with proxy HTTP + cache :  dnsp-h2 -r 8118 -H http://your.proxy.com/ -s http://www.fantuz.net/nslookup.php
-
- Undergoing TTL tests: ./dnsp-h2 -T 86400 -v -X -C -n -s https://php-dns.appspot.com/ 2>&1
- or strace -xx -s 1024 -vvv -ff -e network ./dnsp-h2 -T 86400 -v -X -n -s https://php-dns.appspot.com/ 2>&1 | egrep -v '(ble)$|tor)$|+$|ched$)
+ Example with direct HTTPS:
+	./dnsp-h2 -s https://php-dns.appspot.com/
+ Example with direct HTTP:
+	./dnsp-h2 -s http://www.fantuz.net/nslookup.php
+ Example with HTTP caching proxy:
+	./dnsp-h2 -r 8118 -H http://your.proxy.com/ -s http://www.fantuz.net/nslookup.php
+ Further tests:
+	./dnsp-h2 -T 86400 -v -X -C -n -s https://php-dns.appspot.com/ 2>&1
 ```
 
 ## Building

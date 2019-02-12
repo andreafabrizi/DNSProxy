@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2018 Massimiliano Fantuzzi HB3YOE/HB9GUS <superfantuz@gmail.com>
+ * Copyright (c) 2010-2019 Massimiliano Fantuzzi HB3YOE/HB9GUS <superfantuz@gmail.com>
 
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -480,40 +480,44 @@ unsigned reverse_general(unsigned val, int bits, int base) {
 //};
 
 void usage(void) {
-    fprintf(stderr, "\n dnsp-h2 %s, copyright 2018 @ Massimiliano Fantuzzi HB9GUS, MIT License\n\n"
-                       " usage: dnsp-h2 [-l [local_host]] [-p [local_port:53,5353,..]] [-H [proxy_host]] [-r [proxy_port:8118,8888,3128,9500..]] \n"
-		       "\t\t [-w [lookup_port:80,443,..]] [-s [lookup_script]]\n\n"
+    fprintf(stderr, "\n dnsp-h2 %s, copyright 2010-2019 @ Massimiliano Fantuzzi HB9GUS, MIT License\n\n"
+                       " usage: dnsp-h2 [-l [local_host]] [-p [local_port:53,5353,..]] [-H [proxy_host]]\n"
+                       "\t[-r [proxy_port:8118,8888,3128,9500..]] [-w [lookup_port:80,443,..]]\n"
+                       "\t-s <HTTP_URL_of_DOH-DNS_lookup_script_or_resolving_service>\n\n"
                        " OPTIONS:\n"
-                       "      -l\t\t Local server address	(optional)\n"
-                       "      -p\t\t Local server port	(defaults to 53)\n"
-                       "      -H\t\t Cache proxy address	(suggested)\n"
-                       "      -r\t\t Cache proxy port	(suggested)\n"
-                       "      -u\t\t Cache proxy username	(optional)\n"
-                       "      -k\t\t Cache proxy password	(optional)\n"
-                       "      -s\t\t Lookup script URL	(mandatory option)\n"
-                       "      -w\t\t Lookup port		(optional)\n"
+                       "      -l\t Local server address	(optional)\n"
+                       "      -p\t Local server port	(defaults to 53)\n"
+                       "      -H\t Cache proxy address	(suggested)\n"
+                       "      -r\t Cache proxy port	(suggested)\n"
+                       "      -u\t Cache proxy username	(optional)\n"
+                       "      -k\t Cache proxy password	(optional)\n"
+                       "      -s\t Lookup script URL	(mandatory option)\n"
+                       "      -w\t Lookup port		(optional)\n"
                        "\n"
                        " DEVELOPERS OPTIONS:\n"
-                       "      -T\t\t Override TTL to be [0-2147483647] as per RFC 2181 (useful for testing, 4 bytes)\n"
-                       "      -Z\t\t Override TCP size of response to be 2 bytes at choice (testing TCP listeners, 2 bytes)\n"
-                       "      -n\t\t Enable DNS raw dump\n"
-                       "      -v\t\t Enable debug\n"
-                       "      -X\t\t Enable EXTRA debug\n"
-                       "      -R\t\t Enable THREADS debug\n"
-                       "      -L\t\t Enable LOCKS debug\n"
-                       "      -N\t\t Enable COUNTERS debug\n"
-                       "      -C\t\t Enable CURL debug, useful to debug cache issues, certificates & algos, quirks and anything else\n"
+                       "      -T\t Override TTL [0-2147483647] as per RFC 2181\n"
+                       "      -Z\t Override TCP size of response to be 2 bytes at choice\n"
+                       "      -n\t Enable DNS raw dump\n"
+                       "      -v\t Enable debug\n"
+                       "      -X\t Enable EXTRA debug\n"
+                       "      -R\t Enable THREADS debug\n"
+                       "      -L\t Enable LOCKS debug\n"
+                       "      -N\t Enable COUNTERS debug\n"
+                       "      -C\t Enable CURL debug, useful to debug cache, certs, TLS, etc\n"
 		       "\n"
                        " TESTING OPTIONS:\n"
-                       "      -I\t\t Upgrade Insecure Requests, debug HSTS, work in progress\n"
-                       "      -R\t\t Enable CURL resolve mechanism, avoiding extra gethostbyname (DO NOT USE)\n"
-                       "      -t\t\t Stack size in format 0x1000000 (MB)\n"
+                       "      -I\t Upgrade Insecure Requests, debug HSTS, work in progress\n"
+                       "      -R\t Enable CURL resolve mechanism, avoiding extra gethostbyname\n"
+                       "      -t\t Stack size in format 0x1000000 (MB)\n"
                        "\n"
-                " Example with direct HTTPS :  dnsp-h2 -s https://php-dns.appspot.com/\n"
-                " Example with direct HTTP  :  dnsp-h2 -s http://www.fantuz.net/nslookup.php\n"
-                " Example with proxy HTTP + cache :  dnsp-h2 -r 8118 -H http://your.proxy.com/ -s http://www.fantuz.net/nslookup.php\n\n"
-                " Undergoing TTL tests: ./dnsp-h2 -T 86400 -v -X -C -n -s https://php-dns.appspot.com/ 2>&1\n"
-                " or strace -xx -s 1024 -vvv -ff -e network ./dnsp-h2 -T 86400 -v -X -n -s https://php-dns.appspot.com/ 2>&1 | egrep -v '(ble\)$|tor\)$|\+$|ched$)\n\n'"
+                " Example with direct HTTPS:\n"
+                "\t./dnsp-h2 -s https://php-dns.appspot.com/\n"
+                " Example with direct HTTP:\n"
+                "\t./dnsp-h2 -s http://www.fantuz.net/nslookup.php\n"
+                " Example with HTTP caching proxy:\n"
+                "\t./dnsp-h2 -r 8118 -H http://your.proxy.com/ -s http://www.fantuz.net/nslookup.php\n"
+                " Further tests:\n"
+                "\t./dnsp-h2 -T 86400 -v -X -C -n -s https://php-dns.appspot.com/ 2>&1\n"
     ,VERSION);
     exit(EXIT_FAILURE);
 }
@@ -1510,13 +1514,14 @@ static int my_trace(CURL *handle, curl_infotype type, char *data, size_t size, v
     break;
   case CURLINFO_HEADER_IN:
     text = "<= Recv header";
+
     /* Parsing header as tokens, find "cache-control" and extract TTL validity */
     char** tokens;
     char *compare;
     char ref[14];
     compare = substring(data, 1, 13);
     strcpy(ref, "cache-control");
-    int cacheheaderfound = strcmp(compare,ref);
+    int cacheheaderfound = strcmp(compare,ref), ttl_out;
     //dump(text, num, (unsigned char *)data, size, 1);
 
     if(cacheheaderfound == 0) {
@@ -1534,7 +1539,7 @@ static int my_trace(CURL *handle, curl_infotype type, char *data, size_t size, v
 	  //printf("\n -----> %s\n", data);
 	
       //tokens = str_split(data, ',');
-      tokens = str_split(data, ',');
+      tokens = str_split(data, '=');
       if (tokens != NULL) {
         for (int ff = 0; *(tokens + ff); ff++) {
             char *p = *(tokens + ff);
@@ -1542,7 +1547,9 @@ static int my_trace(CURL *handle, curl_infotype type, char *data, size_t size, v
             while (*p) {
                 if ( isdigit(*p) || ( (*p=='-'||*p=='+') && isdigit(*(p+1)) )) {
                   long val = strtol(p, &p, 10); // Read number
-                  printf("%ld\n", val); // and print it.
+                  printf("token -> %ld\n", val); // and print it.
+                  ttl_out = val;
+                  printf("ttl ---> %ld\n",ttl_out); // and print it.
                 } else {
                   p++;
                 }
@@ -1553,22 +1560,7 @@ static int my_trace(CURL *handle, curl_infotype type, char *data, size_t size, v
 	    ref == NULL;
 	    //return 0;
       }
-      printf("\ntest\n");
 
-      /*
-      char *stra = "ab234cid*(s349*(20kd", *tt = stra;
-      while (*tt) { // While there are more characters to process...
-          if ( isdigit(*tt) || ( (*tt=='-'||*tt=='+') && isdigit(*(tt+1)) )) {
-              // Found a number
-              long val = strtol(tt, &tt, 10); // Read number
-              printf("%ld", val); // and print it.
-          } else {
-              // Otherwise, move on to the next character.
-              tt++;
-          }
-      }
-      printf("\n");
-      */
     }
     break;
   case CURLINFO_DATA_IN:
