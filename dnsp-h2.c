@@ -899,44 +899,23 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
     *response++ = 0x00;
     *response++ = 0x01;
 
-    /* TTL: fixed 4 hours to begin with. Pending interpretation of HTTP headers, WIP */
+    /* TTL: pending interpretation of HTTP headers, WIP */
     /* 0000: Cache-control: public, max-age=276, s-maxage=276 */
 
     int i=1, j, temp;
     long int decimalNumber = ttl, remainder, quotient;
-    char hex[4];
-    unsigned char buf[4] = "0x00000000";
-
-    /* TTL conversion: issues with HEX/INT/CHAR conversion ... please help !! */
+    
     quotient = decimalNumber;
-
-    //if (DNSDUMP) { printf("\t\t  : dec\thex\n"); }
-
-	//reverse_general(unsigned val, int bits, int base);
-	printf("CIAO     -> %x\n", reverse_general(ttl, 32, 16));
-	printf("GEN-32   -> %d\n", reverse_general(quotient, 32, 16));
-	printf("GEN-16   -> %x\n", reverse_general(quotient, 16, 16));
-	printf("R-HEX    -> %x\n", reverse16hex(ttl));
-	printf("R-BIN    -> %x\n", reverse16binary(ttl));
-
-    //printf(" *** fwd: %02x\n", quotient);
-    //sprintf(response, "%x", quotient);
-    //sprintf(response,"%x+%08x",q,reverse_general(quotient,32,16));
-    //sprintf(response,"%x+%08x",q,quotient);
-    //sprintf(response,"%x",reverse_general(ttl,16,16));
  
     int swapped = ((ttl>>24)&0xff) | // move byte 3 to byte 0
                     ((ttl<<8)&0xff0000) | // move byte 1 to byte 2
                     ((ttl>>8)&0xff00) | // move byte 2 to byte 1
                     ((ttl<<24)&0xff000000); // byte 0 to byte 3
 
-    printf("TTL REV REV     %08x\n", REV(REV(ttl)));
-    printf("quotient REV    %08x\n", REV(quotient));
-    printf("quotient        %02x\n", quotient);
-    printf("swapped         %02x\n", swapped);
-
-    //sprintf(response,"%x",reverse_general(quotient,32,16));
-    //sprintf(response,"%08x", ((quotient << 24) | (((quotient >>16)<<24)>>16) | (((quotient<<16)>>24)<<16) | (quotient>>24)));
+    //printf("TTL REV REV     %08x\n", REV(REV(ttl)));
+    //printf("quotient REV    %08x\n", REV(quotient));
+    //printf("quotient        %02x\n", quotient);
+    //printf("swapped         %02x\n", swapped);
 
     response[0] = R4(ttl);
     response[1] = R3(ttl);
@@ -968,12 +947,6 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
     }
     */
 
-	//int swapit = ((ttl>>24)&0xff) | // move byte 3 to byte 0
-    //                ((ttl<<8)&0xff0000) | // move byte 1 to byte 2
-    //                ((ttl>>8)&0xff00) | // move byte 2 to byte 1
-    //                ((ttl<<24)&0xff000000); // byte 0 to byte 3
-
-    //sprintf(response,"%08x",reverse_general(ttl,32,16));
     //printf("%d\n", (unsigned char)strtol(swapit, NULL, 16));
 
     /*
@@ -1042,13 +1015,6 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
     /* 86400, 24 hours */
     /* *response++ = 0x00; *response++ = 0x01; *response++ = 0x51; *response++ = 0x80; */
 
-    /*
-    for (j = i -1 ;j> 0;j--)
-        //printf("%c",hexadecimalNumber[j]);
-        response = hexadecimalNumber[j];
-    return 0;
-    */
-    
     /* 0x08 - backspace \010 octal, 0x09 - horizontal tab, 0x0a - linefeed, 0x0b - vertical tab \013 octal, 0x0c - form feed, 0x0d - carriage return, 0x20 - space */ 
     /* 0x09 - horizontal tab, 0x0a - linefeed, 0x0b - vertical tab, 0x0c - form feed, 0x0d - carriage return, 0x20 - space */
     
@@ -1545,7 +1511,7 @@ static int my_trace(CURL *handle, curl_infotype type, char *data, size_t size, v
   case CURLINFO_HEADER_IN:
     text = "<= Recv header";
     /* Parsing header as tokens, find "cache-control" and extract TTL validity */
-    //char** tokens;
+    char** tokens;
     char *compare;
     char ref[14];
     compare = substring(data, 1, 13);
@@ -1554,34 +1520,55 @@ static int my_trace(CURL *handle, curl_infotype type, char *data, size_t size, v
     //dump(text, num, (unsigned char *)data, size, 1);
 
     if(cacheheaderfound == 0) {
-    	printf("-----\n");
-    	dump(text, num, (unsigned char *)data, size, 0);
-     
-    	/* More general pattern */
-    	const char *my_str_literal = data;
-    	char *token, *str, *tofree;
+  	  printf("-----\n");
+  	  dump(text, num, (unsigned char *)data, size, 0);
+   
+  	  /* More general pattern */
+  	  const char *my_str_literal = data;
+  	  char *token, *str, *tofree;
+  	  
+  	  tofree = str = strdup(my_str_literal);  // We own str's memory now.
+  	  while ((token = strsep(&str, ","))) printf(" ----> %s\n",token);
+  	  free(tofree);
     	
-    	tofree = str = strdup(my_str_literal);  // We own str's memory now.
-    	while ((token = strsep(&str, ","))) printf(" ----> %s\n",token);
-    	free(tofree);
-    	
-	//printf(" -> %s", data);
+	  //printf("\n -----> %s\n", data);
 	
-	/*
-    	tokens = str_split(data, ',');
-    	if (tokens != NULL)
-    	{
-    	    int i;
-    	    for (i = 0; *(tokens + i); i++)
-    	    {
-    	        //printf("%s\n", *(tokens + i));
-    	        free(*(tokens + i));
-    	    }
-    	    free(tokens);
+      //tokens = str_split(data, ',');
+      tokens = str_split(data, ',');
+      if (tokens != NULL) {
+        for (int ff = 0; *(tokens + ff); ff++) {
+            char *p = *(tokens + ff);
+            //printf("%s\n", *(tokens + ff));
+            while (*p) {
+                if ( isdigit(*p) || ( (*p=='-'||*p=='+') && isdigit(*(p+1)) )) {
+                  long val = strtol(p, &p, 10); // Read number
+                  printf("%ld\n", val); // and print it.
+                } else {
+                  p++;
+                }
+            }
+            free(*(tokens + ff));
+        }
+        free(tokens);
 	    ref == NULL;
 	    //return 0;
-    	}
-	*/
+      }
+      printf("\ntest\n");
+
+      /*
+      char *stra = "ab234cid*(s349*(20kd", *tt = stra;
+      while (*tt) { // While there are more characters to process...
+          if ( isdigit(*tt) || ( (*tt=='-'||*tt=='+') && isdigit(*(tt+1)) )) {
+              // Found a number
+              long val = strtol(tt, &tt, 10); // Read number
+              printf("%ld", val); // and print it.
+          } else {
+              // Otherwise, move on to the next character.
+              tt++;
+          }
+      }
+      printf("\n");
+      */
     }
     break;
   case CURLINFO_DATA_IN:
@@ -2969,7 +2956,7 @@ int main(int argc, char *argv[]) {
       //	  readParams->uselogin = 1;
     
       if (ttl_in == NULL) {
-        printf(" *** TTL not set, forcing default value\n");
+        fprintf(stdout," *** TTL not set, forcing default value\n");
     	ttl = TTL_IN_DEFAULT;
       } else {
         ttl = ttl_in;
