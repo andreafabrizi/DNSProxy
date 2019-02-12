@@ -388,7 +388,6 @@ char * rtrim(char * str, const char * del)
   return str;
 }
 
-//static void hexdump(void *mem, unsigned int len) {
 static void *hexdump(void *mem, unsigned int len) {
         unsigned int i, j;
         
@@ -908,13 +907,13 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
 
     int i=1, j, temp;
     long int decimalNumber = ttl, remainder, quotient;
-    
-    quotient = decimalNumber;
+    //long int ttl;
+    //quotient = decimalNumber;
  
-    int swapped = ((ttl>>24)&0xff) | // move byte 3 to byte 0
-                    ((ttl<<8)&0xff0000) | // move byte 1 to byte 2
-                    ((ttl>>8)&0xff00) | // move byte 2 to byte 1
-                    ((ttl<<24)&0xff000000); // byte 0 to byte 3
+    //int swapped = ((ttl>>24)&0xff) | // move byte 3 to byte 0
+    //                ((ttl<<8)&0xff0000) | // move byte 1 to byte 2
+    //                ((ttl>>8)&0xff00) | // move byte 2 to byte 1
+    //                ((ttl<<24)&0xff000000); // byte 0 to byte 3
 
     //printf("TTL REV REV     %08x\n", REV(REV(ttl)));
     //printf("quotient REV    %08x\n", REV(quotient));
@@ -1410,7 +1409,55 @@ static int hnd2num(CURL *ch) {
   return 0;
 }
 
+
 static void dump(const char *text, int num, unsigned char *ptr, size_t size, char nohex) {
+  size_t i;
+  size_t c;
+
+  unsigned int width = 0x10;
+
+  if(nohex)
+    /* without the hex output, we can fit more on screen */
+    width = 0x40;
+
+  fprintf(stderr, "%d %s, %ld bytes (0x%lx)\n",
+          num, text, (long)size, (long)size);
+
+  for(i = 0; i<size; i += width) {
+
+    fprintf(stderr, "%4.4lx: ", (long)i);
+
+    if(!nohex) {
+      /* hex not disabled, show it */
+      for(c = 0; c < width; c++)
+        if(i + c < size)
+          fprintf(stderr, "%02x ", ptr[i + c]);
+        else
+          fputs("   ", stderr);
+    }
+
+    for(c = 0; (c < width) && (i + c < size); c++) {
+      /* check for 0D0A; if found, skip past and start a new line of output */
+      if(nohex && (i + c + 1 < size) && ptr[i + c] == 0x0D &&
+         ptr[i + c + 1] == 0x0A) {
+        i += (c + 2 - width);
+        break;
+      }
+      fprintf(stderr, "%c",
+              (ptr[i + c] >= 0x20) && (ptr[i + c]<0x80)?ptr[i + c]:'.');
+      /* check again for 0D0A, to avoid an extra \n if it's at width */
+      if(nohex && (i + c + 2 < size) && ptr[i + c + 1] == 0x0D &&
+         ptr[i + c + 2] == 0x0A) {
+        i += (c + 3 - width);
+        break;
+      }
+    }
+    fputc('\n', stderr); /* newline */ 
+  }
+  //fflush(stream);
+}
+
+static void dumptwo(const char *text, FILE *stream, unsigned char *ptr, size_t size, char nohex) {
   size_t i;
   size_t c;
  
@@ -1420,20 +1467,20 @@ static void dump(const char *text, int num, unsigned char *ptr, size_t size, cha
     /* without the hex output, we can fit more on screen */ 
     width = 0x40;
  
-  fprintf(stderr, "%d %s, %ld bytes (0x%lx)\n",
-          num, text, (long)size, (long)size);
+  fprintf(stream, "%s, %10.10lu bytes (0x%8.8lx)\n",
+          text, (unsigned long)size, (unsigned long)size);
  
   for(i = 0; i<size; i += width) {
  
-    fprintf(stderr, "%4.4lx: ", (long)i);
+    fprintf(stream, "%4.4lx: ", (unsigned long)i);
  
     if(!nohex) {
       /* hex not disabled, show it */ 
       for(c = 0; c < width; c++)
         if(i + c < size)
-          fprintf(stderr, "%02x ", ptr[i + c]);
+          fprintf(stream, "%02x ", ptr[i + c]);
         else
-          fputs("   ", stderr);
+          fputs("   ", stream);
     }
  
     for(c = 0; (c < width) && (i + c < size); c++) {
@@ -1443,7 +1490,7 @@ static void dump(const char *text, int num, unsigned char *ptr, size_t size, cha
         i += (c + 2 - width);
         break;
       }
-      fprintf(stderr, "%c",
+      fprintf(stream, "%c",
               (ptr[i + c] >= 0x20) && (ptr[i + c]<0x80)?ptr[i + c]:'.');
       /* check again for 0D0A, to avoid an extra \n if it's at width */ 
       if(nohex && (i + c + 2 < size) && ptr[i + c + 1] == 0x0D &&
@@ -1452,8 +1499,9 @@ static void dump(const char *text, int num, unsigned char *ptr, size_t size, cha
         break;
       }
     }
-    fputc('\n', stderr); /* newline */ 
+    fputc('\n', stream); /* newline */ 
   }
+  fflush(stream);
 }
 
 static size_t header_handler(void *ptr, size_t size, size_t nmemb, void *userdata) {
@@ -1491,11 +1539,18 @@ pub struct curl_fileinfo {
 /* Such folds will be passed to the header callback as a separate one, although strictly it is just a continuation of the previous line. */
 /* A complete HTTP header that is passed to this function can be up to CURL_MAX_HTTP_HEADER (100K) bytes. */
 
+struct data {
+  char trace_ascii; /* 1 or 0 */ 
+};
+
+//static int my_trace(CURL *handle, curl_infotype type, char *data, size_t size, struct data *userp) {
 static int my_trace(CURL *handle, curl_infotype type, char *data, size_t size, void *userp) {
   const char *text;
   int num = hnd2num(handle);
   (void)handle; /* prevent compiler warning */ 
-  (void)userp;
+  //(void)userp;
+  struct data *config = (struct data *)userp;
+
   switch(type) {
   case CURLINFO_TEXT:
     fprintf(stderr, "== %d Info: %s", num, data);
@@ -1549,7 +1604,8 @@ static int my_trace(CURL *handle, curl_infotype type, char *data, size_t size, v
                   long val = strtol(p, &p, 10); // Read number
                   printf("token -> %ld\n", val); // and print it.
                   ttl_out = val;
-                  printf("ttl ---> %ld\n",ttl_out); // and print it.
+                  userp = val;
+                  //dumptwo(text, stderr, (unsigned char *)data, size, config->trace_ascii);
                 } else {
                   p++;
                 }
@@ -1675,8 +1731,10 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
   //struct curl_slist *list = NULL;
   struct curl_slist *list;
   struct curl_slist *slist1;
-
+  struct data config;
   struct CURLMsg *m;
+
+  config.trace_ascii = 1; /* enable ascii tracing */ 
 
   /* hold result in memory */
   //struct MemoryStruct chunk;
@@ -2060,6 +2118,7 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
 
   /* Now chunk.memory points to memory block chunk.size bytes big and contains the remote file. Do something nice with it! */ 
 
+  //// ORIGINAL CURL HANDLER KEPT FOR DISPLAY REASONS
   /* original ret was from (ch) but testing (hnd) setup now, same story just housekeeping */
   //ret = curl_easy_perform(ch);
 
@@ -2100,6 +2159,8 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
   //curl_easy_setopt(hnd, CURLOPT_WRITEDATA, (void *)&chunk);
   curl_easy_setopt(hnd, CURLOPT_WRITEDATA, http_response); /* we pass our 'chunk' struct to the callback function */ 
   curl_easy_setopt(hnd, CURLOPT_DEBUGFUNCTION, my_trace);
+  curl_easy_setopt(hnd, CURLOPT_DEBUGDATA, &config);
+  printf(" *** CURL variable exported: ",&config);
 
   //snprintf(script_url, URL_SIZE-1, "%s?name=%s", lookup_script, host); // GOOGLE DNS
   if (DEBUG) { fprintf(stderr, " *** GET string				: %s\n",n); }
