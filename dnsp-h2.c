@@ -131,6 +131,8 @@
 int DEBUG, DNSDUMP, DEBUGCURL, EXT_DEBUG, CNT_DEBUG, THR_DEBUG, LOCK_DEBUG;
 char* substring(char*, int, int);
 
+static int ttl_out_test = 60;
+
 static char encoding_table[] = {'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H',
                                 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P',
                                 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X',
@@ -1539,8 +1541,17 @@ pub struct curl_fileinfo {
 /* Such folds will be passed to the header callback as a separate one, although strictly it is just a continuation of the previous line. */
 /* A complete HTTP header that is passed to this function can be up to CURL_MAX_HTTP_HEADER (100K) bytes. */
 
+int get_ttl(void) {
+        return ttl_out_test;
+}
+
+void set_ttl(int new_value) {
+        ttl_out_test = new_value;
+}
+
 struct data {
   char trace_ascii; /* 1 or 0 */ 
+  int ttl_out_test_data;
 };
 
 //static int my_trace(CURL *handle, curl_infotype type, char *data, size_t size, struct data *userp) {
@@ -1570,10 +1581,10 @@ static int my_trace(CURL *handle, curl_infotype type, char *data, size_t size, v
   case CURLINFO_HEADER_IN:
     text = "<= Recv header";
 
-    /* Parsing header as tokens, find "cache-control" and extract TTL validity */
+    /* Parse headers as tokens, find "cache-control" and extract TTL validity out of maxage/s-maxage */
     char** tokens;
     char *compare;
-    char ref[14];
+    char ref[14] = "cache-control";
     compare = substring(data, 1, 13);
     strcpy(ref, "cache-control");
     int cacheheaderfound = strcmp(compare,ref), ttl_out;
@@ -1590,33 +1601,62 @@ static int my_trace(CURL *handle, curl_infotype type, char *data, size_t size, v
   	  tofree = str = strdup(my_str_literal);  // We own str's memory now.
   	  while ((token = strsep(&str, ","))) printf(" ----> %s\n",token);
   	  free(tofree);
-    	
 	  //printf("\n -----> %s\n", data);
 	
-      //tokens = str_split(data, ',');
-      tokens = str_split(data, '=');
+      /*
+      from: see https://developer.mozilla.org/fr/docs/Web/HTTP/Headers/Cache-Control
+      max-age=<secondes>
+      Indique la durée pendant laquelle la ressource doit être considérée comme valide (non expirée).
+      Contrairement à expires, la durée indiquée dans cette directive commence à la date de la requête.
+      s-maxage=<secondes>
+      Indique une valeur pour écraser les valeurs définies par max-age ou Expires pour les caches
+      partagés (comme les proxies). Il est donc ignoré par les caches privés (dont les navigateurs).
+      */
+
+      char *str2, *tofree2;
+      tofree2 = str2 = strdup(my_str_literal);  // We own str's memory now.
+
+      tokens = str_split(data, ',');
+      //tokens = str_split(data, '=');
+
       if (tokens != NULL) {
+        char *compare2;
+        char ref2[8];
+        strcpy(ref2, "max-age");
+
+  	    //while ((tokens = strsep(&str2, "="))) {
+        //  printf(" ----> %s\n",tokens);
+        //}
         for (int ff = 0; *(tokens + ff); ff++) {
-            char *p = *(tokens + ff);
-            //printf("%s\n", *(tokens + ff));
-            while (*p) {
-                if ( isdigit(*p) || ( (*p=='-'||*p=='+') && isdigit(*(p+1)) )) {
-                  long val = strtol(p, &p, 10); // Read number
-                  printf("token -> %ld\n", val); // and print it.
-                  ttl_out = val;
-                  userp = val;
-                  //dumptwo(text, stderr, (unsigned char *)data, size, config->trace_ascii);
-                } else {
-                  p++;
-                }
+          char *p = *(tokens + ff);
+          //printf("OOO: %s\n---\n", *(tokens + ff));
+          //compare2 = substring(tokens, 1, 6);
+          compare2 = substring(*(tokens + ff), 2, 7);
+          int maxagevaluefound = strcmp(compare2,ref2);
+          while (*p) {
+            if ( isdigit(*p) || ( (*p=='-'||*p=='+') && isdigit(*(p+1)) )) {
+              long val = strtol(p, &p, 10); // Read number
+              if (maxagevaluefound == 0) {
+                  //printf("FOUND CORRECT HEADER (not s-maxage) !\n");
+                  set_ttl(val);
+                  //ttl_out_test = 666;
+                  //userp = val;
+                  if (DEBUGCURL) {
+                      printf(" *** max-age token: %ld\n", val);
+                      printf("get_ttl -> %d\n",get_ttl());
+                      //dumptwo(text, stderr, (unsigned char *)data, size, config->trace_ascii);
+                  }
+              }
+            } else {
+              p++;
             }
-            free(*(tokens + ff));
+          }
+          free(*(tokens + ff));
         }
         free(tokens);
 	    ref == NULL;
 	    //return 0;
       }
-
     }
     break;
   case CURLINFO_DATA_IN:
@@ -1714,6 +1754,7 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
 
   /* keep number of running handles */ 
   int still_running;
+
   /* we start with one */ 
   int transfers = 1;
 
@@ -1735,6 +1776,7 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
   struct CURLMsg *m;
 
   config.trace_ascii = 1; /* enable ascii tracing */ 
+  config.ttl_out_test_data = ttl_out_test;
 
   /* hold result in memory */
   //struct MemoryStruct chunk;
@@ -1974,7 +2016,7 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
   curl_easy_setopt(ch, CURLOPT_HTTPHEADER, list);
   //curl_easy_setopt(ch, CURLINFO_HEADER_OUT, 1L ); /* try to see if it works .. not sure anymore */
   curl_easy_setopt(ch, CURLOPT_NOBODY, 0L); /* get us the resource without a body! */
-  curl_easy_setopt(ch, CURLOPT_USERAGENT, "curl/7.59.0-DEV");
+  curl_easy_setopt(ch, CURLOPT_USERAGENT, "curl 7.64.1-DEV (x86_64-pc-linux-gnu) libcurl/7.64.1-DEV OpenSSL/1.0.2g zlib/1.2.11 nghttp2/1.37.0-DEV");
   curl_easy_setopt(ch, CURLOPT_HEADERDATA, NULL);
   curl_easy_setopt(ch, CURLOPT_HEADERFUNCTION, header_handler);
 
@@ -2160,12 +2202,16 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
   curl_easy_setopt(hnd, CURLOPT_WRITEDATA, http_response); /* we pass our 'chunk' struct to the callback function */ 
   curl_easy_setopt(hnd, CURLOPT_DEBUGFUNCTION, my_trace);
   curl_easy_setopt(hnd, CURLOPT_DEBUGDATA, &config);
-  printf(" *** CURL variable exported: ",&config);
+  if (DEBUGCURL) {
+      printf(" *** CURL variable exported: BEGIN\n",&config);
+      printf(" *** CURL variable exported: BEGIN\n",&config.ttl_out_test_data);
+      printf("\n *** CURL variable exported: END\n");
+  }
 
   //snprintf(script_url, URL_SIZE-1, "%s?name=%s", lookup_script, host); // GOOGLE DNS
   if (DEBUG) { fprintf(stderr, " *** GET string				: %s\n",n); }
 
-  /* ret on (hnd) is the H2 cousin of original ret used above for (ch), now temporarely commented out */
+  /* ret on (hnd) is the H2 cousin of original ret used above for (ch). This section has been commented out */
 
   //if (!(host == NULL) && !(host == "") && !(host == ".") && !(host == "(null)")) {
   if (sizeof(host) > 3 ) {
@@ -2194,7 +2240,7 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
       return http_response;
   }
  
-  /* Can't resolve DOH query, or packet too big (up to 4096 in UDP and 65535 in TCP) */
+  /* Can't resolve DoH query, or packet too big (up to 4096 in UDP and 65535 in TCP) */
   if ((strlen(http_response) > 512) || (strncmp(http_response, "0.0.0.0", 7) == 0)) {
       // insert error answers here, as NXDOMAIN, SERVFAIL etc
       /* In BIND 8 the SOA record (minimum parameter) was used to define the zone default TTL value. */
@@ -2331,8 +2377,12 @@ void *threadFunc(void *arg) {
 	    //printf("THREAD V-xclient->sin_addr.s_addr		: %s\n",(char *)(xclient->sin_family));
     }
 
-    build_dns_response(sockfd, yclient, xhostname, rip, DNS_MODE_ANSWER, request_len, ttl, proto, tcp_z_offset);
-      
+    if (get_ttl()>0) {
+        build_dns_response(sockfd, yclient, xhostname, rip, DNS_MODE_ANSWER, request_len, get_ttl(), proto, tcp_z_offset);
+    } else {
+        build_dns_response(sockfd, yclient, xhostname, rip, DNS_MODE_ANSWER, request_len, ttl, proto, tcp_z_offset);
+    }
+
   } else if ( strstr(dns_req->hostname, "hamachi.cc") != NULL ) {
     printf("BALCKLIST: pid [%d] - name %s - host %s - size %d \r\n", getpid(), dns_req->hostname, rip, (uint32_t)request_len);
     //printf("BLACKLIST: xsockfd %d - hostname %s \r\n", xsockfd, xdns_req->hostname);
@@ -2384,6 +2434,7 @@ int main(int argc, char *argv[]) {
   //FD_ZERO(&read_fds);
 
   int sockfd, fd, port = DEFAULT_LOCAL_PORT, wport = DEFAULT_WEB_PORT, proxy_port = 0, c, r = 0, ttl_in = TTL_IN_DEFAULT, tcp_z_offset = TCP_Z_OFFSET;
+  //int sockfd, fd, port = DEFAULT_LOCAL_PORT, wport = DEFAULT_WEB_PORT, proxy_port = 0, c, r = 0, ttl_in = TTL_IN_DEFAULT, tcp_z_offset = TCP_Z_OFFSET;
   char *stack;            /* Start of stack buffer */
   char *stackTop;         /* End of stack buffer */
   pid_t pid;
@@ -3027,6 +3078,7 @@ int main(int argc, char *argv[]) {
       readParams->xlookup_script = lookup_script;
       readParams->xtypeq = typeq;
       readParams->xwport = wport;
+      //readParams->xttl = get_ttl();
       readParams->xttl = ttl;
       readParams->xtcpoff = tcp_z_offset;
 
@@ -3132,7 +3184,7 @@ int main(int argc, char *argv[]) {
       
       pthread_join(pth[i],NULL);
      
-      /* trying to re-enable this logic, continue shouldnt be before pthread_setspecific() */
+      /* trying to re-enable this logic, continue() shouldn't be prepended to pthread_setspecific() */
       /* testing destroy after join, and before setspecific, seems right */
       pthread_attr_destroy(&attr);
       pthread_setspecific(glob_var_key_ip, NULL);
