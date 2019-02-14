@@ -44,18 +44,31 @@
 #include <curl/easy.h>
 #include <signal.h>
 #include <pthread.h>
-#include "b64.h"
+//#include "b64.h"
+//#include <b64/b64.h>
+//#include "base64.h"
+//#include "hexdump.h"
+#include "librb64u.h"
+
 
 //#include <iostream>
 //#include <cstdio>
 //#include <cstring>
-//#include <base64.h>
-//#include "hexdump.h"
 
 /*
 #include <semaphore.h>
 #include <spawn.h>
 #include <omp.h>
+*/
+
+/*
+echo -n 'q80BAAABAAAAAAAABmdpdGh1YgNjb20AAAEAAQ' | base64 -d 2>/dev/null | curl -s -H 'content-type: application/dns-message' \
+--data-binary @- https://cloudflare-dns.com/dns-query -o - | xxd
+00000000: abcd 8180 0001 0002 0000 0001 0667 6974  .............git
+00000010: 6875 6203 636f 6d00 0001 0001 c00c 0001  hub.com.........
+00000020: 0001 0000 0013 0004 8c52 7604 c00c 0001  .........Rv.....
+00000030: 0001 0000 0013 0004 8c52 7603 0000 2905  .........Rv...).
+00000040: ac00 0000 0000 00                        .......
 */
 
 #define errExit(msg)		do { perror(msg); exit(EXIT_FAILURE); } while (0)
@@ -128,7 +141,7 @@
 #define NUM_HANDLES 4
 #define OUTPUTFILE "dl"
 
-int DEBUG, DNSDUMP, DEBUGCURL, EXT_DEBUG, CNT_DEBUG, THR_DEBUG, LOCK_DEBUG;
+int DEBUG, DNSDUMP, DEBUGCURLTTL, DEBUGCURL, EXT_DEBUG, CNT_DEBUG, THR_DEBUG, LOCK_DEBUG;
 char* substring(char*, int, int);
 
 static int ttl_out_test = 60;
@@ -145,6 +158,7 @@ static char encoding_table[] = {'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H',
 static char *decoding_table = NULL;
 static int mod_table[] = {0, 2, 1};
  
+/*
 char *base64_encode(const unsigned char *data, size_t input_length, size_t *output_length) {
  
     *output_length = 4 * ((input_length + 2) / 3);
@@ -171,6 +185,7 @@ char *base64_encode(const unsigned char *data, size_t input_length, size_t *outp
  
     return encoded_data;
 }
+*/
 
 void copy_string(char *target, char *source) {
    while (*source) {
@@ -181,6 +196,7 @@ void copy_string(char *target, char *source) {
    *target = '\0';
 }
 
+/*
 unsigned char *base64_decode(const char *data, size_t input_length, size_t *output_length) {
  
     if (decoding_table == NULL) build_decoding_table();
@@ -213,7 +229,8 @@ unsigned char *base64_decode(const char *data, size_t input_length, size_t *outp
  
     return decoded_data;
 }
- 
+*/
+
 void build_decoding_table() {
     decoding_table = malloc(256);
  
@@ -686,6 +703,53 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
   char *response, *finalresponse, *qhostname, *token, *pch, *maxim, *rr, *tt, *response_ptr, *finalresponse_ptr;
   ssize_t bytes_sent, bytes_sent_tcp, bytes_sent_udp, bytes_encoded;
 
+  int c, r;
+  b64ue_t s;
+  base64url_encode_reset(&s);
+  char *test64;
+  //char ciao = dns_req->hostname;
+  //ciao+="\n";
+
+  for (int f=0;f<strlen(dns_req->hostname);f++) {
+  //for (int f=0;f<sizeof(qhostname);f++) {
+  //while (EOF != (c = ciao)) {
+  //while (EOF != (c = dns_req->hostname)) {
+  //while (EOF != (c = getchar())) {
+  //while (dns_req->hostname  != NULL) {
+  //while (EOF != qhostname) {
+    //r = base64url_encode_ingest(&s, dns_req->hostname);
+    r = base64url_encode_ingest(&s, dns_req->hostname[f]);
+    //r = base64url_encode_ingest(&s, c);
+    if (r < 0) return -1;
+    if (r > 0) printf("%c", base64url_encode_getc(&s));
+  }
+  printf("\n---\n");
+ 
+  for (;;) {
+    r = base64url_encode_finish(&s);
+    if (r < 0) return -1;
+    if (r == 0) break;
+    printf("%c", base64url_encode_getc(&s));
+  }
+  printf("\n---\n");
+
+  //printf("%c\n", base64_encode((dns_req->hostname),sizeof(dns_req->hostname),(4*sizeof(dns_req->hostname))/3));
+  //printf("%s\n", b64_encode((dns_req->hostname),sizeof(dns_req->hostname)));
+  //for (;;) {
+    //r = base64url_encode_finish(&s);
+    //if (r < 0) return -1;
+    //if (r == 0) break;
+    //printf("\nB64: %c\n", base64url_encode_getc(&s));
+  //}
+  
+  //size_t zz;
+  //int base64url_encode(char *dest, const size_t maxlen, const char *src, const size_t len, size_t *dlen);
+  //int ok = base64url_encode(test64,(((4 * sizeof(dns_req->hostname) / 3) + 3) & ~3),dns_req->hostname,sizeof(dns_req->hostname),NULL);
+  //int ok = base64url_encode(test64,4096,dns_req->hostname,xrequestlen,NULL);
+  //if (ok >0 )
+  //printf("\nB64: %d\n", ok);
+  //printf("\nB64: %c\n", test64);
+
   if (DEBUG) {
           printf("\n");
     	  /*
@@ -700,7 +764,6 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
           printf("-> BUILD- sockfd			: %d\n", sockfd);
           printf("-> BUILD-proto				: %d\n", protoq);
 
-          //printf("%s\n", b64_encode((dns_req->hostname),sizeof(dns_req->hostname)));
           //printf("ff						: %s\n", hexdump(dns_req->query[0], 512));
           //char *xx = base64_encode(response_ptr, 64, 64);
           //char xx = base64_encode(dns_req->hostname, (uint8_t)(xrequestlen)-1, (uint8_t)(xrequestlen)-1);
@@ -1344,7 +1407,7 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
   //free(rip);
 }
 
-/* homemade substingy func */
+/* homemade substring function */
 char *substring(char *string, int position, int length) {
    char *pointer;
    int c;
@@ -1564,7 +1627,7 @@ static int my_trace(CURL *handle, curl_infotype type, char *data, size_t size, v
 
   switch(type) {
   case CURLINFO_TEXT:
-    fprintf(stderr, "== %d Info: %s", num, data);
+    if (DEBUGCURL) { fprintf(stderr, "== %d Info: %s", num, data); }
     /* fallthrough */ 
   default: /* in case a new one is introduced to shock us */ 
     return 0;
@@ -1643,7 +1706,7 @@ static int my_trace(CURL *handle, curl_infotype type, char *data, size_t size, v
                   //userp = val;
                   if (DEBUGCURL) {
                       printf(" *** max-age token: %ld\n", val);
-                      printf("get_ttl -> %d\n",get_ttl());
+                      printf(" *** get_ttl token: %d\n",get_ttl());
                       //dumptwo(text, stderr, (unsigned char *)data, size, config->trace_ascii);
                   }
               }
@@ -1681,13 +1744,17 @@ static void setup(CURL *hnd, char *script_target) {
   out = fopen(filename, "wb");
   /* write to this file, will be served via HTTP/2 */ 
   curl_easy_setopt(hnd, CURLOPT_WRITEDATA, out);
-  /* avoid hardcoding: URL will become a CLI parameter (or a static list, for "universal" blind root-check) with parallel threads */ 
+  /* avoid hardcoding services: provide URL as CLI parameter (or a static list, for "universal" blind root-check) with parallel threads */ 
   snprintf(q, sizeof(q)-1, "https://php-dns.appspot.com/%s", script_target);
 
   curl_easy_setopt(hnd, CURLOPT_URL, q);
   fprintf(stderr, "%s\n", q);
  
-  if (DEBUGCURL) { curl_easy_setopt(hnd, CURLOPT_VERBOSE,  1); } else { curl_easy_setopt(hnd, CURLOPT_VERBOSE,  0); }
+  if (DEBUGCURLTTL) {
+      curl_easy_setopt(hnd, CURLOPT_VERBOSE,  1);
+  } else {
+      curl_easy_setopt(hnd, CURLOPT_VERBOSE,  0);
+  }
 
   curl_easy_setopt(hnd, CURLOPT_DEBUGFUNCTION, my_trace);
   curl_easy_setopt(hnd, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_2_0);
@@ -1796,7 +1863,12 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
   /* Many other DoH or GoogleDNS services can be integrated */
   /* waiting for URI template */
   snprintf(script_url, URL_SIZE-1, "%s?host=%s&type=%s", lookup_script, host, typeq);
-  snprintf(n, sizeof(n)-1, "?host=%s&type=%s", host, typeq); // CLUSTER
+  //char *enctest = b64_encode(host, strlen(host));
+  //printf("DEBUG -> %s",enctest);
+  //printf("DEBUG -> %s",base64_encode(host,strlen(host),(4*((strlen(host) + 2) / 3))));
+  //printf("DEBUG -> %s",base64_encode(host,strlen(host),((4 * strlen(host) / 3) + 3) & ~3));
+  // CLUSTER PARALLEL MODE
+  snprintf(n, sizeof(n)-1, "?host=%s&type=%s", host, typeq);
 
   /* Beware of proxy-string, not any format accepted, CURL fails silently if unavailable .. */
   //snprintf(proxy_url, URL_SIZE-1, "http://%s/", proxy_host); //if (proxy_host != NULL) { fprintf(stderr, "Required substring is \"%s\"\n", proxy_url); }
@@ -1948,7 +2020,11 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
   curl_easy_setopt(ch, CURLOPT_NOPROGRESS, 1L);
   curl_easy_setopt(ch, CURLOPT_BUFFERSIZE, 8192L);          /* lowering from 100K to 8K */
 
-  if (DEBUGCURL) { curl_easy_setopt(ch, CURLOPT_VERBOSE,  1); } else { curl_easy_setopt(ch, CURLOPT_VERBOSE,  0); }
+  if (DEBUGCURLTTL) {
+      curl_easy_setopt(ch, CURLOPT_VERBOSE,  1);
+  } else {
+      curl_easy_setopt(ch, CURLOPT_VERBOSE,  0);
+  }
 
   /* wait for pipe to confirm */
   /*
@@ -2166,7 +2242,7 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
 
   /* slist holds specific headers here, beware of H2 reccomendations mentioned above */
   slist1 = NULL;
-  slist1 = curl_slist_append(slist1, "content-type: application/dns-udpwireformat");
+  slist1 = curl_slist_append(slist1, "content-type: application/dns-message");
 
   hnd = curl_easy_init();
   curl_easy_setopt(hnd, CURLOPT_BUFFERSIZE, 1024L); /* 1K test, normally 100K buffer, set accordingly to truncation and other considerations */ 
@@ -2195,18 +2271,26 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
   curl_easy_setopt(hnd, CURLOPT_ENCODING, "br");
   //curl_easy_setopt(hnd, CURLOPT_ENCODING, "deflate");
 
-  if (DEBUGCURL) { curl_easy_setopt(hnd, CURLOPT_VERBOSE,  1); } else { curl_easy_setopt(hnd, CURLOPT_VERBOSE,  0); }
+  if (DEBUGCURLTTL) {
+      curl_easy_setopt(hnd, CURLOPT_VERBOSE,  1);
+  } else {
+      curl_easy_setopt(hnd, CURLOPT_VERBOSE,  0);
+  }
   //curl_easy_setopt(hnd, CURLOPT_WRITEFUNCTION, WriteMemoryCallback);
   curl_easy_setopt(hnd, CURLOPT_WRITEFUNCTION, write_data); /* send all data to this function */
   //curl_easy_setopt(hnd, CURLOPT_WRITEDATA, (void *)&chunk);
+
   curl_easy_setopt(hnd, CURLOPT_WRITEDATA, http_response); /* we pass our 'chunk' struct to the callback function */ 
   curl_easy_setopt(hnd, CURLOPT_DEBUGFUNCTION, my_trace);
   curl_easy_setopt(hnd, CURLOPT_DEBUGDATA, &config);
+
+  /*
   if (DEBUGCURL) {
       printf(" *** CURL variable exported: BEGIN\n",&config);
       printf(" *** CURL variable exported: BEGIN\n",&config.ttl_out_test_data);
       printf("\n *** CURL variable exported: END\n");
   }
+  */
 
   //snprintf(script_url, URL_SIZE-1, "%s?name=%s", lookup_script, host); // GOOGLE DNS
   if (DEBUG) { fprintf(stderr, " *** GET string				: %s\n",n); }
@@ -2480,7 +2564,7 @@ int main(int argc, char *argv[]) {
   
   /* Command line args */
   // while ((c = getopt_long(argc, argv, short_opt, long_opt, NULL)) != -1)
-  while ((c = getopt (argc, argv, "T:s:p:l:r:H:t:w:u:k:Z:hvNRCLXn")) != -1)
+  while ((c = getopt (argc, argv, "T:s:p:l:r:H:t:w:u:k:Z:hvNRCLXnQ")) != -1)
   switch (c)
    {
       case 't':
@@ -2523,6 +2607,11 @@ int main(int argc, char *argv[]) {
           }
       break;
               
+      case 'Q':
+          DEBUGCURLTTL = 1;
+          fprintf(stderr," *** CURL DRIVEN TTL .... ON\n");
+      break;
+
       case 'C':
           DEBUGCURL = 1;
           fprintf(stderr," *** VERBOSE CURL ....... ON\n");
