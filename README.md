@@ -41,25 +41,27 @@ As bonus, this software is TOR-friendly and requires minimal resources. Enjoy !
 
 ## Architecture
 ```
-              +--------------------------+
-   +----------| DNSP listens on original |<-----------+
-   |          | socket used by HTTP(S)   |            |
-   |          +--------------------------+            | reply is sent via HTTP(S)
-   |                     ^                            |   back to DNSP/libCURL. 
-   |                     |  if valid answer found     | then DNSP builds UDP/TCP
-   |                     |   in local HTTP cache      |  response, in accordance
-   |                     | the response is faster     |   with RFC1035 et al.
-   |                     |  at the same security      |
-   v                     |                            :
- +----------+   +--------+--------+           /-------------------\
- |client/OS | --+    DNSProxy     +---------->|  webservice HTTPS |
- |  issues  |   +-----------------+           |         -         |
- | DNS qry  |   | can modify TTL  |           | nslookup-doh.php  |
- |(syscall) |   | blacklist,cache |           | does the real job |
- +---+------+   +-----------------+           \-------------------/
-   :                                  	                     ^
-   | query goes to DNSP daemon on 127.0.0.1:53 (UDP or TCP)  |
-   +---------------------------------------------------------+
+              +---------------------------+
+   +----------| DNSP listens on original  | <<--+
+   |          | sockets [ HTTP(S) & DNS ] |     |
+   |          +---------------------------+     | libCURL handles
+   |                    ^                       | HTTP(S) replies.
+   |                    ^  IF answer found      | DNSP creates DNS
+   |                    |   in HTTP cache       | responses, sent
+   |                    |  THEN faster reply    | via TCP or UDP
+   v                    |  and same security    | as per RFC 1035.
+   v                    :                       :
+  +-------------+     +--------+--------+     /---------------\
+  |client OS    |-->> +    DNSProxy     +-->> |  DoH resolver |
+  +-------------|     +-----------------+     |   webservice  |
+  |sends DNS    |     | manipulate TTL, |     | RFC8484-aware |
+  |to nameserver|     | blacklist,cache |     \---------------/
+  +---+---------+     +-----------------+                ^
+     :                                                   ^
+     | UDP & TCP queries to DNSP daemon on 127.0.0.1:53  |
+     |       are tunneled to a DoH-resolver webservice   |
+     +---------------------------------------------------+
+
  classic DNS except that messages are being transported over HTTP/2
       with no leackage of UDP whatsoever (see PRIVACY notes)
 ```

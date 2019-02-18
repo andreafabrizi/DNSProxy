@@ -1954,7 +1954,7 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
   char n[512];
 
   /* Many other DoH services can be integrated (GoogleDNS, etc) */
-  //snprintf(script_url, URL_SIZE-1, "%s?name=%s", lookup_script, host); // GOOGLE DNS
+  //snprintf(script_url, URL_SIZE-1, "%s?name=%s", lookup_script, host);
   /* here my pre-DoH request format, needs HOST and QTYPE */
   snprintf(script_url, URL_SIZE-1, "%s?host=%s&type=%s", lookup_script, host, typeq);
   snprintf(n, sizeof(n)-1, "?host=%s&type=%s", host, typeq);
@@ -1962,13 +1962,14 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
   // CLUSTER PARALLEL MODE
   printf("URL: https://cloudflare-dns.com/dns-query?dns=%s\n", b64_encode(rfcstring,sizeof(rfcstring)+strlen(host)+9));
   printf("URL: %s\n",script_url);
-  printf("URL: %s\n",n);
   printf("URL: https://dns.google.com/query?name=%s&type=%s&dnssec=true\n",host,typeq);
+  printf("URL: %s\n",n);
   
   //printf("DEBUG -> %s",base64_encode(host,strlen(host),((4 * strlen(host) / 3) + 3) & ~3));
 
   /* Beware of proxy-string: not every format is accepted. CURL fails silently here .. */
-  //snprintf(proxy_url, URL_SIZE-1, "http://%s/", proxy_host); //if (proxy_host != NULL) { fprintf(stderr, "Required substring is \"%s\"\n", proxy_url); }
+  //snprintf(proxy_url, URL_SIZE-1, "http://%s/", proxy_host);
+  //if (proxy_host != NULL) { fprintf(stderr, "Required substring is \"%s\"\n", proxy_url); }
 
   /* HTTPS detection pseudocode .. not great, shall be way better. And deny non-HTTPS URLs */
   pointer = substring(script_url, 5, 1);
@@ -2085,7 +2086,7 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
   */
 
   /* set curlopt --> FOLLOW-LOCATION, necessary if getting 301 "Moved Permanently" */
-  // reacting to // Location: http://www.example.org/index.asp
+  /* reacting to "Location: http://www.example.org/index.asp" */
   //curl_easy_setopt(ch, CURLOPT_FOLLOWLOCATION, 1);
 
   /* it doesnt cost much to verify, disable only while testing ! */
