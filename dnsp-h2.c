@@ -1174,10 +1174,12 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
     /* 0x08 - backspace \010 octal, 0x09 - horizontal tab, 0x0a - linefeed, 0x0b - vertical tab \013 octal, 0x0c - form feed, 0x0d - carriage return, 0x20 - space */ 
     /* 0x09 - horizontal tab, 0x0a - linefeed, 0x0b - vertical tab, 0x0c - form feed, 0x0d - carriage return, 0x20 - space */
     
+    /*
     if (DNSDUMP) {
       printf(" *** raw-answer: response_ptr, response - response_ptr\n");
       hexdump(response_ptr, response - response_ptr);
     }
+    */
 
     /* DNS request TYPE parsing */
     if (dns_req->qtype == 0x0c) {
@@ -1411,11 +1413,11 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
       
       if (DNSDUMP) { 
 	    printf(" *** TCP SENT %d bytes of finalresponse\n", finalresponse - finalresponse_ptr);
-    	printf(" *** DUMP OF finalresponse_ptr, response - response_ptr\n");
+    	printf(" *** DUMP of (finalresponse_ptr, response - response_ptr)\n");
         hexdump(finalresponse_ptr, response - response_ptr);
 
         printf(" *** TCP SENT %d bytes of finalresponse (including +2 for TCP)\n", finalresponse - finalresponse_ptr);
-        printf(" *** DUMP OF finalresponse_ptr, finalresponse - finalresponse_ptr\n");
+        printf(" *** DUMP of (finalresponse_ptr, finalresponse - finalresponse_ptr)\n");
         hexdump(finalresponse_ptr, finalresponse - finalresponse_ptr);
       }
 
@@ -1423,13 +1425,12 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
       // msg_flags=MSG_TRUNC|MSG_DONTWAIT|MSG_EOR|MSG_WAITALL|MSG_CONFIRM|MSG_ERRQUEUE|MSG_MORE|MSG_WAITFORONE
       //sendto(sd, finalresponse_ptr, finalresponse - finalresponse_ptr, MSG_EOR, (struct sockaddr *)yclient, 16);
       //write(sd, (const char*)finalresponse_ptr, finalresponse - finalresponse_ptr); 
-      
     }
 
     /* dump to udpwireformat */
     if (DNSDUMP) {
       printf(" *** XXX SENT %d bytes of response\n", response - response_ptr);
-      printf(" *** DUMP OF response_ptr, OF LENGTH OF response - response_ptr\n"); 
+      printf(" *** DUMP of (response_ptr, OF LENGTH OF response - response_ptr)\n"); 
       hexdump(response_ptr, response - response_ptr);
     }
 
@@ -1745,15 +1746,21 @@ static int my_trace(CURL *handle, curl_infotype type, char *data, size_t size, v
     //dump(text, num, (unsigned char *)data, size, 1);
 
     if(cacheheaderfound == 0) {
-  	  printf("-----\n");
-  	  dump(text, num, (unsigned char *)data, size, 0);
+  	  if ( DNSDUMP || DEBUGCURL ) { dump(text, num, (unsigned char *)data, size, 0); }
    
   	  /* More general pattern */
   	  const char *my_str_literal = data;
   	  char *token, *str, *tofree;
   	  
   	  tofree = str = strdup(my_str_literal);  // We own str's memory now.
-  	  while ((token = strsep(&str, ","))) printf(" ----> %s\n",token);
+
+  	  while ((token = strsep(&str, ","))) {
+        if ( DNSDUMP || DEBUGCURL ) {
+            printf(" ----> %s\n",token);
+        }
+        continue;
+      }
+      
   	  free(tofree);
 	  //printf("\n -----> %s\n", data);
 	
@@ -1951,29 +1958,26 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
   //char *n = ( char * ) malloc( 80 * sizeof( char ) );
   char n[512];
 
-  /* here my first format, HOST+QTYPE */
-  /* Many other DoH or GoogleDNS services can be integrated */
-  /* waiting for URI template */
+  /* here my pre-DoH request format, needs HOST and QTYPE */
+  /* Many other DoH services can be integrated (GoogleDNS, etc) */
   snprintf(script_url, URL_SIZE-1, "%s?host=%s&type=%s", lookup_script, host, typeq);
-
-  printf("cloudflare-dns.com/dns-query?dns=%s\n", b64_encode(rfcstring,sizeof(rfcstring)+strlen(host)+9));
-  
-  //char *enctest = b64_encode(host, strlen(host));
-  //printf("DEBUG -> %s",enctest);
-  //printf("DEBUG -> %s",base64_encode(host,strlen(host),(4*((strlen(host) + 2) / 3))));
-  //printf("DEBUG -> %s",base64_encode(host,strlen(host),((4 * strlen(host) / 3) + 3) & ~3));
+  printf("https://cloudflare-dns.com/dns-query?dns=%s\n", b64_encode(rfcstring,sizeof(rfcstring)+strlen(host)+9));
   // CLUSTER PARALLEL MODE
   snprintf(n, sizeof(n)-1, "?host=%s&type=%s", host, typeq);
+  
+  //printf("DEBUG -> %s",base64_encode(host,strlen(host),((4 * strlen(host) / 3) + 3) & ~3));
 
-  /* Beware of proxy-string, not any format accepted, CURL fails silently if unavailable .. */
+  /* Beware of proxy-string: not every format is accepted. CURL fails silently here .. */
   //snprintf(proxy_url, URL_SIZE-1, "http://%s/", proxy_host); //if (proxy_host != NULL) { fprintf(stderr, "Required substring is \"%s\"\n", proxy_url); }
 
-  /* HTTPS DETECTION PSEUDOCODE ... might be better :) */
+  /* HTTPS detection pseudocode .. not great, shall be way better. And deny non-HTTPS URLs */
   pointer = substring(script_url, 5, 1);
   strcpy(base, "s");
 
   int result = strcmp(pointer, base);
-  //printf("Required substring is \"%s\"\n", pointer); //printf("Compared substring is \"%s\"\n", base); //printf("Result is \"%d\"\n", result);
+  //printf("Required substring is \"%s\"\n", pointer);
+  //printf("Compared substring is \"%s\"\n", base);
+  //printf("Result is \"%d\"\n", result);
 
   if(result == 0) {
           wport=443;
@@ -2510,6 +2514,7 @@ void *threadFunc(void *arg) {
     //printf("RFC8484 url      : %s\n",params->xhostname->rfcstring);
     printf("RFC8484 urlencode: %s\n",b64_encode(params->xhostname->rfcstring,sizeof(params->xhostname)+request_len-19));
     //printf("RFC8484 urlencode: %s\n",b64_encode(params->xhostname->rfcstring,strlen(params->xhostname->rfcstring)+17));
+  	printf("-----\n");
     
     yhostname == NULL;
     params->xhostname->hostname == NULL;
