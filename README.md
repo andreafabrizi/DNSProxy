@@ -385,19 +385,22 @@ facebook.com.       524549  IN  A   185.60.216.35
 ;; MSG SIZE  rcvd: 46
 ```
 
-If any of the test queries work, you can safely replace the current "nameserver" entries within
-/etc/resolv.conf and point ALL DNS TRAFFIC towards DNSP, by inserting such a line:
+If queries are successful, you can now safely replace the current
+"nameserver" entries inside "/etc/resolv.conf" to point ALL DNS
+traffic towards DNSP, by inserting such a line:
 ```
 nameserver 127.0.0.1
 ```
 
-If configuration and testing completed successfully, you are now ready to run a DOH peer server, 
-and profit of DNS-over-HTTP(S) services as described by RFC 8484.
+Once configuration and testing completed successfully, you will be
+ready to run a DNS-over-HTTPS peer & server as described by RFC 8484.
 
 ## Changelog
 
-To test whether nslookup-doh.php is correctly deployed and resolving, you could use **bash** (curl).
-Replace URL value in accordance with script location. Here are two that I use to check my deploys:
+To test the deploy of nslookup-doh.php along with correct DNS
+resolution, you could use **curl** utility within a shell.
+Replace URL value in accordance with your favourite script location.
+Here are two simple one-liners that I use to check my deploys:
 ```
 # curl -s -H "Host: www.fantuz.net" -H "Remote Address:104.27.133.199:80" -H "User-Agent:Mozilla/5.0 \
 (Macintosh; Intel Mac OS X 10_6_8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 \
@@ -624,24 +627,30 @@ max@trinity:~/DNSProxy$
 MIT license, all rights included.
 
 ## Disclaimer
-WHEN FULL-ANONIMITY IS A CONCERN, make sure to host *nslookup-doh.php* on a trustable server !
+__IF ANONIMITY IS A CONCERN__ please host *nslookup-doh.php* on a trusted server !
 
-To be clear, the PHP script DOES DO the underlying (infamously leaking) "system call",
-the "classic" UDP or TCP "DNS request". Such system call relies on different
-mechanisms to resolve DNS, depending on the operating system; in the case of an
-hosting provider, such mechanism and operating systems are said to be "managed" hence 
-not in FULL-CONTROL of the user. In the context of hosting, we can probably assume that
-_everything_ had been optimised for serving at the fastest speed with the most of 
-caching made possible. Such system calls are therefore outside the scope of DNSP.
+To be clear, the PHP script DOES DO the underlying job, being the resolution
+via "system calls" of DNS requests, a "classic" UDP or TCP "DNS request".
+Such system call relies on different (leaking) mechanisms to resolve DNS,
+depending on the operating system; in the case of an hosting provider, such
+mechanism and operating systems are often "managed" hence not in FULL-CONTROL
+of the final user. In the context of hosting, we can probably assume that
+_everything_ had been optimised for serving at the fastest speed with the best
+cache made possible. Such sys-calls lie therefore outside the scope of DNSP.
 
-The DNSProxy *DNSP* is just lazily tunneling into HTTP(S) using curllib and nghttp2.
-By doing this encapsulation, **it avoids leakage** of UDP queries. To be on the safe side,
-using DNS over HTTPS makes eavesdropping and spoofing of DNS traffic between you and the 
-HTTPS provider much less likely.
+The DNSProxy *DNSP* is just lazily tunneling into HTTP(S) using curllib and
+nghttp2. By doing this encapsulation, **it avoids leakage** of UDP queries.
+To be on the safe side, using DNS-over-HTTPS makes almost impossible to
+eavesdrop and spoof the DNS traffic between you and the DoH provider, or
+at least much less likely, given the layer of security provided by HTTP/2.
 
-That said, you **MUST** use an external server that you trust and you can deploy stuff on !
-**Do not forget to set 127.0.0.1 as your unique system resolver (/etc/resolv.conf)**.
+That said, you **MUST** use an external resolver/server that you trust, one
+where you can deploy stuff !
 
-Beware, having the PHP script running on the same local machine (not using a remote webservice)
-makes no sense and WILL make ALL of your DNS queries leaking. Useful for TESTING purposes only !!
+**Do not forget to set 127.0.0.1 as your unique system DNS resolver** via
+common system configuration files (as /etc/resolv.conf or systemd-resolved).
+
+Beware: running the PHP script locally on the same machine (not using a
+remote webservice) makes no sense and WILL EXPOSE ALL of your queries to
+DNS leak. Running locally is useful for TESTING purposes only !!
 
