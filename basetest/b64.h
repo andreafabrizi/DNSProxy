@@ -1,3 +1,4 @@
+
 /**
  * `b64.h' - b64
  *
@@ -6,6 +7,18 @@
 
 #ifndef B64_H
 #define B64_H 1
+
+/**
+ *  Memory allocation functions to use. You can define b64_malloc and
+ * b64_realloc to custom functions if you want.
+ */
+
+#ifndef b64_malloc
+#  define b64_malloc(ptr) malloc(ptr)
+#endif
+#ifndef b64_realloc
+#  define b64_realloc(ptr, size) realloc(ptr, size)
+#endif
 
 /**
  * Base64 index table.
@@ -22,6 +35,10 @@ static const char b64_table[] = {
   '4', '5', '6', '7', '8', '9', '+', '/'
 };
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /**
  * Encode `unsigned char *' source with `size_t' size.
  * Returns a `char *' base64 encoded string.
@@ -36,5 +53,16 @@ b64_encode (const unsigned char *, size_t);
  */
 unsigned char *
 b64_decode (const char *, size_t);
+
+/**
+ * Dencode `char *' source with `size_t' size.
+ * Returns a `unsigned char *' base64 decoded string + size of decoded string.
+ */
+unsigned char *
+b64_decode_ex (const char *, size_t, size_t *);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

@@ -2,8 +2,9 @@ CC      = gcc
 CFLAGS  = -O2 -Wall -W -pedantic -g -rdynamic
 FLAG    = -DTLS
 CFLAGS += $(FLAG)
-LIBS    = -L/usr/local/lib -lcurl -lpthread -lrt
+LIBS    = -L/usr/local/lib -lcurl -lpthread -lrt -lb64
 
+#CFLAGS  = -std=c99 -O2 -Wall -W -pedantic -g -rdynamic
 #LIBS   += -lssl -lboost_system -lboost_system -lboost_thread 
 #LIBS   += -lnghttp2
 #TARGET = testflag
@@ -26,7 +27,7 @@ dnsp.o : dnsp.c
 	${CC} -w -c dnsp.c
 
 dnsp-h2 : dnsp-h2.c
-	${CC} dnsp-h2.c ${CFLAGS} ${LIBS} -w -o dnsp-h2
+	${CC} librb64u.c encode.o decode.o base64.c dnsp-h2.c ${CFLAGS} ${LIBS} -w -o dnsp-h2
 
 #dnsp-h2.o : dnsp-h2.c
 #	${CC} -w -c dnsp-h2.c
