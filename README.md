@@ -192,41 +192,49 @@ Compile the *dnsp* binary by running provided build commands (make, for example)
 ## Integration, easy with standards:
 
 DNSP has been build keeping in mind _simplicity_ and _standardness_.
-Most of us will know that -on a modern Linux box- an extra layer of caching DNS 
-is provided by nscd or dnsmasq services. Even in presence of such caches, UDP+TCP
-DNS traffic accounts today for a sensible and quite constant bandwidth consumption.
+Most of us will know that -on a modern Linux box- an extra layer of
+caching DNS  is provided by nscd or dnsmasq services. Even in presence
+of such caches, UDP+TCP DNS traffic accounts today for a sensible and
+quite constant bandwidth consumption.
 
-DNSP is _not_ an alternative to such caching services. They can coexist if needed. In a way,
-DNS can be integrated to work closely with **DNS services** in empowering a more distributed 
-cache, or might be dropping the HTTP cache as a whole, in favour of clever methods of doing the
-same operation: certify and distribute DNS by means of HTTP standardised methods.
+DNSP is _not_ an alternative to such caching services. They can coexist
+when needed. In a way, DNS can be integrated to work closely with new
+**DNS services** in empowering a more distributed cache, or might be
+dropping the HTTP cache as a whole, in favour of clever methods of doing
+the same operation: distribute DNS by means of standardised HTTP methods.
 
-Infact, in a scenario of CDN, anycasting and load balancing, the HTTP (insecure) cache is becoming
-less and less effective, due to the added security layers and increasing speed between peers
-(hence the lack of the need of an HTTP proxy). A thing I will soon look into is "UDP multiplexing", 
-aka QUIC. I still believe UDP has more to show. I just play and have fun learning programming.
+In a scenario dominated by CDN, anycasting and load balancing, the HTTP
+(insecure) cache is becoming less and less effective due to the added
+security layers and increasing speed between peers (hence the lack of
+the need of an HTTP proxy). It will be worth looking at QUIC, the
+UDP-multiplexing upcoming HTTP/3 standard.
 
-As the whole internet has been, a **standardised work in progress** since the past 30-40 years,
-so DNSP is: an experimental software, a community tool.
+As the whole internet has been - a **standardised work in progress** in
+the past 40 years - so DNSP is: experimental software, a community tool.
 
-DNSP presents itself as an alternative transport method of the same good old and fascinating DNS.
-As I often stated, DNSP was conceived as a way to help overcoming censorship and trackability via DNS.
-As you might question yourself, yes, any **DNS-over-HTTP** will leave a trace, just the
-trace will be in a different place, not on the UDP level anyway.
+DNSP presents itself as an alternative transport method of the good old
+and fascinating DNS. As I often stated, DNSP was conceived as a way to
+help overcome censorship and trackability via DNS. As you might question
+yourself -YES- any **DNS-over-HTTP** will leave a trace, just that trace
+will be in a different place, not on UDP level but eventually onto some
+HTTP webserver logs on a remote server.
 
-I never meant to say that DNSP is faster or better than any other, is just pretty new on its own.
-Is a big piece of curl/threaded code that helps people _transporting_ and _sharing_ DNS.
+I never meant to state that DNSP is faster or better than any other DNS
+server, but is definitely original on its own. Is a really ugly piece of
+single-threaded code made to help people _transporting_ and _sharing_ DNS.
 
 ## Changelog:
 
 #### TODO:
 * DNSSEC tests ?
 * to use NGHTTP2 in place of CURL. A faster way to support H2 (anyways, CURL requires NGHTTP2)
-* implementing request/response headers PHP, according to new content type "application/dns"
 * implement HTTP/2 PUSH, for smoother and opportunistic DNS answers. Remember, there's no ID field in DOH !
+* offer GET & POST choice on method (for all DoH and pre-DoH URLs).
 
 #### WIP:
 * use Warning headers to signal something
+* parallelize requests, choose the faster
+* restore performances, currently impacted by new TCP handlers
 
 #### SEMI-OFFICIAL DOH SERVER LIST
 * 1.1.1.1
@@ -234,12 +242,16 @@ Is a big piece of curl/threaded code that helps people _transporting_ and _shari
 * 9.9.9.9
 * see list on https://github.com/curl/curl/wiki/DNS-over-HTTPS#publicly-available-servers
 
+#### Version 2.5 - February 2019:
+* implemented dump of 'cache-control' headers from PHP/DoH resolver into DNS packet
+* account for new content type "application/dns"
+* provide with base64urlencode of DNS requests !
+
 #### Version 2.2 - January 2019:
 * completed TCP & UDP listeners
 
 #### Version 2 - March 2018:
-* DOH-ready: raw DNS request printout (for server), base64 encoding of hostname parameter in 
-  GET/POST (for client)
+* DOH-ready: raw DNS request printout (for server), base64urlencode of DNS query (for client)
 * pre-emptive HTTP cache population as option (for CDN or local squid/polipo proxies).
   based on Location header, will force the same DNS server software to issue a parallel GET 
   on the remote domain, in order to preemptively populate HTTP caches in between.
@@ -252,7 +264,7 @@ Is a big piece of curl/threaded code that helps people _transporting_ and _shari
 * almost REDIS-ready _via https://github.com/redis/hiredis_
 * finally fixed infamous proxy settings (not hardcoded they were stopped by mutex leftover).
 * removed and commented references to different DNSP modes (threaded/forked, mutex, semaphores).
-* finally will update informations to strongly suggest SQUID in place of POLIPO (I loved it, but is EOL)
+* finally updated examples to strongly suggest SQUID in place of POLIPO (I loved it, but is EOL)
 
 #### Version 1.5 - February 2018:
 * added IETF references and talk about DOH (wich does HTTP2, so single connection multiple streams)
@@ -271,8 +283,8 @@ Is a big piece of curl/threaded code that helps people _transporting_ and _shari
 * going back to either threads or vfork...
 * want to implement DNSSEC somehow
 * having few issues caching on ClouFlare-alike caches (304 no-more ?). Probably fault of Etag
-* done more crashtest, memleak, timing tests
-* it really works with millions query
+* more crash-test, memory-leak hunting, strace & timing tests
+* it really works with millions query (not anymore since I added TCP)
 * published and improved a Varnish configuration as well
 
 #### Version 1.01 - April 2015:
