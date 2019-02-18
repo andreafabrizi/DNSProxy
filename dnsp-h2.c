@@ -1924,13 +1924,8 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
   /* we start with one */ 
   int transfers = 1;
 
-  int i;
-  int ret;
-
-  char *http_response,
-       *script_url,
-       *script_get,
-       *pointer;
+  int i, ret;
+  char *http_response, *script_url, *script_get, *pointer;
   char base[2];
 
   /* CURL structs, different interfaces for different performance needs */
@@ -1958,12 +1953,17 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
   //char *n = ( char * ) malloc( 80 * sizeof( char ) );
   char n[512];
 
-  /* here my pre-DoH request format, needs HOST and QTYPE */
   /* Many other DoH services can be integrated (GoogleDNS, etc) */
+  //snprintf(script_url, URL_SIZE-1, "%s?name=%s", lookup_script, host); // GOOGLE DNS
+  /* here my pre-DoH request format, needs HOST and QTYPE */
   snprintf(script_url, URL_SIZE-1, "%s?host=%s&type=%s", lookup_script, host, typeq);
-  printf("https://cloudflare-dns.com/dns-query?dns=%s\n", b64_encode(rfcstring,sizeof(rfcstring)+strlen(host)+9));
-  // CLUSTER PARALLEL MODE
   snprintf(n, sizeof(n)-1, "?host=%s&type=%s", host, typeq);
+  // https://dns.google.com/query?name=fantuz.net&type=A&dnssec=true
+  // CLUSTER PARALLEL MODE
+  printf("URL: https://cloudflare-dns.com/dns-query?dns=%s\n", b64_encode(rfcstring,sizeof(rfcstring)+strlen(host)+9));
+  printf("URL: %s\n",script_url);
+  printf("URL: %s\n",n);
+  printf("URL: https://dns.google.com/query?name=%s&type=%s&dnssec=true\n",host,typeq);
   
   //printf("DEBUG -> %s",base64_encode(host,strlen(host),((4 * strlen(host) / 3) + 3) & ~3));
 
@@ -1980,11 +1980,12 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
   //printf("Result is \"%d\"\n", result);
 
   if(result == 0) {
-          wport=443;
+    wport=443;
   } else {
-          //printf(" *** HTTP does NOT guarantee against MITM attacks. Consider switching to HTTPS webservice\n");
-          wport=80;
+    //printf(" *** HTTP does NOT guarantee against MITM attacks. Consider switching to HTTPS webservice\n");
+    wport=80;
   }
+
   free(pointer);
 
   num_transfers = 1; /* a suitable low default, do that many transfers */ 
@@ -2010,7 +2011,7 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
   curl_multi_setopt(multi_handle, CURLMOPT_PUSHDATA, &transfers);
   */
 
-  /* placeholder for DNS-over-HTTP (DoH) GET/POST method choice, to become a CLI option */
+  /* placeholder for DNS-over-HTTP (DoH) GET or POST method of choice, to become a CLI option ASAP */
   //curl_setopt($ch,CURLOPT_POST,1);
   //curl_setopt($ch,CURLOPT_POSTFIELDS,'customer_id='.$cid.'&password='.$pass);
 
@@ -2054,13 +2055,11 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
   /* we pass our 'chunk' struct to the callback function */ 
   curl_easy_setopt(ch, CURLOPT_WRITEDATA, http_response);
   //curl_easy_setopt(ch, CURLOPT_WRITEDATA, (void *)&chunk);
-  
   //curl_easy_setopt(ch, CURLOPT_DEBUGFUNCTION, my_trace);
-  
-  /* cache with HTTP/1.1 304 "Not Modified" */
-  // https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Cache-Control
 
   /*
+  cache with HTTP/1.1 304 "Not Modified"
+  https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Cache-Control
    * REQUEST
   Cache-Control: max-age=<seconds>
   Cache-Control: max-stale[=<seconds>]
@@ -2346,12 +2345,11 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
   curl_easy_setopt(hnd, CURLOPT_NOPROGRESS, 1L);
   curl_easy_setopt(hnd, CURLOPT_TCP_FASTOPEN, 1L);
   curl_easy_setopt(hnd, CURLOPT_NOBODY, 0L); /* placeholder for HEAD method */
-
-  /* set whether or not fetching headers, my function doesn't mandatory need such print (headers are always there anyway) */
+  /* set whether or not fetching headers */
   curl_easy_setopt(hnd, CURLOPT_HEADER, 0L);
   
   curl_easy_setopt(hnd, CURLOPT_HTTPHEADER, slist1);
-  curl_easy_setopt(hnd, CURLOPT_USERAGENT, "curl/7.59.0-DEV");
+  curl_easy_setopt(hnd, CURLOPT_USERAGENT, "curl 7.64.1-DEV (x86_64-pc-linux-gnu) libcurl/7.64.1-DEV OpenSSL/1.0.2g zlib/1.2.11 nghttp2/1.37.0-DEV");
   curl_easy_setopt(hnd, CURLOPT_MAXREDIRS, 2L); /* delegation, RD bit set ? default 50 */
 
   curl_easy_setopt(hnd, CURLOPT_HTTP_VERSION, (long)CURL_HTTP_VERSION_2TLS);
@@ -2372,6 +2370,7 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
   } else {
       curl_easy_setopt(hnd, CURLOPT_VERBOSE,  0);
   }
+
   //curl_easy_setopt(hnd, CURLOPT_WRITEFUNCTION, WriteMemoryCallback);
   curl_easy_setopt(hnd, CURLOPT_WRITEFUNCTION, write_data); /* send all data to this function */
   //curl_easy_setopt(hnd, CURLOPT_WRITEDATA, (void *)&chunk);
@@ -2380,15 +2379,7 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
   curl_easy_setopt(hnd, CURLOPT_DEBUGFUNCTION, my_trace);
   curl_easy_setopt(hnd, CURLOPT_DEBUGDATA, &config);
 
-  /*
-  if (DEBUGCURL) {
-      printf(" *** CURL variable exported: BEGIN\n",&config);
-      printf(" *** CURL variable exported: BEGIN\n",&config.ttl_out_test_data);
-      printf("\n *** CURL variable exported: END\n");
-  }
-  */
-
-  //snprintf(script_url, URL_SIZE-1, "%s?name=%s", lookup_script, host); // GOOGLE DNS
+  /* URL PRINTING */
   if (DEBUG) { fprintf(stderr, " *** GET string				: %s\n",n); }
   if (DEBUG) { fprintf(stderr, " *** DOH string				: %s\n",rfcstring); }
 
