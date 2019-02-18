@@ -223,105 +223,11 @@ I never meant to state that DNSP is faster or better than any other DNS
 server, but is definitely original on its own. Is a really ugly piece of
 single-threaded code made to help people _transporting_ and _sharing_ DNS.
 
-## Changelog:
+## Testing dnsp & dnsp-h2
 
-#### TODO:
-* DNSSEC tests ?
-* to use NGHTTP2 in place of CURL. A faster way to support H2 (anyways, CURL requires NGHTTP2)
-* implement HTTP/2 PUSH, for smoother and opportunistic DNS answers. Remember, there's no ID field in DOH !
-* offer GET & POST choice on method (for all DoH and pre-DoH URLs).
-
-#### WIP:
-* use Warning headers to signal something
-* parallelize requests, choose the faster
-* restore performances, currently impacted by new TCP handlers
-
-#### SEMI-OFFICIAL DOH SERVER LIST
-* 1.1.1.1
-* 8.8.8.8
-* 9.9.9.9
-* see list on https://github.com/curl/curl/wiki/DNS-over-HTTPS#publicly-available-servers
-
-#### Version 2.5 - February 2019:
-* implemented dump of 'cache-control' headers from PHP/DoH resolver into DNS packet
-* account for new content type "application/dns"
-* provide with base64urlencode of DNS requests !
-
-#### Version 2.2 - January 2019:
-* completed TCP & UDP listeners
-
-#### Version 2 - March 2018:
-* DOH-ready: raw DNS request printout (for server), base64urlencode of DNS query (for client)
-* pre-emptive HTTP cache population as option (for CDN or local squid/polipo proxies).
-  based on Location header, will force the same DNS server software to issue a parallel GET 
-  on the remote domain, in order to preemptively populate HTTP caches in between.
-  (Not interesting except in particular scenarios, as browsing through high-delay satellite networks).
-* added the arduino+ethernet library with the new select() function (sorry for delay, was easy)
-* DNSP for HTTP/1 version freeze, development on H2 only (till Hackathon 101 London 17-18/3).
-* Added TCP query/response support !
-
-#### Version 1.6 - March 2018:
-* almost REDIS-ready _via https://github.com/redis/hiredis_
-* finally fixed infamous proxy settings (not hardcoded they were stopped by mutex leftover).
-* removed and commented references to different DNSP modes (threaded/forked, mutex, semaphores).
-* finally updated examples to strongly suggest SQUID in place of POLIPO (I loved it, but is EOL)
-
-#### Version 1.5 - February 2018:
-* added IETF references and talk about DOH (wich does HTTP2, so single connection multiple streams)
-* added Arduino double ethernet shield script
-* fixed NS/CNAME answers (C) and resolver script (PHP)
-* added the GO version made by chinese people, inspired at my DNSP software
-* MIT License in accordance to transfer of rights operated via mail by Andrea
-* everything works as usual: caching is lazy, CURL follows redirects (301, I want less of them)
-* other thought and implementations pending
-* fixed README and easen installation/testing procedure
-* deleted some junk files, renamed dirs for clarity
-* multiversion PHP 5/7, depending on hosting provider (due to slightly different
-    implementation of print(), random css, substantial differences between h1/h2, headers, etc).
-
-#### Version 1.01 - March 2017:
-* going back to either threads or vfork...
-* want to implement DNSSEC somehow
-* having few issues caching on ClouFlare-alike caches (304 no-more ?). Probably fault of Etag
-* more crash-test, memory-leak hunting, strace & timing tests
-* it really works with millions query (not anymore since I added TCP)
-* published and improved a Varnish configuration as well
-
-#### Version 1.01 - April 2015:
-* HTTPS resolver support (even more privacy)
-* Multithreading listener/responder
-* Better nginx/polipo setup
-* Stack size option
-* Will add TCP listener/responder soon
-* Some issue to set the proper ETag on polipo
-
-#### Version 0.99 - July 2014:
-* Add HTTP port selection
-* Add NS, MX, AAAA, PTR, CNAME and other resolving capabilities.
-* Code cleanup and performance review.
-* Implementation with nginx and memcache and load testing 
-
-#### Version 0.5 - May 17 2013:
-* Add proxy authentication support
-* port option is now optional (default is 53)
-* Fixed compilation error
-* Minor bug fixes
-
-#### Version 0.4 - November 16 2009:
-* Now using libCurl for http requests
-* Implemented concurrent DNS server
-* Bug fixes
-* Code clean
-
-#### Version 0.1 - April 09 2009:
-* Initial release
-
-## Testing dnsp & HTTP/0.9, 1.0, 1.1
-
-To test if DNSProxy is working correctly, you can use tcpdump and check integrity of DNS messages.
 Simply run one of the two available programs as follows.
 
-To start a pre-h2 (non-standard HTTP/1.1) DOH server, type:
+To start a pre-h2 pre-DoH (HTTP/1.1) DNSProxy server, type:
 ```bash
 dnsp -l 127.0.0.1 -s https://www.fantuz.net/nslookup.php
 ```
@@ -395,7 +301,11 @@ nameserver 127.0.0.1
 Once configuration and testing completed successfully, you will be
 ready to run a DNS-over-HTTPS peer & server as described by RFC 8484.
 
-## Changelog
+To test if DNSProxy is working fine you can run a simple traffic 
+capture with wireshark/tcpdump, checking for DNS messages integrity
+using integrated dissectors.
+
+## Testing deploy of PHP script
 
 To test the deploy of nslookup-doh.php along with correct DNS
 resolution, you could use **curl** utility within a shell.
@@ -614,6 +524,99 @@ destroy NOT OK..
 ^C
 max@trinity:~/DNSProxy$ 
 ```
+
+## Changelog:
+
+#### Version 2.5 - February 2019:
+* implemented dump of 'cache-control' headers from PHP/DoH resolver into DNS packet
+* account for new content type "application/dns"
+* provide with base64urlencode of DNS requests !
+
+#### Version 2.2 - January 2019:
+* completed TCP & UDP listeners
+
+#### Version 2 - March 2018:
+* DOH-ready: raw DNS request printout (for server), base64urlencode of DNS query (for client)
+* pre-emptive HTTP cache population as option (for CDN or local squid/polipo proxies).
+  based on Location header, will force the same DNS server software to issue a parallel GET 
+  on the remote domain, in order to preemptively populate HTTP caches in between.
+  (Not interesting except in particular scenarios, as browsing through high-delay satellite networks).
+* added the arduino+ethernet library with the new select() function (sorry for delay, was easy)
+* DNSP for HTTP/1 version freeze, development on H2 only (till Hackathon 101 London 17-18/3).
+* Added TCP query/response support !
+
+#### Version 1.6 - March 2018:
+* almost REDIS-ready _via https://github.com/redis/hiredis_
+* finally fixed infamous proxy settings (not hardcoded they were stopped by mutex leftover).
+* removed and commented references to different DNSP modes (threaded/forked, mutex, semaphores).
+* finally updated examples to strongly suggest SQUID in place of POLIPO (I loved it, but is EOL)
+
+#### Version 1.5 - February 2018:
+* added IETF references and talk about DOH (wich does HTTP2, so single connection multiple streams)
+* added Arduino double ethernet shield script
+* fixed NS/CNAME answers (C) and resolver script (PHP)
+* added the GO version made by chinese people, inspired at my DNSP software
+* MIT License in accordance to transfer of rights operated via mail by Andrea
+* everything works as usual: caching is lazy, CURL follows redirects (301, I want less of them)
+* other thought and implementations pending
+* fixed README and easen installation/testing procedure
+* deleted some junk files, renamed dirs for clarity
+* multiversion PHP 5/7, depending on hosting provider (due to slightly different
+    implementation of print(), random css, substantial differences between h1/h2, headers, etc).
+
+#### Version 1.01 - March 2017:
+* going back to either threads or vfork...
+* want to implement DNSSEC somehow
+* having few issues caching on ClouFlare-alike caches (304 no-more ?). Probably fault of Etag
+* more crash-test, memory-leak hunting, strace & timing tests
+* it really works with millions query (not anymore since I added TCP)
+* published and improved a Varnish configuration as well
+
+#### Version 1.01 - April 2015:
+* HTTPS resolver support (even more privacy)
+* Multithreading listener/responder
+* Better nginx/polipo setup
+* Stack size option
+* Will add TCP listener/responder soon
+* Some issue to set the proper ETag on polipo
+
+#### Version 0.99 - July 2014:
+* Add HTTP port selection
+* Add NS, MX, AAAA, PTR, CNAME and other resolving capabilities.
+* Code cleanup and performance review.
+* Implementation with nginx and memcache and load testing 
+
+#### Version 0.5 - May 17 2013:
+* Add proxy authentication support
+* port option is now optional (default is 53)
+* Fixed compilation error
+* Minor bug fixes
+
+#### Version 0.4 - November 16 2009:
+* Now using libCurl for http requests
+* Implemented concurrent DNS server
+* Bug fixes
+* Code clean
+
+#### Version 0.1 - April 09 2009:
+* Initial release
+
+## WIP - features being actively worked on:
+* to use NGHTTP2 in place of CURL. A faster way to support H2 (anyways, CURL requires NGHTTP2)
+* implement HTTP/2 PUSH, for smoother and opportunistic DNS answers. Remember, there's no ID field in DOH !
+* offer GET & POST choice on method (for all DoH and pre-DoH URLs).
+
+## Ideas - lower priority:
+* use Warning headers to signal something
+* parallelize requests, choose the faster
+* restore performances, currently impacted by new TCP handlers
+* DNSSEC validation tests ?
+
+## Non-inclusive DoH providers list
+* 1.1.1.1
+* 8.8.8.8
+* 9.9.9.9
+* see list on https://github.com/curl/curl/wiki/DNS-over-HTTPS#publicly-available-servers
 
 ## References:
 
