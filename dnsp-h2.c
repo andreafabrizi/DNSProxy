@@ -45,11 +45,11 @@
 #include <signal.h>
 #include <pthread.h>
 //#include "hexdump.h"
-#include "librb64u.h"
+//#include "librb64u.h"
 //#include "base64.h"
+//#include "b64.h"
 #include "basetest/deps/ok/ok.h"
 #include "basetest/deps/b64/b64.h"
-//#include "b64.h"
 
 /*
 #include <semaphore.h>
@@ -279,23 +279,25 @@ __thread int i;
 
 struct readThreadParams {
     size_t xrequestlen;
-    char* xproxy_user;
-    char* xproxy_pass;
-    char* xproxy_host;
-    int xproxy_port;
-    char* xlookup_script;
-    char* xtypeq;
-    int xwport;
-    int xttl;
-    int xtcpoff;
-    int sockfd;
-    int xsockfd;
-    struct dns_request *xhostname;
-    struct sockaddr_in *xclient;
-    struct sockaddr_in *yclient;
-    struct dns_request *xproto;
-    struct dns_request *dns_req;
-    //struct dns_request *xdns_req;
+	char* xproxy_user;
+	char* xproxy_pass;
+	char* xproxy_host;
+	int xproxy_port;
+	char* xlookup_script;
+	char* xtypeq;
+	int xwport;
+	int xttl;
+	int xtcpoff;
+	int sockfd;
+	int xsockfd;
+	struct dns_request *xhostname;
+	struct sockaddr_in *xclient;
+	struct sockaddr_in *yclient;
+	struct dns_request *xproto;
+	struct dns_request *dns_req;
+	//struct dns_request *xdns_req;
+    //char* xrfcstring;
+    struct dns_request *xrfcstring;
 };
 
 struct thread_info {    	/* Used as argument to thread_start() */
@@ -304,21 +306,13 @@ struct thread_info {    	/* Used as argument to thread_start() */
     char     *argv_string;      /* From command-line argument */
 };
 
-struct dns_request
-{
-    uint16_t transaction_id,
-             questions_num,
-             flags,
-             qtype,
-             qclass,
-             tcp_size;
-    char hostname[256],
-             query[256];
+struct dns_request {
+    uint16_t transaction_id, questions_num, flags, qtype, qclass, tcp_size;
+    char hostname[256], query[256], rfcstring[256];
     size_t hostname_len;
 };  
 
-struct dns_response
-{
+struct dns_response {
     size_t length;
     char *payload;
 };
@@ -521,19 +515,19 @@ void usage(void) {
                        "\t[-r [proxy_port:8118,8888,3128,9500..]] [-w [lookup_port:80,443,..]]\n"
                        "\t-s <HTTP_URL_of_DOH-DNS_lookup_script_or_resolving_service>\n\n"
                        " OPTIONS:\n"
-                       "      -l\t Local server address	(optional)\n"
-                       "      -p\t Local server port	(defaults to 53)\n"
-                       "      -H\t Cache proxy address	(suggested)\n"
-                       "      -r\t Cache proxy port	(suggested)\n"
-                       "      -u\t Cache proxy username	(optional)\n"
-                       "      -k\t Cache proxy password	(optional)\n"
-                       "      -s\t Lookup script URL	(mandatory option)\n"
-                       "      -w\t Lookup port		(optional)\n"
-                       "      -Q\t Use TTL from CURL    (suggested)\n"
+                       "    [ -l\t Local server address ]\n"
+                       "    [ -p\t Local server port, defaults to 53 ]\n"
+                       "    [ -H\t Cache proxy address ]\n"
+                       "    [ -r\t Cache proxy port ]\n"
+                       "    [ -u\t Cache proxy username ]\n"
+                       "    [ -k\t Cache proxy password ]\n"
+                       "      -s\t Lookup script URL\n"
+                       "    [ -w\t Lookup port ]\n"
+                       "    [ -Q\t Use TTL from CURL, suggested ]\n"
                        "\n"
                        " EXPERT OPTIONS:\n"
-                       "      -T\t Override TTL [0-2147483647] as per RFC 2181\n"
-                       "      -Z\t Override TCP size of response to be 2 bytes at choice\n"
+                       "      -T\t Override TTL [0-2147483647] defined in RFC 2181\n"
+                       "      -Z\t Override TCP response size to be any 2 bytes at choice\n"
                        "      -n\t Enable DNS raw dump\n"
                        "      -v\t Enable debug\n"
                        "      -X\t Enable EXTRA debug\n"
@@ -633,8 +627,8 @@ struct dns_request *parse_dns_request(const char *udp_request, size_t request_le
     if (proton  == 1) {
       dns_req = malloc(sizeof(struct dns_request) + 2);
       if (EXT_DEBUG) {
-        printf(" *** TCP .. dns_req->tcp_size IN	: (%08x) // (%d)\n", (uint8_t) dns_req->tcp_size,dns_req->tcp_size);
         printf(" *** TCP .. sizeof(udp_request) IN	: (%08x) // (%d)\n", (uint8_t) sizeof(udp_request),sizeof(udp_request));
+        printf(" *** TCP .... dns_req->tcp_size IN	: (%08x) // (%d)\n", (uint8_t) dns_req->tcp_size,dns_req->tcp_size);
       }
       //udp_request//response[1] = (uint8_t)(dns_req->transaction_id >> 8);
       dns_req->tcp_size = (uint8_t)udp_request[1] + (uint16_t)(udp_request[0] << 8);
@@ -642,8 +636,9 @@ struct dns_request *parse_dns_request(const char *udp_request, size_t request_le
     } else {
       dns_req = malloc(sizeof(struct dns_request));
       if (EXT_DEBUG) {
-    	 printf(" *** UDP .. sizeof(udp_request) IN	: %08x // %d\n", (uint8_t) sizeof(udp_request),sizeof(udp_request));
-    	 printf(" *** UDP .. dns_req->tcp_size IN	: (%08x) // (%d)\n", (uint8_t) dns_req->tcp_size,dns_req->tcp_size);
+    	 printf(" *** UDP .. sizeof(udp_request) IN	: (%08x) // (%d)\n", (uint8_t) sizeof(udp_request),sizeof(udp_request));
+    	 printf(" *** UDP .. strlen(udp_request) IN	: (%08x) // (%d)\n", (uint8_t) strlen(udp_request),strlen(udp_request));
+    	 printf(" *** UDP .... dns_req->udp_size IN	: (%08x) // (%d)\n", (uint8_t) dns_req->tcp_size,dns_req->tcp_size);
       }
     }
 
@@ -660,10 +655,9 @@ struct dns_request *parse_dns_request(const char *udp_request, size_t request_le
     udp_request+=2;
 
     /* WHERE IS EDNS ?? */
-    /* ... at the end of DNS query, 6 bytes */
-    /* ... at the end of DNS query, 11 bytes */
+    /* ... at the end of DNS query, 6 to 11 bytes ?? */
 
-    /* Skipping 6 not interesting bytes, override with shortened answers (one of the initial purposes of DNSProxy) */
+    /* Skipping 6 not interesting bytes because we provide "shortened answers" - one of the initial purposes of DNSProxy */
     /*
        uint16_t Answers number 
        uint16_t Records number 
@@ -673,40 +667,9 @@ struct dns_request *parse_dns_request(const char *udp_request, size_t request_le
     /* Skip reading answers, authority, additional */
     udp_request+=6;
     
-    int c, r;
+    //int c, r;
     //b64ue_t s;
     //base64url_encode_reset(&s);
-
-    //char str[strlen(dns_req->hostname)+17];
-    char str[sizeof(request_len)+24];
-
-    bzero(str, sizeof(str));
-    //str == NULL;
-
-    /* TXID: randomly generated by client */
-    //str[0] = (uint8_t)(dns_req->transaction_id >> 8);
-    //str[1] = (uint8_t)dns_req->transaction_id;
-    /* TXID: 0000 as per CloudFlare implementation */
-    //str[0] = 0x00;
-    //str[1] = 0x00;
-    /* TXID: ABCD as per RFC 8484 */
-    str[0] = 0xAB;
-    str[1] = 0xCD;
-    str[2] = (uint8_t)(dns_req->flags >> 8);
-    str[3] = (uint8_t)dns_req->flags;
-    str[4] = (uint8_t)(dns_req->questions_num >> 8);
-    str[5] = (uint8_t)dns_req->questions_num;
-    str[6] = 0x00;
-    str[7] = 0x00;
-    str[8] = 0x00;
-    str[9] = 0x00;
-    str[10] = 0x00;
-    str[11] = 0x00;
-
-    printf("sizeo str    : %d\n",sizeof(str));
-    printf("sizeo udp    : %d\n",sizeof(udp_request));
-    printf("sizeo str    : %s\n",b64_encode(str,sizeof(str)));
-    printf("sizeo s-s-udp: %s\n",b64_encode(str,sizeof(str)-(sizeof(str)-sizeof(udp_request))));
 
     /* Get the dns query */
     bzero(dns_req->query, sizeof(dns_req->query));
@@ -738,8 +701,8 @@ struct dns_request *parse_dns_request(const char *udp_request, size_t request_le
 
         strncat(dns_req->hostname, udp_request, len);   /* Append the current label to dns_req->hostname */
         strncat(dns_req->hostname, ".", 1);             /* Append a dot '.' */
-        dots++;
         dns_req->hostname_len+=len+1;
+        dots++;
         udp_request+=len;
     }
 
@@ -751,17 +714,58 @@ struct dns_request *parse_dns_request(const char *udp_request, size_t request_le
     dns_req->qclass = (uint8_t)udp_request[1] + (uint16_t)(udp_request[0] << 8); 
     udp_request+=2;
 
-    //for (int k=0;k < dns_req->hostname_len+3; k++) {
-    for (int k=0;k < strlen(dns_req->query)+dots; k++) {
+    // 12 (qid,flags,qnum,anum,rnum,addnum) + 4 (type,class)
+    char str[strlen(dns_req->hostname)+16];
+    /*
+    char str[sizeof(request_len)+20];
+    www.example.com = 24
+    example.com = 20
+    bbc.com = 16
+    t.co = 13
+    */
+
+    bzero(str, sizeof(str));
+    //str == NULL;
+
+    /* TXID: randomly generated by client */
+    //str[0] = (uint8_t)(dns_req->transaction_id >> 8);
+    //str[1] = (uint8_t)dns_req->transaction_id;
+    /* TXID: 0000 as per CloudFlare implementation */
+    //str[0] = 0x00;
+    //str[1] = 0x00;
+    /* TXID: ABCD as per RFC 8484 */
+    str[0] = 0xAB;
+    str[1] = 0xCD;
+    str[2] = (uint8_t)(dns_req->flags >> 8);
+    str[3] = (uint8_t)dns_req->flags;
+    str[4] = (uint8_t)(dns_req->questions_num >> 8);
+    str[5] = (uint8_t)dns_req->questions_num;
+    str[6] = 0x00;
+    str[7] = 0x00;
+    str[8] = 0x00;
+    str[9] = 0x00;
+    str[10] = 0x00;
+    str[11] = 0x00;
+
+    /*
+    printf("sizeo str    : %d\n",sizeof(str));
+    printf("sizeo udp    : %d\n",sizeof(udp_request));
+    printf("sizeo str    : %s\n",b64_encode(str,sizeof(str)));
+    printf("sizeo s-s-udp: %s\n",b64_encode(str,sizeof(str)-(sizeof(str)-sizeof(udp_request))));
+    */
+
+    //for (int k=0;k < strlen(dns_req->query)+dots; k++) {
+    for (int k=0;k < dns_req->hostname_len+dots; k++) {
       str[k+12] = dns_req->query[k];
       //append(str, dns_req->query[k]);
-      //*str+=udp_request[0];
-      //*str+= (uint8_t)dns_req->hostname[1] + (uint16_t)(dns_req->hostname[0] << 8);
-      total=k+12+1;
+      //termination of query record field
+      //*str+= 0x00;
+      if (k%2 == 0) {
+        total=k+12+1;
+      } else {
+        total=k+12;
+      }
     }
-
-    //termination of query record field
-    //*str+= 0x00;
 
     str[total] = 0x00;
     str[total+1] = 0x01;
@@ -783,8 +787,6 @@ struct dns_request *parse_dns_request(const char *udp_request, size_t request_le
     */
 
     printf("\n--- TEST ---\n");
-    //printf("txid : %s\n",b64_encode("0xabcd"+dns_req->flags,4));
-    //printf("flags: %s\n",b64_encode(dns_req->flags,sizeof(dns_req->flags)));
     printf("q len rq-q   : %s\n",b64_encode(dns_req->query,strlen(dns_req->query)));
     printf("sizeo rq-q   : %d\n",sizeof(dns_req->query));
     printf("strle rq-q   : %d\n",strlen(dns_req->query));
@@ -795,19 +797,16 @@ struct dns_request *parse_dns_request(const char *udp_request, size_t request_le
     //printf("edns : %s\n",b64_encode(udp_request,sizeof(udp_request)+3));
     //printf("edns ???     : %s\n",b64_encode(udp_request,sizeof(udp_request)));
 
-    printf("sizeo        : %d\n",sizeof(str));
-    printf("strle        : %d\n",strlen(str));
     printf("sizeo str    : %s\n",b64_encode(str,sizeof(str)+1));
+    printf("sizeo        : %d\n",sizeof(str));
     printf("strle str    : %s\n",b64_encode(str,strlen(str)+1));
-    printf("sizeo str-udp: %s\n",b64_encode(str,sizeof(str)-(sizeof(str)-sizeof(udp_request))+1));
-    printf("strle str-udp: %s\n",b64_encode(str,strlen(str)-(strlen(str)-strlen(udp_request))+1));
+    printf("strle        : %d\n",strlen(str));
 
     char *ref = "AAABAAABAAAAAAAAA3d3dwdleGFtcGxlA2NvbQAAAQAB";
     //printf("ref  : AAABAAABAAAAAAAAA3d3dwdleGFtcGxlA2NvbQAAAQAB\n");
     printf("sizeo ref    : %d\n",sizeof(ref));
     printf("strle ref    : %d\n",strlen(ref));
     printf("ref  string  : %s\n",ref);
-    printf("ref  hex     : %x\n",ref);
   
     /*
     //int ok = base64url_encode(test64,(((4 * sizeof(str) / 3) + 3) & ~3),str,sizeof(str),NULL);
@@ -825,17 +824,26 @@ struct dns_request *parse_dns_request(const char *udp_request, size_t request_le
       r = base64url_encode_finish(&s); if (r < 0) return -1; if (r == 0) break; printf("%c", base64url_encode_getc(&s));
     }
     */
+
+    /* Get the RFC query string in base64url */
+    bzero(dns_req->rfcstring, sizeof(dns_req->rfcstring));
+    //memcpy(dns_req->rfcstring, str, sizeof(dns_req->hostname)+16);
     
+    for (int q=0;q <= sizeof(str); q++) {
+      dns_req->rfcstring[q] = str[q];
+    }
+    
+    printf("sizeo rfcstr : %s\n",b64_encode(dns_req->rfcstring,sizeof(str)+1));
+
     return dns_req;
 }
 
 /* Builds and sends the dns response datagram */
-void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request *dns_req, const char *ip, int mode, size_t xrequestlen, long int ttl, int protoq, int xtcpoff) {
+void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request *dns_req, const char *ip, int mode,
+        size_t xrequestlen, long int ttl, int protoq, int xtcpoff) {
+
   char *rip = malloc(256 * sizeof(char));
-  //str=(char*)arg; //char *str, *arg;
   //struct dns_request *dns_req, sockaddr_in *client;
-  //struct readThreadParams *params = malloc(sizeof(struct readThreadParams));
-  //struct readThreadParams *params = (struct readThreadParams*)arg;
   
   int i,ppch, check = 0, sockfd, xsockfd; // params->xsockfd, params->xsockfd;
   //struct dns_request *xhostname = (struct dns_request *)xhostname->hostname;
@@ -1893,7 +1901,7 @@ static int server_push_callback(CURL *parent, CURL *easy, size_t num_headers, st
 }
 
 /* Hostname lookup -> OK: Resolved IP, KO: Null */
-char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_port, const char *proxy_user, const char *proxy_pass, const char *lookup_script, const char *typeq, unsigned int wport) {
+char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_port, const char *proxy_user, const char *proxy_pass, const char *lookup_script, const char *typeq, unsigned int wport, const char *rfcstring) {
   CURL *ch;
   CURL *hnd;
   //CURL *easy;					// for CURLM and parallel
@@ -2375,6 +2383,7 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
 
   //snprintf(script_url, URL_SIZE-1, "%s?name=%s", lookup_script, host); // GOOGLE DNS
   if (DEBUG) { fprintf(stderr, " *** GET string				: %s\n",n); }
+  if (DEBUG) { fprintf(stderr, " *** DOH string				: %s\n",rfcstring); }
 
   /* ret on (hnd) is the H2 cousin of original ret used above for (ch). This section has been commented out */
 
@@ -2444,7 +2453,6 @@ void *threadFunc(void *arg) {
   struct dns_request *dns_req = malloc(sizeof(struct dns_request));
   struct dns_request *xhostname = (struct dns_request *)params->xhostname;
   size_t request_len = params->xrequestlen;
-  //char *str;
   
   int wport = params->xwport, ret;
   
@@ -2461,12 +2469,15 @@ void *threadFunc(void *arg) {
   int proto = params->xproto;
   char* typeq = params->xtypeq;
   char* lookup_script = params->xlookup_script;
+  //char* rfcstring = params->xrfcstring;
+  //char *rfcstring = (char *)params->xhostname->rfcstring;
+  char *rfcstring = (char *)params->xrfcstring;
+  //struct dns_request *xrfcstring = (struct dns_request *)params->xhostname->rfcstring;
   
   char *rip = malloc(256 * sizeof(char)), *ip = NULL, *yhostname = (char *)params->xhostname->hostname;
   
   pthread_key_t key_i;
   pthread_key_create(&key_i, NULL);
-  //str=(char*)arg;
   
   /* shall we use trylock or lock ? */
   //if (pthread_mutex_lock(&mutex))
@@ -2489,7 +2500,11 @@ void *threadFunc(void *arg) {
   
   //if (!(yhostname == NULL))
   if (!(params->xhostname->hostname == NULL) && !(yhostname == NULL)) {
-    rip = lookup_host(yhostname, proxy_host_t, proxy_port_t, proxy_user_t, proxy_pass_t, lookup_script, typeq, wport);
+    rip = lookup_host(yhostname, proxy_host_t, proxy_port_t, proxy_user_t, proxy_pass_t, lookup_script, typeq, wport, rfcstring);
+
+    printf("RFC8484 urlencode: %s\n",b64_encode(dns_req->rfcstring,strlen(params->xhostname->rfcstring)+17));
+    printf("RFC8484 urlencode: %s\n",b64_encode(dns_req->rfcstring,sizeof(params->xhostname->rfcstring)+17));
+    
     yhostname == NULL;
     params->xhostname->hostname == NULL;
     //pthread_exit(NULL);
@@ -2522,9 +2537,18 @@ void *threadFunc(void *arg) {
     */
   }
   
-  //printf("xdns_req->hostname			: %s\n",(char *)xdns_req->hostname);
-  //printf("BUILD dns-req->hostname		: %s\n", dns_req->hostname);
-  //printf("BUILD yhostname			: %s\n", yhostname);
+  printf("BUILD dns-req->hostname		: %s\n", dns_req->hostname);
+  printf("BUILD yhostname			: %s\n", yhostname);
+
+  printf("RFC8484-base64urlencode: %s\n",b64_encode(dns_req->rfcstring,strlen(dns_req->hostname)+17));
+  printf("RFC8484-base64urlencode: %s\n",b64_encode(dns_req->rfcstring,sizeof(dns_req->hostname)+17));
+  printf("RFC8484-base64urlencode: %s\n",b64_encode(dns_req->rfcstring,strlen(xhostname)+17));
+  printf("RFC8484-base64urlencode: %s\n",b64_encode(dns_req->rfcstring,sizeof(xhostname)+17));
+  printf("RFC8484-base64urlencode: %s\n",b64_encode(dns_req->rfcstring,strlen(params->xhostname)+17));
+  printf("RFC8484-base64urlencode: %s\n",b64_encode(dns_req->rfcstring,sizeof(params->xhostname)+17));
+  printf("RFC8484-base64urlencode: %s\n",b64_encode(dns_req->rfcstring,strlen(params->xhostname->rfcstring)+17));
+  printf("RFC8484-base64urlencode: %s\n",b64_encode(dns_req->rfcstring,sizeof(params->xhostname->rfcstring)+17));
+  //printf("RFC8484-base64urlencode: %s\n",b64_encode(dns_req->rfcstring,sizeof(str)+1));
 
   if ((rip != NULL) && (strncmp(rip, "0.0.0.0", 7) != 0)) {
     if (DEBUG) {
@@ -2532,14 +2556,17 @@ void *threadFunc(void *arg) {
 	    printf("-> THREAD qsize				: %u\n", (uint32_t)request_len);
 	    printf("-> THREAD typeq				: %s\n", typeq);
 	    printf("-> THREAD dns_req->qtype		: %d\n", dns_req->qtype);
+	    printf("-> THREAD dns_req->rfcstring	: %x\n", dns_req->rfcstring);
+	    printf("-> THREAD dns_req->rfcstring	: %s\n", dns_req->rfcstring);
+	    printf("-> THREAD dns_req->rfcstring	: %c\n", dns_req->rfcstring);
 	    /*
 	    printf("THREAD V-socket-Xsockfd			: %u\n", xsockfd);
 	    printf("THREAD V-socket- sockfd			: %u\n", sockfd);
 	    printf("THREAD V-xclient->sin_addr.s_addr	: %u\n", (uint32_t)(yclient->sin_addr).s_addr);
-	    */
 	    //printf("THREAD V-xclient->sin_port		: %u\n", (uint32_t)(yclient->sin_port));
 	    //printf("THREAD V-xclient->sin_family		: %u\n", (uint32_t)(yclient->sin_family));
 	    //printf("THREAD V-xclient->sin_addr.s_addr		: %s\n",(char *)(xclient->sin_family));
+	    */
     }
 
     if (get_ttl()>0) {
@@ -2599,7 +2626,6 @@ int main(int argc, char *argv[]) {
   //FD_ZERO(&read_fds);
 
   int sockfd, fd, port = DEFAULT_LOCAL_PORT, wport = DEFAULT_WEB_PORT, proxy_port = 0, c, r = 0, ttl_in = TTL_IN_DEFAULT, tcp_z_offset = TCP_Z_OFFSET;
-  //int sockfd, fd, port = DEFAULT_LOCAL_PORT, wport = DEFAULT_WEB_PORT, proxy_port = 0, c, r = 0, ttl_in = TTL_IN_DEFAULT, tcp_z_offset = TCP_Z_OFFSET;
   char *stack;            /* Start of stack buffer */
   char *stackTop;         /* End of stack buffer */
   pid_t pid;
@@ -2610,8 +2636,7 @@ int main(int argc, char *argv[]) {
   //struct hostent *proxy_address;
   //char *bind_proxy = NULL;
   char *bind_address_tcp = NULL, *bind_address = NULL, *proxy_host = NULL, *proxy_user = NULL,
-       *proxy_pass = NULL, *typeq = NULL, *lookup_script = NULL,
-       *httpsssl = NULL;
+       *proxy_pass = NULL, *typeq = NULL, *lookup_script = NULL, *rfcstring = NULL, *httpsssl = NULL;
 
   opterr = 0;
      
@@ -3030,7 +3055,6 @@ int main(int argc, char *argv[]) {
     //fcntl(fd, F_SETFL, FNDELAY);
     
     if (!(recv_tcp == -1)) fprintf(stderr, " *** newsockfd -> select() contains %d bytes\n",recv_tcp);
-    
     //FD_SET(newsockfd, &master); /* add to master set */
 
     //request_len_tcp = recvfrom(newsockfd,request_tcp,TCP_DATAGRAM_SIZE,MSG_WAITALL,(struct sockaddr *)&client_tcp,&client_len_tcp);
@@ -3087,6 +3111,9 @@ int main(int argc, char *argv[]) {
       int ret, proto, xsockfd, xwport = wport; // web port, deprecated
       int ttl;
       char* xlookup_script = lookup_script, xtypeq = typeq;
+      char* xrfcstring = xrfcstring;
+      //struct dns_request *xrfcstring;
+
       struct dns_request *xhostname;
       struct sockaddr_in *xclient, *yclient;
       struct readThreadParams *readParams = malloc(sizeof(*readParams));
@@ -3250,6 +3277,11 @@ int main(int argc, char *argv[]) {
       //readParams->xttl = get_ttl();
       readParams->xttl = ttl;
       readParams->xtcpoff = tcp_z_offset;
+      //readParams->xrfcstring = (struct dns_request *)rfcstring;
+      readParams->xrfcstring = (struct dns_request *)dns_req;
+      //readParams->xrfcstring = dns_req->rfcstring;
+      //readParams->xrfcstring = xrfcstring;
+      //readParams->xrfcstring = rfcstring;
 
       readParams->xproxy_user = proxy_user;
       readParams->xproxy_pass = proxy_pass;
@@ -3274,7 +3306,6 @@ int main(int argc, char *argv[]) {
     	printf(" *** met no-host condition ! fail flag: %d, count TCP: %d, count UDP: %d\n",flag,cnt,cntudp);
     	//readParams->xhostname = "www.example.com";
     	//printf("new hostname: %s\n", readParams->xhostname);
-    	//flag == NULL;
     	flag = NULL;
     	//return;
     	//continue;
@@ -3283,6 +3314,19 @@ int main(int argc, char *argv[]) {
 
       if (DNSDUMP) {
         printf("readParams->xhostname->hostname		: %s\n", readParams->xhostname->hostname);
+        printf("readParams->xrfcstring c	        : %c\n", readParams->xrfcstring);
+        printf("readParams->xrfcstring x	        : %x\n", readParams->xrfcstring);
+        printf("readParams->xrfcstring s            : %s\n", readParams->xrfcstring);
+        //printf("readParams->xrfcstring		        : %c\n", readParams->xrfcstring->rfcstring);
+        printf("readParams->xhostname->rfcstring c  : %c\n", readParams->xhostname->rfcstring);
+        printf("readParams->xhostname->rfcstring x  : %x\n", readParams->xhostname->rfcstring);
+        printf("readParams->xhostname->rfcstring s  : %s\n", readParams->xhostname->rfcstring);
+        printf("xrfcstring c    : %c\n", xrfcstring);
+        printf("xrfcstring x    : %x\n", xrfcstring);
+        printf("xrfcstring s    : %s\n", xrfcstring);
+        printf("rfcstring c     : %c\n", rfcstring);
+        printf("rfcstring x     : %x\n", rfcstring);
+        printf("rfcstring s     : %s\n", rfcstring);
       }
 
       //free(out_array);
