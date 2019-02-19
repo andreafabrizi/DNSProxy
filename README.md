@@ -11,18 +11,23 @@ All my Coding efforts -collected in this repository- aimed to support the deploy
 of **DoH client** as rudimental system-resolver.
 
 DNSP software supports 3 different variations of DoH basic format, being:
- - RFC8484-compliant (DoH format)   application/dns-message [RFC8484]
- - JSON format                      application/dns+json    [RFC8427]
- - as text/data format              application/dns         [RFC4027]
+ - **application/dns-message [RFC8484]**: RFC8484-compliant - newest pure DoH format
+ - **application/dns+json    [RFC8427]**: JSON format - legacy
+ - **application/dns         [RFC4027]**: text/data format - obsolete
 
-For more information about MIME types, refer to IANA website:
-    https://www.iana.org/assignments/media-types/media-types.xhtml
+For more information about MIME types, refer to IANA website: https://www.iana.org/assignments/media-types/media-types.xhtml
 
 ## How does it work ?
-DNS proxy listens for incoming DNS requests (A,NS,MX,TXT,SRV..) on any
-local interface chosen, on both UDP and TCP. It listens with threads, then 
-when a query comes in, it parses and start resolving such queries, by using 
-an external PHP script and standardised HTTP requests/headers (D-o-H compatible).
+DNS proxy listens for incoming DNS requests (A,NS,MX,TXT,SRV..) on both
+UDP & TCP. Threads listen for incoming connections; when a query comes in,
+DNSP parses DNS query contents and starts forwarding such queries to a DoH
+service provider (DoH HTTP server) which in turn deals with the real DNS resolution.
+
+Exchange of messaging happens by means of standardized HTTP request & response,
+with the help of headers, either towards an external PHP script or a DoH public
+webservice.
+
+DoH and DNSP leverage the fancyness of HTTP and TLS, hence are easy to debug and monitor.
 
 ## Build
 
