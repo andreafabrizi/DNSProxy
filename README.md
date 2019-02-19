@@ -605,6 +605,8 @@ max@trinity:~/DNSProxy$
 * to use NGHTTP2 in place of CURL. A faster way to support H2 (anyways, CURL requires NGHTTP2)
 * implement HTTP/2 PUSH, for smoother and opportunistic DNS answers. Remember, there's no ID field in DOH !
 * offer GET & POST choice on method (for all DoH and pre-DoH URLs).
+* save HEX packet structure, i.e. to feed local disk cache, or serve it as HTTP content from DNSP daemon
+* add a "--resolve" option to pin DoH request to an IP address (see SNI debate)
 
 ## Ideas - lower priority:
 * use Warning headers to signal something
