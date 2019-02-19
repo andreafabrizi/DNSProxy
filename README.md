@@ -1,13 +1,22 @@
-# DNS Proxy over HTTP(S)
+# DNS-over-HTTPS Proxy
 
 ## Why DNSP ?
 A new idea in terms of transport of DNS messaging, outside of its original design!
 DNS-over-HTTP has been published as RFC (c.f. 
 https://www.rfc-editor.org/rfc/rfc8484.txt, https://tools.ietf.org/html/rfc8484).
-An header schema for HTTP/2 client has been outlined, implementation details stable.
+A new MIME type has been defined (application/dns-message) and design goals are
+perfectly clear.
 
-On my side, no roadmaps - just the burning desire to see DoH being implemented and
- deployed. In different ways, as DOH format, as JSON and as textual formats.
+All my Coding efforts -collected in this repository- aimed to support the deploy
+of **DoH client** as rudimental system-resolver.
+
+DNSP software supports 3 different variations of DoH basic format, being:
+ - RFC8484-compliant (DoH format)   application/dns-message [RFC8484]
+ - JSON format                      application/dns+json    [RFC8427]
+ - as text/data format              application/dns         [RFC4027]
+
+For more information about MIME types, refer to IANA website:
+    https://www.iana.org/assignments/media-types/media-types.xhtml
 
 ## How does it work ?
 DNS proxy listens for incoming DNS requests (A,NS,MX,TXT,SRV..) on any
