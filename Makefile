@@ -2,11 +2,12 @@ CC      = gcc
 CFLAGS  = -O2 -Wall -W -pedantic -g -rdynamic
 FLAG    = -DTLS
 CFLAGS += $(FLAG)
-LIBS    = -L/usr/local/lib -lcurl -lpthread -lrt -lb64
+LIBS    = -L/usr/local/lib -lcurl -lpthread -lrt
 
 #CFLAGS  = -std=c99 -O2 -Wall -W -pedantic -g -rdynamic
 #LIBS   += -lssl -lboost_system -lboost_system -lboost_thread 
 #LIBS   += -lnghttp2
+#LIBS   += -lb64
 #TARGET = testflag
 
 # mutex
