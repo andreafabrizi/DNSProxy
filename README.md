@@ -542,9 +542,9 @@ max@trinity:~/DNSProxy$
 ## Changelog:
 
 #### Version 2.5 - February 2019:
-* implemented dump of 'cache-control' headers from PHP/DoH resolver into DNS packet
-* provide with base64urlencode of DNS requests !
-* added new build_dns to comply with DoH format, instead of old build_dns_response
+* provide base64urlencode of DNS requests !
+* implemented dump of "cache-control" headers from PHP/DoH resolver into DNS packet
+* added new build_dns to comply with DoH/RFC format, instead of old build_dns_response
 * account for TRANSACTION-ID override (0xabcd by default)
 * account for TYPE override (0x00 by default)
 * make sure we set accept & content-type to "application/dns" for both POST and GET
@@ -553,23 +553,23 @@ max@trinity:~/DNSProxy$
 * completed TCP & UDP listeners
 
 #### Version 2 - March 2018:
-* DOH-ready: raw DNS request printout (for server), base64urlencode of DNS query (for client)
+* Added TCP query/response support !
+* backend DOH-ready: raw DNS request printout (for server), base64urlencode of DNS query (for client)
 * pre-emptive HTTP cache population as option (for CDN or local squid/polipo proxies).
   based on Location header, will force DNSP server software to issue a parallel GET towards
   the remote domain, in order to preemptively populate HTTP local and intermediate caches.
   (Not very interesting except in few scenarios, as surfing through high-delay networks).
-* added the arduino+ethernet library with the new select() function (sorry for delay, was easy)
+* added the arduino+ethernet library with the new select() function [sorry for delay]
 * DNSP for HTTP/1 version freeze, development on H2 only (till Hackathon 101 London 17-18/3).
-* Added TCP query/response support !
 
 #### Version 1.6 - March 2018:
 * almost REDIS-ready _via https://github.com/redis/hiredis_
-* finally fixed infamous proxy settings (not hardcoded they were stopped by mutex leftover).
+* finally fixed "infamous" proxy settings
 * removed and commented references to different DNSP modes (threaded/forked, mutex, semaphores).
 * finally updated examples to strongly suggest SQUID in place of POLIPO (I loved it, but is EOL)
 
 #### Version 1.5 - February 2018:
-* added IETF references and talk about DOH (wich does HTTP2, so single connection multiple streams)
+* added IETF references and mentions to DoH (wich is based on HTTP/2, single connection multiple streams)
 * added Arduino double ethernet shield script
 * fixed NS/CNAME answers (C) and resolver script (PHP)
 * added the GO version made by chinese people, inspired at my DNSP software
@@ -583,18 +583,17 @@ max@trinity:~/DNSProxy$
 
 #### Version 1.01 - March 2017:
 * going back to either threads or vfork...
-* want to implement DNSSEC somehow
 * having few issues caching on ClouFlare-alike caches (304 no-more ?). Probably fault of Etag
 * more crash-test, memory-leak hunting, strace & timing tests
-* it really works with millions query (not anymore since I added TCP)
-* published and improved a Varnish configuration as well
+* works with millions query [not anymore since I added TCP]
+* published an improved Varnish configuration
 
 #### Version 1.01 - April 2015:
-* HTTPS resolver support (even more privacy)
-* Multithreading listener/responder
-* Better nginx/polipo setup
-* Stack size option
-* Will add TCP listener/responder soon
+* HTTPS support (even more privacy)
+* Pseudo-Multithreading listener/responder
+* Better nginx/polipo setup ? [ not anymore useful with HTTP/2 ]
+* Stack size option (deprecated)
+* Soon to add TCP listener/responder logic
 * Some issue to set the proper ETag on polipo
 
 #### Version 0.99 - July 2014:
@@ -619,19 +618,24 @@ max@trinity:~/DNSProxy$
 * Initial release
 
 ## WIP - features being actively worked on:
-* to use NGHTTP2 in place of CURL. A faster way to support H2 (anyways, CURL requires NGHTTP2)
-* implement HTTP/2 PUSH, for smoother and opportunistic DNS answers. Remember, there's no ID field in DOH !
-* offer GET & POST choice on method (for all DoH and pre-DoH URLs).
-* save HEX packet structure, i.e. to feed local disk cache, or serve it as HTTP content from DNSP daemon
+* offer GET & POST choice on method (for all DoH and pre-DoH URLs). So far, only GET is supported.
+* save HEX packet structure, to serve it as HTTP content from DNSP daemon or prime the local disk cache
+* support far more than A, AAAA, CNAME and NS. My pre-DoH test protocol supported MX, PTR and ALL types
 * add a "--resolve" option to pin DoH request to an IP address (see SNI debate)
+* find out why some requests encounter ";; Question section mismatch: got fantuz.net/RESERVED0/IN"
+* reduce memory impact
+* test build on Debian, Windows, MacOS (only tested with Ubuntu 14-18 and very old MacOS)
+* test bynary distribution on Debian, Windows, MacOS
 
 ## Ideas - lower priority:
+* implement HTTP/2 PUSH, for smoother and opportunistic DNS answers. Remember, there's no ID field in DOH !
 * use h2 "Warning" headers to signal events/failures
+* to use NGHTTP2 in place of CURL. A faster way to support H2 (anyways, CURL requires NGHTTP2)
 * parallelize requests, choose the faster response
 * restore performances, currently impacted by new TCP handlers
-* REDIS: implement or let die.
-* add a statistics backend
+* REDIS: implement or let die
 * DNSSEC validation tests ?
+* add a statistics backend
 
 ## Non-inclusive DoH providers list
 * 1.1.1.1
