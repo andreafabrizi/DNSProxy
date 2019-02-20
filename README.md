@@ -133,38 +133,37 @@ host yourself as many *nslookup-doh.php* scripts as you can, or send it on a fri
 The more DNSP resolvers around the world, the less DNS queries will be traceable (TOR leaking problem).
 
 ```bash
-
  dnsp-h2 2.5, copyright 2010-2019 @ Massimiliano Fantuzzi HB9GUS, MIT License
 
- usage: dnsp-h2 [-l [local_host]] [-p [local_port:53,5353,..]] [-H [proxy_host]]
-	[-r [proxy_port:8118,8888,3128,9500..]] [-w [lookup_port:80,443,..]]
+ usage: dnsp-h2 [-l <local_host_address>] [-p <local_port>] [-H <proxy_host>]
+	[-r <proxy_port>] [-w <lookup_port>]
 	-s <HTTP_URL_of_DOH-DNS_lookup_script_or_resolving_service>
 
  OPTIONS:
   [ -l <IP/FQDN> ]	 Local server address
-  [ -p <53> ]		 Local server port, defaults to 53
+  [ -p <53>      ]	 Local server port, defaults to 53
   [ -H <IP/FQDN> ]	 Cache proxy address
-  [ -r <3128> ]		 Cache proxy port
-  [ -u <user> ]		 Cache proxy username
-  [ -k <pass> ]		 Cache proxy password
-    -s <URL> ]		 Lookup script URL
-  [ -w <443> ]		 Lookup port
-  [ -Q ] 		 Use TTL from CURL, suggested
+  [ -r <3128>    ]	 Cache proxy port
+  [ -u <user>    ]	 Cache proxy username
+  [ -k <pass>    ]	 Cache proxy password
+  [ -w <443>     ]	 Lookup port
+  [ -Q           ]	 Use TTL from CURL, suggested
+    -s <URL>      	 Lookup script URL
 
  EXPERT OPTIONS:
-  [ -T <n> ]	 Override TTL [0-2147483647] defined in RFC 2181
+  [ -T <n> ]	 Override TTL [0-2147483647] defined in RFC2181
   [ -Z <n> ]	 Override TCP response size to be any 2 bytes at choice
-  [ -n ]	 Enable DNS raw dump
-  [ -v ]	 Enable debug
-  [ -X ]	 Enable EXTRA debug
-  [ -R ]	 Enable THREADS debug
-  [ -L ]	 Enable LOCKS debug
-  [ -N ]	 Enable COUNTERS debug
-  [ -C ]	 Enable CURL debug, useful to debug cache, certs, TLS, etc
+  [ -n     ]	 Enable DNS raw dump
+  [ -v     ]	 Enable debug
+  [ -X     ]	 Enable EXTRA debug
+  [ -R     ]	 Enable THREADS debug
+  [ -L     ]	 Enable LOCKS debug
+  [ -N     ]	 Enable COUNTERS debug
+  [ -C     ]	 Enable CURL debug, useful to debug cache, certs, TLS, etc
 
  TESTING/DISABLED OPTIONS:
-  [ -I ]	 Upgrade Insecure Requests, debug HSTS, work in progress
-  [ -R ]	 Enable CURL resolve mechanism, avoiding extra gethostbyname
+  [ -I     ]	 Upgrade Insecure Requests, debug HSTS, work in progress
+  [ -R     ]	 Enable CURL resolve mechanism, avoiding extra gethostbyname
   [ -t <n> ]	 Stack size in format 0x1000000 (MB)
 
  Example with direct HTTPS:
@@ -175,6 +174,13 @@ The more DNSP resolvers around the world, the less DNS queries will be traceable
 	./dnsp-h2 -r 8118 -H http://your.proxy.com/ -s http://www.fantuz.net/nslookup.php
  Further tests:
 	./dnsp-h2 -T 86400 -v -X -C -n -s https://php-dns.appspot.com/ 2>&1
+
+ For a more inclusive list of DoH providers, clients, servers and protocol details, see:
+ - https://en.wikipedia.org/wiki/Public_recursive_name_server
+ - https://sslretail.com/blog/dns-over-https-ultimate-guide/
+ - https://github.com/curl/curl/wiki/DNS-over-HTTPS
+ - https://tools.ietf.org/html/rfc8484
+
 ```
 
 ## Building
