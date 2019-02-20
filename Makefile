@@ -28,8 +28,9 @@ dnsp.o : dnsp.c
 	${CC} -w -c dnsp.c
 
 dnsp-h2 : dnsp-h2.c
-	${CC} librb64u.c encode.o decode.o base64.c dnsp-h2.c ${CFLAGS} ${LIBS} -w -o dnsp-h2
-
+	${CC} encode.o decode.o dnsp-h2.c ${CFLAGS} ${LIBS} -w -o dnsp-h2
+	
+#${CC} librb64u.c encode.o decode.o base64.c dnsp-h2.c ${CFLAGS} ${LIBS} -w -o dnsp-h2
 #dnsp-h2.o : dnsp-h2.c
 #	${CC} -w -c dnsp-h2.c
 

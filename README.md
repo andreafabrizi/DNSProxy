@@ -623,9 +623,10 @@ max@trinity:~/DNSProxy$
 * support far more than A, AAAA, CNAME and NS. My pre-DoH test protocol supported MX, PTR and ALL types
 * add a "--resolve" option to pin DoH request to an IP address (see SNI debate)
 * find out why some requests encounter ";; Question section mismatch: got fantuz.net/RESERVED0/IN"
-* reduce memory impact
+* reduce memory impact (following TCP listener implementation, memory footprint is out of control)
 * test build on Debian, Windows, MacOS (only tested with Ubuntu 14-18 and very old MacOS)
 * test bynary distribution on Debian, Windows, MacOS
+* add switch to leverage REUSEPORT and/or REUSEADDRESS
 
 ## Ideas - lower priority:
 * implement HTTP/2 PUSH, for smoother and opportunistic DNS answers. Remember, there's no ID field in DOH !
