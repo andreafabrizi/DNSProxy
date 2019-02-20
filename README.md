@@ -543,8 +543,11 @@ max@trinity:~/DNSProxy$
 
 #### Version 2.5 - February 2019:
 * implemented dump of 'cache-control' headers from PHP/DoH resolver into DNS packet
-* account for new content type "application/dns"
 * provide with base64urlencode of DNS requests !
+* added new build_dns to comply with DoH format, instead of old build_dns_response
+* account for TRANSACTION-ID override (0xabcd by default)
+* account for TYPE override (0x00 by default)
+* make sure we set accept & content-type to "application/dns" for both POST and GET
 
 #### Version 2.2 - January 2019:
 * completed TCP & UDP listeners
@@ -552,9 +555,9 @@ max@trinity:~/DNSProxy$
 #### Version 2 - March 2018:
 * DOH-ready: raw DNS request printout (for server), base64urlencode of DNS query (for client)
 * pre-emptive HTTP cache population as option (for CDN or local squid/polipo proxies).
-  based on Location header, will force the same DNS server software to issue a parallel GET 
-  on the remote domain, in order to preemptively populate HTTP caches in between.
-  (Not interesting except in particular scenarios, as browsing through high-delay satellite networks).
+  based on Location header, will force DNSP server software to issue a parallel GET towards
+  the remote domain, in order to preemptively populate HTTP local and intermediate caches.
+  (Not very interesting except in few scenarios, as surfing through high-delay networks).
 * added the arduino+ethernet library with the new select() function (sorry for delay, was easy)
 * DNSP for HTTP/1 version freeze, development on H2 only (till Hackathon 101 London 17-18/3).
 * Added TCP query/response support !
@@ -623,9 +626,11 @@ max@trinity:~/DNSProxy$
 * add a "--resolve" option to pin DoH request to an IP address (see SNI debate)
 
 ## Ideas - lower priority:
-* use Warning headers to signal something
-* parallelize requests, choose the faster
+* use h2 "Warning" headers to signal events/failures
+* parallelize requests, choose the faster response
 * restore performances, currently impacted by new TCP handlers
+* REDIS: implement or let die.
+* add a statistics backend
 * DNSSEC validation tests ?
 
 ## Non-inclusive DoH providers list
@@ -636,11 +641,14 @@ max@trinity:~/DNSProxy$
 
 ## References:
 
+* https://datatracker.ietf.org/meeting/101/materials/slides-101-hackathon-sessa-dnsproxy-local-dns-over-http-private-resolver
+* https://igit.github.io/
 * https://www.reddit.com/user/fantamix/comments/7yotib/dnsp_a_dns_proxy_to_avoid_dns_leakage/
 * https://www.reddit.com/r/hacking/comments/7zjbv2/why_to_use_a_dns_proxy_why_shall_it_be/
-* https://tools.ietf.org/html/draft-ietf-dnsop-dns-wireformat-http-01
-* https://tools.ietf.org/html/draft-ietf-doh-dns-over-https-14
+* https://github.com/curl/doh/blob/master/doh.c
 * https://www.meetup.com/it-IT/Geneva-Legal-Hackers/messages/boards/thread/51438161
+* https://tools.ietf.org/html/draft-ietf-dnsop-dns-wireformat-http-01
+* https://tools.ietf.org/html/rfc8484
 
 ## License
 MIT license, all rights included.
@@ -653,9 +661,13 @@ via "system calls" of DNS requests, a "classic" UDP or TCP "DNS request".
 Such system call relies on different (leaking) mechanisms to resolve DNS,
 depending on the operating system; in the case of an hosting provider, such
 mechanism and operating systems are often "managed" hence not in FULL-CONTROL
-of the final user. In the context of hosting, we can probably assume that
-_everything_ had been optimised for serving at the fastest speed with the best
-cache made possible. Such sys-calls lie therefore outside the scope of DNSP.
+of the final user.
+
+In the context of "managed-hosting" we can probably assume that _everything_
+had been optimised for serving contents at the fastest speed, leveraging the
+best cache available.
+
+Performances of such sys-calls lie therefore outside the scope of DNSP.
 
 The DNSProxy *DNSP* is just lazily tunneling into HTTP(S) using curllib and
 nghttp2. By doing this encapsulation, **it avoids leakage** of UDP queries.

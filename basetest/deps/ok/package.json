@@ -1,0 +1,20 @@
+{
+  "name": "ok",
+  "version": "0.0.2",
+  "description": "Super tiny tap output library",
+  "repo": "jwerle/libok",
+  "src": [
+    "ok.h", "ok.c", "Makefile"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:jwerle/libok.git"
+  },
+  "keywords": [
+    "tap", "test"
+  ],
+  "author": "Joseph Werle",
+  "bugs": {
+    "url": "https://github.com/jwerle/libok/issues"
+  }
+}
