@@ -519,7 +519,7 @@ void usage(void) {
                 " Example with HTTP caching proxy:\n"
                 "\t./dnsp-h2 -r 8118 -H http://your.proxy.com/ -s http://www.fantuz.net/nslookup.php\n"
                 " Further tests:\n"
-                "\t./dnsp-h2 -T 86400 -v -X -C -n -s https://php-dns.appspot.com/ 2>&1\n\n"
+                "\t./dnsp-h2 -T 3600 -v -X -C -n -s https://php-dns.appspot.com/ 2>&1\n\n"
                 " For a more inclusive list of DoH providers, clients, servers and protocol details, see:\n"
                 " - https://en.wikipedia.org/wiki/Public_recursive_name_server\n"
                 " - https://sslretail.com/blog/dns-over-https-ultimate-guide/\n"
@@ -2689,7 +2689,12 @@ void *threadFunc(void *arg) {
   //struct dns_request *xrfcstring = (struct dns_request *)params->xhostname->rfcstring;
   //struct dns_request *xrfcstring = (struct dns_request *)params->xrfcstring;
   
-  char *rip = malloc(256 * sizeof(char)), *ip = NULL, *yhostname = (char *)params->xhostname->hostname;
+  char *rip = malloc(256 * sizeof(char)),
+       *ip = NULL,
+       *yhostname = (char *)params->xhostname->hostname;
+
+  char www[4096];
+  www == NULL;
   
   pthread_key_t key_i;
   pthread_key_create(&key_i, NULL);
@@ -2712,38 +2717,47 @@ void *threadFunc(void *arg) {
     printf("proto					: %d\n",params->xproto);
     printf("VARIABLE sin_addr human-readable	: %s\n", s);
   }
-  
+
   if (!(params->xhostname->hostname == NULL) && !(yhostname == NULL)) {
-    rip = lookup_host(yhostname, proxy_host_t, proxy_port_t, proxy_user_t, proxy_pass_t, lookup_script, typeq, wport, rfcstring);
     //rip = lookup_host(yhostname, proxy_host_t, proxy_port_t, proxy_user_t, proxy_pass_t, lookup_script, typeq, wport, params->xhostname->rfcstring);
+    rip = lookup_host(yhostname, proxy_host_t, proxy_port_t, proxy_user_t, proxy_pass_t, lookup_script, typeq, wport, rfcstring);
 
     yhostname == NULL;
     params->xhostname->hostname == NULL;
+    // new 20190221
     //pthread_exit(NULL);
+    //exit(EXIT_SUCCESS);
   } else {
+    // SECTION TO BE SUPPRESSED, WITH DOH THIS CASE IS NO MORE.
     rip == "0.0.0.0";
+    //www == NULL;
+    //www == "0.0.0.0";
     yhostname == NULL;
     params->xhostname->hostname == NULL;
     //return;
+    // new 20190221
     pthread_exit(NULL);
     //exit(EXIT_SUCCESS);
   }
-
+  
   /* PTHREAD SET SPECIFIC GLOBAL VARIABLE */
+  // pre-DoH
   pthread_setspecific(glob_var_key_ip, rip);
+  // DoH
+  //pthread_setspecific(glob_var_key_ip, www);
+  
   //pthread_getspecific(glob_var_key_ip);
   //printf("VARIABLE-RET-HTTP-GLOBAL: %x\n", glob_var_key_ip);
   //printf("VARIABLE-HTTP: %s\n", pthread_getspecific(glob_var_key_ip));
   //printf("building for: %s", inet_ntop(AF_INET, &ip_header->saddr, ipbuf, sizeof(ipbuf)));
   
   if (EXT_DEBUG) {
-    printf("\n");
-    printf(" ---> ANSWER MODE : %d\n", DNS_MODE_ANSWER);
-    printf(" ---> DOH retcode : %d\n",ret);
-    printf(" ---> DOH content : [%s]\n",rip);
-    printf(" ---> DOH r size  : %d\n",get_size());
-    printf("RFC8484 urlencode : %s\n",b64_encode(params->xhostname->rfcstring,sizeof(params->xhostname)+request_len-19));
-  	printf("-----\n");
+    printf("\n ---> ANSWER MODE : %d", DNS_MODE_ANSWER);
+    printf("\n ---> DOH retcode : %d",ret);
+    //printf("\n ---> DOH content : [%s]",rip);
+    //printf("\n ---> DOH www     : [%s]\n",www);
+    printf("\n ---> DOH r size  : %d",get_size());
+    printf("\n ---> base64url   : %s",b64_encode(params->xhostname->rfcstring,sizeof(params->xhostname)+request_len-19));
 
     /*
     printf("THREAD-proxy-host			: %s\n", params->xproxy_host);
@@ -2754,7 +2768,6 @@ void *threadFunc(void *arg) {
   }
 
   /* RIP vs WWW, different data presentation */
-  char www[4096];
   for (int d=0;d<=get_size()-1;d++) {
     fprintf(stdout,"%02hhx",rip[d]);
     //snprintf(www,1,"%02hhx",rip[d]);
@@ -2770,7 +2783,11 @@ void *threadFunc(void *arg) {
   //printf("BUILD yhostname			        : %s\n", yhostname);
   //printf("BUILD rfcstring			: %s\n", rfcstring);
 
-  if ((rip != NULL) && (strncmp(rip, "0.0.0.0", 7) != 0)) {
+  // pre-DoH
+  //if ((rip != NULL) && (strncmp(rip, "0.0.0.0", 7) != 0))
+  //if ((rip != NULL) && (www != NULL))
+  // DoH
+  if (www != NULL) {
     if (DEBUG) {
         printf("\n");
 	    printf("-> THREAD qsize				: %u\n", (uint32_t)request_len);
@@ -2786,7 +2803,7 @@ void *threadFunc(void *arg) {
 	    */
     }
 
-    /* add switch to drive the built of DoH vs non-DoH packets */
+    /* add switch to drive the contruction of DoH vs non-DoH packets */
     if (get_ttl()>0) {
         //build_dns_response(sockfd, yclient, xhostname, rip, DNS_MODE_ANSWER, request_len, get_ttl(), proto, tcp_z_offset);
         build_dns(sockfd, yclient, xhostname, www, DNS_MODE_ANSWER, request_len, get_ttl(), proto, tcp_z_offset);
@@ -2795,27 +2812,39 @@ void *threadFunc(void *arg) {
         build_dns(sockfd, yclient, xhostname, www, DNS_MODE_ANSWER, request_len, ttl, proto, tcp_z_offset);
     }
 
-  } else if ( strstr(dns_req->hostname, "hamachi.cc") != NULL ) {
+    // new 20190221
+    //pthread_exit(NULL);
+    //exit(EXIT_SUCCESS);
+
+  } else if ( strstr(dns_req->hostname, "hamachi.cc" ) != NULL ) {
+    // BLACKLIST TO BE RADICALLY CHANGED IN DOH. MAYBE RETIRED.
     printf("BALCKLIST: pid [%d] - name %s - host %s - size %d \r\n", getpid(), dns_req->hostname, rip, (uint32_t)request_len);
     //printf("BLACKLIST: xsockfd %d - hostname %s \r\n", xsockfd, xdns_req->hostname);
     printf("BLACKLIST: xsockfd %d - hostname %s \r\n", xsockfd, yhostname);
 
-    /* add switch to drive the built of DoH vs non-DoH packets */
+    /* add switch to drive the construction of DoH vs non-DoH packets */
     //build_dns_response(sockfd, yclient, xhostname, rip, DNS_MODE_ANSWER, request_len, ttl, proto, tcp_z_offset);
     build_dns(sockfd, yclient, xhostname, www, DNS_MODE_ANSWER, request_len, ttl, proto, tcp_z_offset);
 
     close(sockfd);
+    params->xhostname->hostname == NULL;
+    // new 20190221
+    pthread_exit(NULL);
+    exit(EXIT_SUCCESS);
   
-  } else if ((rip == "0.0.0.0") || (strncmp(rip, "0.0.0.0", 7) == 0)) {
-    printf(" *** ERROR: pid [%d] - dns_req->hostname %s - host (rip) %s - size %d \r\n", getpid(), dns_req->hostname, rip, (uint32_t)request_len);
-    printf(" *** ERROR: xsockfd %d - yhostname %s \r\n", xsockfd, yhostname);
-    /* add switch to drive the built of DoH vs non-DoH packets */
+  // else if ((rip == "0.0.0.0") || (strncmp(rip, "0.0.0.0", 7) == 0)) 
+  } else if (strncmp(rip, "0.0.0.0", 7) == 0) {
+    fprintf(stderr," *** ERROR: pid [%d] - dns_req->hostname %s - host (rip) %s - size %d \r\n", getpid(), dns_req->hostname, rip, (uint32_t)request_len);
+    fprintf(stderr," *** ERROR: xsockfd %d - yhostname %s \r\n", xsockfd, yhostname);
+
+    /* add switch to drive the construction of DoH vs non-DoH packets */
     //build_dns_response(sockfd, yclient, xhostname, rip, DNS_MODE_ERROR, request_len, ttl, proto, tcp_z_offset);
     build_dns(sockfd, yclient, xhostname, www, DNS_MODE_ANSWER, request_len, ttl, proto, tcp_z_offset);
+    
     close(sockfd);
     params->xhostname->hostname == NULL;
-    //pthread_exit(NULL);
-    //return;
+    // new 20190221
+    pthread_exit(NULL);
     exit(EXIT_SUCCESS);
   }
   
@@ -2835,7 +2864,7 @@ void *threadFunc(void *arg) {
   }
   
   //pthread_exit(NULL);
-  exit(EXIT_SUCCESS);
+  //exit(EXIT_SUCCESS);
 }
 
 int main(int argc, char *argv[]) {
@@ -3351,7 +3380,8 @@ int main(int argc, char *argv[]) {
 
         /* critical section */
         if ((request_len_tcp == -1)) {
-          flag = 3;
+          //flag = 3;
+          //printf(" *** flag equals 3. closing fd\n");
           close(fd);
           exit(EXIT_SUCCESS);
         }
@@ -3361,14 +3391,15 @@ int main(int argc, char *argv[]) {
           int conn1 = select(fd, fd, NULL, NULL, &read_timeout_micro); 
           readParams->sockfd = fd;
           if (!(conn1 == -1)) { printf(" ***        fd -> select(), %d\n",(conn1)); }
-    	  cnt++;
+    	  //cnt++;
           /* selfconnect test */
+          /*
           if (connect(fd, (struct sockaddr *) &serv_addr_tcp, sizeof(serv_addr_tcp)) < 0) {
             error("caca1\n");
           } else {
             printf("connect1 : %d",cnt);
           }
-
+          */
         } else {
 
           //int conn2 = select(newsockfd, newsockfd, NULL, NULL, &read_timeout_micro); 
@@ -3376,7 +3407,7 @@ int main(int argc, char *argv[]) {
           int conn2 = select(fd, fd, NULL, NULL, &read_timeout_micro); 
           readParams->sockfd = fd;
 	      if (!(conn2 == -1)) { printf(" *** newsockfd -> select(), %d\n",(conn2)); }
-    	  cnt++;
+    	  //cnt++;
           /* selfconnect test */
           if (connect(newsockfd, (struct sockaddr *) &serv_addr_tcp, sizeof(serv_addr_tcp)) < 0) {
             error("caca2\n");
@@ -3395,17 +3426,29 @@ int main(int argc, char *argv[]) {
     	if ((flag != 3)) {
 	      dns_req_tcp = parse_dns_request(request_tcp, request_len_tcp, 1, 0);
     	} else {
-          printf(" *** flag is NULL (3). closing fd\n");
+          fprintf(stderr," *** flag is NULL (3). closing fd\n");
           close(newsockfd);
           close(fd);
     	  exit(EXIT_SUCCESS);
     	}
 
-    	cnt++;
+    	//cnt++;
+        
+        // new 20190221
         close(fd);
 
       } else if (request_len_tcp == -1) {
     	
+        /*
+    	if ((flag != 3)) {
+	      continue;
+    	} else {
+          printf(" *** flag equals 3 in UDP. closing fd\n");
+          close(sockfd);
+    	  exit(EXIT_SUCCESS);
+    	}
+        */
+
         flag = 0;
         dns_req = parse_dns_request(request, request_len, 0, 0);
         if (CNT_DEBUG) { fprintf(stderr, "QUANTITY UDP: %x - %d\n", request, request_len); }
@@ -3416,20 +3459,27 @@ int main(int argc, char *argv[]) {
         readParams->yclient = (struct sockaddr_in *)&client;
         readParams->xrequestlen = request_len;
         readParams->xhostname = (struct dns_request *)dns_req;
-    	cntudp++;
+    	//cntudp++;
 
       } else {
     	
         flag = 3;
+        fprintf(stderr," *** OUT ***\n");
         fprintf(stderr," *** flag is NULL (3). closing fd and newsockfd\n");
+        readParams->xhostname = NULL;
         close(newsockfd);
         close(fd);
-        //dns_req = parse_dns_request(request, request_len, 0, 1);
+        dns_req = parse_dns_request(request, request_len, 0, 1);
         //pthread_mutex_destroy(&mutex);
-        //pthread_join(pth[i],NULL);
+        
+        // new 20190221
+        pthread_join(pth[i],NULL);
         exit(EXIT_SUCCESS);
 
       }
+
+      //flag = 1;
+      fprintf(stderr," *** OUT ***\n");
 
       /*
       if ((dns_req == NULL) || (dns_req_tcp == NULL)) {
@@ -3480,7 +3530,8 @@ int main(int argc, char *argv[]) {
           printf("UDP gotcha qtype: %x // %d\r\n",dns_req->qtype,dns_req->qtype); //PTR ?
           printf("UDP gotcha tid  : %x // %d\r\n",dns_req->transaction_id,dns_req->transaction_id); //PTR ?
 	    }
-      } else if ( flag == 3) {
+      // else if ( flag == 3)
+      } else if ( flag > 1) {
         //pthread_join(pth[i],NULL);
     	printf("flag is NULL or equal 3\n");
     	flag = NULL;
@@ -3552,10 +3603,10 @@ int main(int argc, char *argv[]) {
 
       if (DNSDUMP) {
         printf("hostname\t : %s\n", readParams->xhostname->hostname);
-        /*
+      /*
         printf("readParams->xrfcstring c	        : %c\n", readParams->xrfcstring);
         printf("readParams->xhostname->rfcstring c  : %c\n", readParams->xhostname->rfcstring);
-        */
+      */
       }
 
       //free(out_array);

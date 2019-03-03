@@ -633,6 +633,7 @@ max@trinity:~/DNSProxy$
 * test build on Debian, Windows, MacOS (only tested with Ubuntu 14-18 and very old MacOS)
 * test bynary distribution on Debian, Windows, MacOS
 * add switch to leverage REUSEPORT and/or REUSEADDRESS
+* add an option to provide dynamic list of blacklisted domains (to be read in from file or STDIN)
 
 ## Ideas - lower priority:
 * implement HTTP/2 PUSH, for smoother and opportunistic DNS answers. Remember, there's no ID field in DOH !
