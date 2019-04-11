@@ -183,19 +183,34 @@ The more DNSP resolvers around the world, the less DNS queries will be traceable
 
 ```
 
-## Building
+## Build / Install
 
-Build is easy on Linux, Mac... UNIX and Windows.
-Based on CURL C library, pthread, SSL/TLS and various other strong standards.
-A recent version of CURL is needed to leverage HTTP/2 capabilities (nghttp2).
+Build is easy on Linux, Mac, UNIX and probably even Windows; DNSProxy is based
+on CURL C library, pthread, SSL/TLS and various other strong standards.
+A recent version of CURL is needed to leverage HTTP/2 capabilities (aka nghttp2).
 
-`apt-get install libcurl4-openssl-dev curl libsslcommon2-dev \
-libssl-dev ca-certs brotli gnutls-bin openssl libtlsh-dev`
+```bash
+ sudo apt-get install libcurl4-openssl-dev curl libsslcommon2-dev \
+libssl-dev ca-certs brotli gnutls-bin openssl libtlsh-dev
+```
+```bash
+ git clone https://github.com/clibs/clib.git /tmp/clib
+ cd /tmp/clib
+ sudo make install
+```
+```bash
+ sudo clib install littlstar/b64.c
+```
 
-Once done with installing such pre-requisites, compile with:
-`make`
+```bash
+ sudo clib install jwerle/libok
+```
+Once done with pre-requisites, you will be able to compile by running:
+```bash
+ make
+```
 
-## Installing
+## Deploy DoH infrastructure
 
 #### STEP 1. Create and deploy the HTTP(S) nameserver webservice
 Deploy **nslookup-doh.php** on a webserver, possibly not your local machine (see DISCLAIMER).
@@ -249,29 +264,29 @@ Simply run one of the two available programs as follows.
 
 To start a pre-h2 pre-DoH (HTTP/1.1) DNSProxy server, type:
 ```bash
-dnsp -l 127.0.0.1 -s https://www.fantuz.net/nslookup.php
+ dnsp -l 127.0.0.1 -s https://www.fantuz.net/nslookup.php
 ```
-If you prefer to run an HTTP2-compliant server (as per DoH's RFC 8484), type:
+Run a fully-compliant DoH/HTTP2 server (as per DoH's RFC 8484), type:
 ```bash
-dnsp-h2 -l 127.0.0.1 -s https://www.fantuz.net/nslookup-doh.php
+ dnsp-h2 -l 127.0.0.1 -s https://www.fantuz.net/nslookup-doh.php
 ```
+NB: you might need to stop other daemons bound to 127.0.0.1:53, as:
+dsndist,bind,resolvconf,systemd-resolvconf, and other DNS servers/proxies
+
 Note that dnsp (the pre-DOH version of DNSProxy) is kept only for backwards compatibility and may
 disappear at any time. Please use only dnsp-h2 by default. Eventually push commits into the latter one.
 
 At this point, you might want to start your traffic capture, either wireshark, tshark or tcpdump.
 
-Now open a new terminal and invoke **dig** (or **nslookup**) to resolve a sample hostname against
-our brand-new server instance of DNSP:
+Now open a new terminal and invoke **dig** (or **nslookup**) to test the resolver capabilities
+over UDP or TCP. The test consist in resolving an hostname against the server instance of DNSP,
 
-Type the following command to test UDP listener:
+To test the UDP listener, type the following:
 ```bash
-dig news.google.com @127.0.0.1
+ dig news.google.com @127.0.0.1
 ```
 The result shall correspond to this output, no errors or warning shall be trown.
 ```
-; <<>> DiG 9.10.3-P4-Ubuntu <<>> news.google.com @127.0.0.1
-;; global options: +cmd
-;; Got answer:
 ;; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: 17828
 ;; flags: qr aa rd ra; QUERY: 1, ANSWER: 1, AUTHORITY: 0, ADDITIONAL: 0
 
@@ -281,21 +296,16 @@ The result shall correspond to this output, no errors or warning shall be trown.
 ;; ANSWER SECTION:
 news.google.com.    524549  IN  A   216.58.206.142
 
-;; Query time: 303 msec
 ;; SERVER: 127.0.0.1#53(127.0.0.1)
-;; WHEN: Tue Jan 29 21:00:49 CET 2019
 ;; MSG SIZE  rcvd: 49
 ```
-A similar command is to be run order to test TCP listener:
+To test the TCP listener, type:
 ```bash
-dig +tcp facebook.com @127.0.0.1
+ dig +tcp facebook.com @127.0.0.1
 ```
-Again, resulrs should correspond to the following output.
+Again, results should be similar to the quoted output.
 
 ```
-; <<>> DiG 9.10.3-P4-Ubuntu <<>> +tcp facebook.com @127.0.0.1
-;; global options: +cmd
-;; Got answer:
 ;; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: 9475
 ;; flags: qr aa rd ra; QUERY: 1, ANSWER: 1, AUTHORITY: 0, ADDITIONAL: 0
 
@@ -305,27 +315,25 @@ Again, resulrs should correspond to the following output.
 ;; ANSWER SECTION:
 facebook.com.       524549  IN  A   185.60.216.35
 
-;; Query time: 277 msec
 ;; SERVER: 127.0.0.1#53(127.0.0.1)
-;; WHEN: Tue Jan 29 21:00:50 CET 2019
 ;; MSG SIZE  rcvd: 46
 ```
 
-If queries are successful, you can now safely replace the current
-"nameserver" entries inside "/etc/resolv.conf" to point ALL DNS
-traffic towards DNSP, by inserting such a line:
+Once all listeners have been tested, you can safely replace the actual
+entries inside "/etc/resolv.conf" to point ALL DNS traffic towards DNSP.
+Inserting the following line and delete all other "namaserver" entries:
 ```
 nameserver 127.0.0.1
 ```
 
-Once configuration and testing completed successfully, you will be
-ready to run a DNS-over-HTTPS peer & server as described by RFC 8484.
+Once configuration and testing successful, you will be ready to run a
+DNS-over-HTTPS client & server as described by RFC 8484.
 
-To test if DNSProxy is working fine you can run a simple traffic 
-capture with wireshark/tcpdump, checking for DNS messages integrity
+To test if DNSProxy is working fine you can also run a traffic capture
+with tools like wireshark or tcpdump, checking the integrity of DNS messages
 using integrated dissectors.
 
-## Testing deploy of PHP script
+## Testing deployment of PHP script over the web
 
 To test the deploy of nslookup-doh.php along with correct DNS
 resolution, you could use **curl** utility within a shell.
@@ -520,7 +528,6 @@ BUILD-xsockfd				: 0
 BUILD-sockfd				: 0
 BUILD-hostname				: facebook.com.
 
-INSIDE-raw-datagram			: 
 INSIDE-raw-datagram			: 45e54b3e
 INSIDE-raw-datagram			: 1172654910
 INSIDE-yclient->sin_addr.s_addr        	: 16777343
