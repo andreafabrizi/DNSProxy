@@ -521,10 +521,11 @@ void usage(void) {
                 " Further tests:\n"
                 "\t./dnsp-h2 -T 3600 -v -X -C -n -s https://php-dns.appspot.com/ 2>&1\n\n"
                 " For a more inclusive list of DoH providers, clients, servers and protocol details, see:\n"
+                " - https://tools.ietf.org/html/rfc8484\n"
+		" - https://en.wikipedia.org/wiki/DNS_over_HTTPS#cite_note-17\n"
+                " - https://github.com/curl/curl/wiki/DNS-over-HTTPS\n"
                 " - https://en.wikipedia.org/wiki/Public_recursive_name_server\n"
                 " - https://sslretail.com/blog/dns-over-https-ultimate-guide/\n"
-                " - https://github.com/curl/curl/wiki/DNS-over-HTTPS\n"
-                " - https://tools.ietf.org/html/rfc8484\n"
                 "\n"
     ,VERSION);
     exit(EXIT_FAILURE);

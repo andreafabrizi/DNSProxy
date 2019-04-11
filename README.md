@@ -133,6 +133,10 @@ host yourself as many *nslookup-doh.php* scripts as you can, or send it on a fri
 The more DNSP resolvers around the world, the less DNS queries will be traceable (TOR leaking problem).
 
 ```bash
+user@machine:~/DNSProxy$ ./dnsp-h2
+
+ ### Running without cache-acceleration as no caching proxy was configured. ###
+
  dnsp-h2 2.5, copyright 2010-2019 @ Massimiliano Fantuzzi HB9GUS, MIT License
 
  usage: dnsp-h2 [-l <local_host_address>] [-p <local_port>] [-H <proxy_host>]
@@ -173,14 +177,14 @@ The more DNSP resolvers around the world, the less DNS queries will be traceable
  Example with HTTP caching proxy:
 	./dnsp-h2 -r 8118 -H http://your.proxy.com/ -s http://www.fantuz.net/nslookup.php
  Further tests:
-	./dnsp-h2 -T 86400 -v -X -C -n -s https://php-dns.appspot.com/ 2>&1
+	./dnsp-h2 -T 3600 -v -X -C -n -s https://php-dns.appspot.com/ 2>&1
 
  For a more inclusive list of DoH providers, clients, servers and protocol details, see:
+ - https://tools.ietf.org/html/rfc8484
+ - https://en.wikipedia.org/wiki/DNS_over_HTTPS#cite_note-17
+ - https://github.com/curl/curl/wiki/DNS-over-HTTPS
  - https://en.wikipedia.org/wiki/Public_recursive_name_server
  - https://sslretail.com/blog/dns-over-https-ultimate-guide/
- - https://github.com/curl/curl/wiki/DNS-over-HTTPS
- - https://tools.ietf.org/html/rfc8484
-
 ```
 
 ## Build / Install
@@ -190,27 +194,27 @@ on CURL C library, pthread, SSL/TLS and various other strong standards.
 A recent version of CURL is needed to leverage HTTP/2 capabilities (aka nghttp2).
 
 ```bash
- sudo apt-get install libcurl4-openssl-dev curl libsslcommon2-dev \
+sudo apt-get install libcurl4-openssl-dev curl libsslcommon2-dev \
 libssl-dev ca-certs brotli gnutls-bin openssl libtlsh-dev
 ```
 ```bash
- git clone https://github.com/clibs/clib.git /tmp/clib
- cd /tmp/clib
- sudo make install
+git clone https://github.com/clibs/clib.git /tmp/clib
+cd /tmp/clib
+sudo make install
 ```
 ```bash
- sudo clib install littlstar/b64.c
+sudo clib install littlstar/b64.c
 ```
 
 ```bash
- sudo clib install jwerle/libok
+sudo clib install jwerle/libok
 ```
-Once done with pre-requisites, you will be able to compile by running:
+Once done with pre-requisites, you will be able to *compile* by running:
 ```bash
- make
+make
 ```
 
-## Deploy DoH infrastructure
+## Deploy DoH infrastructure (only applies to dnsp legacy binary, not to dnsp-h2)
 
 #### STEP 1. Create and deploy the HTTP(S) nameserver webservice
 Deploy **nslookup-doh.php** on a webserver, possibly not your local machine (see DISCLAIMER).
@@ -221,8 +225,7 @@ such webservers, just use my own webservice, as suggested in usage examples.
 Setup an HTTP caching proxy on the local machine or on a remote host. Feed host and
 port of your proxy server to the *dnsp* program arguments.
 
-#### STEP 3: compile DNSP binary
-Compile the *dnsp* binary by running provided build commands (make, for example)
+NB: cache is much more difficult in an h2/TLS context, hence cache is not a feature in dnsp-h2
 
 ## Integration, easy with standards:
 
@@ -264,11 +267,11 @@ Simply run one of the two available programs as follows.
 
 To start a pre-h2 pre-DoH (HTTP/1.1) DNSProxy server, type:
 ```bash
- dnsp -l 127.0.0.1 -s https://www.fantuz.net/nslookup.php
+dnsp -l 127.0.0.1 -s https://www.fantuz.net/nslookup.php
 ```
 Run a fully-compliant DoH/HTTP2 server (as per DoH's RFC 8484), type:
 ```bash
- dnsp-h2 -l 127.0.0.1 -s https://www.fantuz.net/nslookup-doh.php
+dnsp-h2 -l 127.0.0.1 -s https://www.fantuz.net/nslookup-doh.php
 ```
 NB: you might need to stop other daemons bound to 127.0.0.1:53, as:
 dsndist,bind,resolvconf,systemd-resolvconf, and other DNS servers/proxies
@@ -283,7 +286,7 @@ over UDP or TCP. The test consist in resolving an hostname against the server in
 
 To test the UDP listener, type the following:
 ```bash
- dig news.google.com @127.0.0.1
+dig news.google.com @127.0.0.1
 ```
 The result shall correspond to this output, no errors or warning shall be trown.
 ```
@@ -301,7 +304,7 @@ news.google.com.    524549  IN  A   216.58.206.142
 ```
 To test the TCP listener, type:
 ```bash
- dig +tcp facebook.com @127.0.0.1
+dig +tcp facebook.com @127.0.0.1
 ```
 Again, results should be similar to the quoted output.
 
@@ -325,6 +328,9 @@ Inserting the following line and delete all other "namaserver" entries:
 ```
 nameserver 127.0.0.1
 ```
+
+NB: in case you use systemd-resolved, you would need to edit the proper
+systemd service file at /etc/systemd/resolved.conf or similar.
 
 Once configuration and testing successful, you will be ready to run a
 DNS-over-HTTPS client & server as described by RFC 8484.
@@ -660,14 +666,15 @@ max@trinity:~/DNSProxy$
 
 ## References:
 
+* https://en.wikipedia.org/wiki/DNS_over_HTTPS#cite_note-17
 * https://datatracker.ietf.org/meeting/101/materials/slides-101-hackathon-sessa-dnsproxy-local-dns-over-http-private-resolver
-* https://igit.github.io/
 * https://www.reddit.com/user/fantamix/comments/7yotib/dnsp_a_dns_proxy_to_avoid_dns_leakage/
 * https://www.reddit.com/r/hacking/comments/7zjbv2/why_to_use_a_dns_proxy_why_shall_it_be/
 * https://github.com/curl/doh/blob/master/doh.c
 * https://www.meetup.com/it-IT/Geneva-Legal-Hackers/messages/boards/thread/51438161
 * https://tools.ietf.org/html/draft-ietf-dnsop-dns-wireformat-http-01
 * https://tools.ietf.org/html/rfc8484
+* https://igit.github.io/
 
 ## License
 MIT license, all rights included.
