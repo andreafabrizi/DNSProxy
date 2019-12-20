@@ -739,8 +739,27 @@ expect-ct: max-age=604800, report-uri="https://report-uri.cloudflare.com/cdn-cgi
 server: cloudflare
 cf-ray: 3f5d7c83180326a2-FRA
 
+POST 
+echo -n 'q80BIAABAAAAAAAAB2V4YW1wbGUDY29tAAABAAE' | base64 -d 2>/dev/null | curl -H 'content-type: application/dns-message' --data-binary @- https://cloudflare-dns.com/dns-query -o - | hexdump 
+ 
+GET 
+curl -H 'accept: application/dns-message' -v 'https://cloudflare-dns.com/dns-query?dns=q80BIAABAAAAAAAAB2V4YW1wbGUDY29tAAABAAE' | hexdump 
+ 
+curl -o - 'https://cloudflare-dns.com/dns-query?dns=q80BIAABAAAAAAAAA3d3dwdleGFtcGxlA2NvbQAAAQAB' -H 'authority: cloudflare-dns.com' \ 
+-H 'upgrade-insecure-requests: 1' \ 
+-H 'user-agent: curl 7.64.1-DEV (x86_64-pc-linux-gnu) libcurl/7.64.1-DEV OpenSSL/1.0.2g zlib/1.2.11 nghttp2/1.37.0-DEV' \ 
+-H 'accept: application/dns-message' -H 'accept-encoding: gzip, deflate, br' -H 'accept-language: en-US,en;q=0.9' --compressed | xxd 
+ 
+echo -n 'q80BAAABAAAAAAAABmdpdGh1YgNjb20AAAEAAQ' | base64 -d 2>/dev/null | curl -s -H 'content-type: application/dns-message' \ 
+--data-binary @- https://cloudflare-dns.com/dns-query -o - | xxd 
+00000000: abcd 8180 0001 0002 0000 0001 0667 6974  .............git 
+00000010: 6875 6203 636f 6d00 0001 0001 c00c 0001  hub.com......... 
+00000020: 0001 0000 0013 0004 8c52 7604 c00c 0001  .........Rv..... 
+00000030: 0001 0000 0013 0004 8c52 7603 0000 2905  .........Rv...). 
+00000040: ac00 0000 0000 00                        ....... 
+
 ```
-## Appendix A
+## Appendix B
 
 ```
 If you are a bit acquainted with hex you dont need to convert to binary.
@@ -769,5 +788,68 @@ bound on any TTL received, and treat any larger values as if they were that uppe
 0x0c - form feed
 0x0d - carriage return
 0x20 - space
+
+```
+## Appendix C
+
+```
+DNS_MODE_ERROR should truncate message instead of building it up ... 
+Server failure (0x8182), but what if we wanted an NXDOMAIN (0x....) ?
+Being DNSP still under test, we do not care much. Nobody likes failures */
+
+NOERROR (RCODE:0)        : DNS Query completed successfully
+FORMERR (RCODE:1)        : DNS Query Format Error
+SERVFAIL (RCODE:2)       : Server failed to complete the DNS request
+NXDOMAIN (RCODE:3)       : Domain name does not exist
+NOTIMP (RCODE:4)         : Function not implemented
+REFUSED (RCODE:5)        : The server refused to answer for the query
+YXDOMAIN (RCODE:6)       : Name that should not exist, does exist
+XRRSET (RCODE:7)         : RRset that should not exist, does exist
+NOTAUTH (RCODE:9)        : Server not authoritative for the zone
+NOTZONE (RCODE:10)       : Name not in zone
+11-15           available for assignment
+16    BADVERS   Bad OPT Version             
+16    BADSIG    TSIG Signature Failure      
+17    BADKEY    Key not recognized          
+18    BADTIME   Signature out of time window
+19    BADMODE   Bad TKEY Mode               
+20    BADNAME   Duplicate key name          
+21    BADALG    Algorithm not supported     
+22-3840         available for assignment
+  0x0016-0x0F00
+3841-4095       Private Use
+  0x0F01-0x0FFF
+4096-65535      available for assignment
+  0x1000-0xFFFF
+
+```
+
+## Appendix C
+
+```
+cache with HTTP/1.1 304 "Not Modified" 
+https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Cache-Control 
+ * REQUEST 
+Cache-Control: max-age=<seconds> 
+Cache-Control: max-stale[=<seconds>] 
+Cache-Control: min-fresh=<seconds> 
+Cache-Control: no-cache  
+Cache-Control: no-store 
+Cache-Control: no-transform 
+Cache-Control: only-if-cached 
+ *  RESPONSE 
+Cache-Control: must-revalidate 
+Cache-Control: no-cache 
+Cache-Control: no-store 
+Cache-Control: no-transform 
+Cache-Control: public 
+Cache-Control: private 
+Cache-Control: proxy-revalidate 
+Cache-Control: max-age=<seconds> 
+Cache-Control: s-maxage=<seconds> 
+ * NON-STANDARD 
+Cache-Control: immutable  
+Cache-Control: stale-while-revalidate=<seconds> 
+Cache-Control: stale-if-error=<seconds> 
 
 ```
