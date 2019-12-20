@@ -561,6 +561,10 @@ max@trinity:~/DNSProxy$
 ## Changelog:
 
 #### Version 2.5 - February 2019:
+* having segdumps, no good. adding extra debug on CURL status, suspecting a 400 response
+* testing further TCP and UDP responses
+
+#### Version 2.5 - February 2019:
 * provide base64urlencode of DNS requests !
 * implemented dump of "cache-control" headers from PHP/DoH resolver into DNS packet
 * added new build_dns to comply with DoH/RFC format, instead of old build_dns_response
@@ -638,15 +642,17 @@ max@trinity:~/DNSProxy$
 
 ## WIP - features being actively worked on:
 * offer GET & POST choice on method (for all DoH and pre-DoH URLs). So far, only GET is supported.
-* save HEX packet structure, to serve it as HTTP content from DNSP daemon or prime the local disk cache
+* save HEX packet structure and serve it as HTTP content from DNSP daemon priming the local cache
 * support far more than A, AAAA, CNAME and NS. My pre-DoH test protocol supported MX, PTR and ALL types
-* add a "--resolve" option to pin DoH request to an IP address (see SNI debate)
+* add a "--resolve" option to pin DoH request to an IP address (see SNI debate on IETF mailing lists)
+* add switch to drive the contruction of DoH vs non-DoH packets
 * find out why some requests encounter ";; Question section mismatch: got fantuz.net/RESERVED0/IN"
 * reduce memory impact (following TCP listener implementation, memory footprint is out of control)
 * test build on Debian, Windows, MacOS (only tested with Ubuntu 14-18 and very old MacOS)
 * test bynary distribution on Debian, Windows, MacOS
-* add switch to leverage REUSEPORT and/or REUSEADDRESS
 * add an option to provide dynamic list of blacklisted domains (to be read in from file or STDIN)
+* add choiche of http2 options, ALPN, NPN, PRIOR_KNOWLEDGE, etc.
+* add switch to leverage REUSEPORT and/or REUSEADDRESS
 
 ## Ideas - lower priority:
 * implement HTTP/2 PUSH, for smoother and opportunistic DNS answers. Remember, there's no ID field in DOH !
@@ -711,3 +717,57 @@ Beware: running the PHP script locally on the same machine (not using a
 remote webservice) makes no sense and WILL EXPOSE ALL of your queries to
 DNS leak. Running locally is useful for TESTING purposes only !!
 
+## Appendix A
+
+```
+#echo | openssl s_client -showcerts -servername php-dns.appspot.com -connect php-dns.appspot.com:443 2>/dev/null | openssl x509 -inform pem -noout -text
+
+#curl --http2 -I 'https://www.fantuz.net/nslookup.php?name=google.it'
+HTTP/2 200 
+date: Sat, 03 Mar 2018 16:30:13 GMT
+content-type: text/plain;charset=UTF-8
+set-cookie: __cfduid=dd36f3fb91aace1498c03123e646712001520094612; expires=Sun, 03-Mar-19 16:30:12 GMT; path=/; domain=.fantuz.net; HttpOnly
+x-powered-by: PHP/7.1.12
+cache-control: public, max-age=14400, s-maxage=14400
+last-modified: Sat, 03 Mar 2018 16:30:13 GMT
+etag: 352d3e68703dce365ec4cda53f420f4a
+accept-ranges: bytes
+x-powered-by: PleskLin
+alt-svc: quic=":443"; ma=2592000; v="35,37,38,39"
+x-turbo-charged-by: LiteSpeed
+expect-ct: max-age=604800, report-uri="https://report-uri.cloudflare.com/cdn-cgi/beacon/expect-ct"
+server: cloudflare
+cf-ray: 3f5d7c83180326a2-FRA
+
+```
+## Appendix A
+
+```
+If you are a bit acquainted with hex you dont need to convert to binary.
+Just take the base-16 complement of each digit, and add 1 to the result.
+So you get 0C5E. Add 1 and here's your result: 0C5F.
+for a faster approach you can also flip the bits left to very first set bit
+and find out the 2s complement.
+(instead of finding 1ns and then adding 1 to it) 
+1111 0011 1010 0001 toggle the bits left to first set bit
+0000 1100 0101 1111
+I expect you would like this if bit pattern is changed to binary than hex :)
+
+The TTL entity/value was foundation in DNSP development, considered for sake of caching.
+With the advent of DNS-over-HTTPS RFC standard, the need to serve (and properly expire)
+caches became imperative. TTL specifies a maximum time to live, not a mandatory time to live.
+RFC2181: "Maximum of 2^31 - 1.  When transmitted, this value shall be encoded in the less
+significant 31 bits of the 32 bit TTL field, with the most significant, or sign, bit set
+to zero. Implementations should treat TTL values received with the most significant bit set
+as if the entire value received was zero. Implementations are always free to place an upper
+bound on any TTL received, and treat any larger values as if they were that upper bound. 
+
+0x08 - backspace \010 octal
+0x09 - horizontal tab
+0x0a - linefeed
+0x0b - vertical tab \013 octal
+0x0c - form feed
+0x0d - carriage return
+0x20 - space
+
+```
