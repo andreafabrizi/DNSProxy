@@ -720,6 +720,15 @@ DNS leak. Running locally is useful for TESTING purposes only !!
 ## Appendix A
 
 ```
+
+Common proxy ports: 
+  1080 (generic proxy) 
+  3128 (squid) 
+  8118 (polipo) 
+  8888 (simplehttp2server) 
+  9500 (tor) 
+  1090 (socks) 
+
 #echo | openssl s_client -showcerts -servername php-dns.appspot.com -connect php-dns.appspot.com:443 2>/dev/null | openssl x509 -inform pem -noout -text
 
 #curl --http2 -I 'https://www.fantuz.net/nslookup.php?name=google.it'

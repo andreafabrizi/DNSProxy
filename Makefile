@@ -2,13 +2,14 @@ CC      = gcc
 CFLAGS  = -O2 -Wall -W -pedantic -g -rdynamic
 FLAG    = -DTLS
 CFLAGS += $(FLAG)
-LIBS    = -L/usr/local/lib -lcurl -lpthread -lrt
+LIBS    = -L/usr/local/lib -lcurl -lrt -lnghttp2 -lssl -lbrotlidec -lz -lcrypto -l pthread
 
 #CFLAGS  = -std=c99 -O2 -Wall -W -pedantic -g -rdynamic
 #LIBS   += -lssl -lboost_system -lboost_system -lboost_thread 
 #LIBS   += -lnghttp2
 #LIBS   += -lb64
 #TARGET = testflag
+#LIBS:            -lnghttp2 -lpsl -lssl -lcrypto -lssl -lcrypto -lbrotlidec -lz
 
 # mutex
 # gcc dnsp.c -W -lcurl -g -lpthread -rdynamic -lrt -lbrotlidec -o dnsp
