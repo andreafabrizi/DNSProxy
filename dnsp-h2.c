@@ -470,9 +470,9 @@ void usage(void) {
                        "  [ -r <3128>    ]\t Cache proxy port\n"
                        "  [ -u <user>    ]\t Cache proxy username\n"
                        "  [ -k <pass>    ]\t Cache proxy password\n"
-                       "  [ -w <443>     ]\t Lookup port\n"
                        "  [ -Q           ]\t Use TTL from CURL, suggested\n"
-                       "    -s <URL>      \t Lookup script URL\n"
+                       "  [ -w <443>     ]\t Lookup port\n"
+                       "    -s <URL>      \t Lookup script URL (either v1 or RFC formats)\n"
                        "\n"
                        " EXPERT OPTIONS:\n"
                        "  [ -T <n> ]\t Override TTL [0-2147483647] defined in RFC2181\n"
@@ -485,9 +485,9 @@ void usage(void) {
                        "  [ -N     ]\t Enable COUNTERS debug\n"
                        "  [ -C     ]\t Enable CURL debug, useful to debug cache, certs, TLS, etc\n"
         		       "\n"
-                       " TESTING/DISABLED OPTIONS:\n"
+                       " DISABLED OPTIONS:\n"
                        "  [ -I     ]\t Upgrade Insecure Requests, debug HSTS, work in progress\n"
-                       "  [ -R     ]\t Enable CURL resolve mechanism, avoiding extra gethostbyname\n"
+                       "  [ -r     ]\t Enable CURL resolve mechanism, avoiding extra gethostbyname\n"
                        "  [ -t <n> ]\t Stack size in format 0x1000000 (MB)\n"
                        "\n"
                 " Example with direct HTTPS:\n"
@@ -1900,7 +1900,7 @@ static int my_trace(CURL *handle, curl_infotype type, char *data, size_t size, s
   return 0;
 }
 
-static void setup(CURL *hnd, char *script_target) {
+static void setup(CURL *hndin, char *script_target) {
   FILE *out; // = fopen(OUTPUTFILE, "wb");
   //FILE *out = fopen(OUTPUTFILE, "wb");
   int num = 1;
@@ -1911,48 +1911,59 @@ static void setup(CURL *hnd, char *script_target) {
   config.trace_ascii = 1; /* enable ascii tracing */ 
   
   snprintf(filename, 128, "dnsp-h2.response-%d", num);
-  out = fopen(filename, "wb");
+  //out = fopen(filename, "wb");
 
   /* avoid hardcoding services: provide URL as CLI parameter (or a static list, for "universal" blind root-check) with parallel threads */ 
   //snprintf(q, sizeof(q)-1, "https://php-dns.appspot.com/%s", script_target);
   //snprintf(q, sizeof(q)-1, "https://cloudflare-dns.com/dns-query?dns=%s", script_target);
+
   snprintf(q, sizeof(q)-1, "%s", script_target);
+  //snprintf(q, URL_SIZE-1, "%s", script_target);
+  //snprintf(script_url, URL_SIZE-1, "https://cloudflare-dns.com/dns-query?dns=%s", b64_encode(rfcstring,sizeof(rfcstring)+strlen(host)+9));
 
-  curl_easy_setopt(hnd, CURLOPT_URL, q);
-  curl_easy_setopt(hnd, CURLOPT_NOSIGNAL, 1L);
-  fprintf(stderr, " *** CURL MULTI : %s\n", q);
+  curl_easy_setopt(hndin, CURLOPT_URL, q);
+  curl_easy_setopt(hndin, CURLOPT_NOSIGNAL, 1L);
  
-  if (DEBUGCURLTTL) { curl_easy_setopt(hnd, CURLOPT_VERBOSE,  1); } else { curl_easy_setopt(hnd, CURLOPT_VERBOSE,  0); }
+  if (DEBUGCURLTTL) { curl_easy_setopt(hndin, CURLOPT_VERBOSE,  1); } else { curl_easy_setopt(hndin, CURLOPT_VERBOSE,  0); }
   
-  /* write to this file, will be served via HTTP/2 */ 
-  curl_easy_setopt(hnd, CURLOPT_WRITEDATA, out);
-
-  //curl_easy_setopt(hnd, CURLOPT_WRITEDATA, (void *)&chunk);
+  //curl_easy_setopt(hndin, CURLOPT_WRITEDATA, (void *)&chunk);
+  curl_easy_setopt(hndin, CURLOPT_WRITEFUNCTION, write_data);
   
-  curl_easy_setopt(hnd, CURLOPT_DEBUGDATA, &config);
-  curl_easy_setopt(hnd, CURLOPT_DEBUGFUNCTION, my_trace);
+  curl_easy_setopt(hndin, CURLOPT_DEBUGDATA, &config);
+  curl_easy_setopt(hndin, CURLOPT_DEBUGFUNCTION, my_trace);
 
-  curl_easy_setopt(hnd, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_2_0);
-  curl_easy_setopt(hnd, CURLOPT_CAPATH, "/etc/ssl/certs/");
-  curl_easy_setopt(hnd, CURLOPT_SSL_VERIFYPEER, 0L);
-  curl_easy_setopt(hnd, CURLOPT_SSL_VERIFYHOST, 0L);
-  //curl_easy_setopt(hnd, CURLOPT_SSLVERSION, CURL_SSLVERSION_TLSv1_2);
-  curl_easy_setopt(hnd, CURLOPT_SSLVERSION, CURL_SSLVERSION_DEFAULT); //CURL_SSLVERSION_TLSv1
-  curl_easy_setopt(hnd, CURLOPT_SSLENGINE, "dynamic");
-  curl_easy_setopt(hnd, CURLOPT_SSLENGINE_DEFAULT, 1L);
+  // write to this file, will be served via HTTP/2
+  curl_easy_setopt(hndin, CURLOPT_WRITEDATA, out);
 
+  /*
+  curl_easy_setopt(hndin, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_2_0);
+  curl_easy_setopt(hndin, CURLOPT_CAPATH, "/etc/ssl/certs/");
+  curl_easy_setopt(hndin, CURLOPT_SSL_VERIFYPEER, 0L);
+  curl_easy_setopt(hndin, CURLOPT_SSL_VERIFYHOST, 0L);
+  //curl_easy_setopt(hndin, CURLOPT_SSLVERSION, CURL_SSLVERSION_TLSv1_2);
+  curl_easy_setopt(hndin, CURLOPT_SSLVERSION, CURL_SSLVERSION_DEFAULT); //CURL_SSLVERSION_TLSv1
+  curl_easy_setopt(hndin, CURLOPT_SSLENGINE, "dynamic");
+  curl_easy_setopt(hndin, CURLOPT_SSLENGINE_DEFAULT, 1L);
   // OCSP not always available on CloudFlare or other cloud providers (OK for Google's GCP, still need to test with AWS)
-  curl_easy_setopt(hnd, CURLOPT_SSL_VERIFYSTATUS, 1L);
+  curl_easy_setopt(hndin, CURLOPT_SSL_VERIFYSTATUS, 1L);
  
   #if (CURLPIPE_MULTIPLEX > 0)
-    /* wait for pipe connection to confirm */ 
-    curl_easy_setopt(hnd, CURLOPT_PIPEWAIT, 1L);
-    //curl_easy_setopt(hnd, CURLOPT_PIPEWAIT, 0L);
+    // wait for pipe connection to confirm
+    curl_easy_setopt(hndin, CURLOPT_PIPEWAIT, 1L);
+    //curl_easy_setopt(hndin, CURLOPT_PIPEWAIT, 0L);
   #endif
- 
+  */
+
+  fprintf(stderr, " *** CURL SETUP : %s\n", q);
+
   // placeholder, can parallelise N threads but is blocking/waiting. About the interest of spawning multiple/multipath things
-  curl_hnd[num] = hnd;
-  //curl_easy_perform(hnd);
+  //curl_hndin[num] = 2;
+  //curl_easy_perform(hndin);
+
+  //fclose(out);
+  //curl_easy_cleanup(hndin);
+  //curl_global_cleanup();
+  return 0;
 }
 
 /* called when there's an incoming push */ 
@@ -1994,7 +2005,6 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
   //CURL *ch;
   CURL *hnd;
   //CURL *hndtest[2];		// for CURLM and parallel
-  //CURL *hndtest;
 
   CURLcode res;		// for CURLE error report
   //CURLSH *shobject = curl_share_init();
@@ -2008,8 +2018,7 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
   int transfers = 1;
 
   //CURLcode ret;		// for CURLE error report
-  int ret;
-  int i;
+  int i, ret;
   char *http_response, *script_url, *script_get, *pointer;
   char base[2];
 
@@ -2092,24 +2101,10 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
   /* read: https://curl.haxx.se/libcurl/c/threadsafe.html to implement sharing and locks between threads */
   /* set specific nifty options for multi handlers or none at all */
   //ch = curl_easy_init();
-  //hndtest = curl_easy_init();
-  ////setup(hndtest, n);
 
-  setup(hnd,script_url);
-  //hnd = curl_easy_init();
+  hnd = curl_easy_init();
+  //setup(hnd,script_url);
 
-  /* init a multi stack */ 
-  multi_handle = curl_multi_init();
-  
-  // add the easy transfer
-  //curl_multi_add_handle(multi_handle, hndtest);
-  curl_multi_add_handle(multi_handle, hnd);
-
-  curl_multi_setopt(multi_handle, CURLMOPT_PIPELINING, CURLPIPE_MULTIPLEX);
-  curl_multi_setopt(multi_handle, CURLMOPT_PUSHFUNCTION, server_push_callback);
-  curl_multi_setopt(multi_handle, CURLMOPT_PUSHDATA, &transfers);
-  curl_multi_setopt(multi_handle, CURLOPT_CAPATH, "/etc/ssl/certs/");
-  
   //20191206 - mfantuzzi - TODO
   /* placeholder for DNS-over-HTTPS (DoH) GET or POST method of choice, to become CLI option ASAP */
   //curl_setopt($ch,CURLOPT_POST,1);
@@ -2263,6 +2258,7 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
 
   /* Section left for mutlipath or PUSH implementations */
   // as long as we have transfers going, do work ...
+  
   /*
   do {
       struct timeval timeout;
@@ -2354,6 +2350,7 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
    
   } while(transfers);
   */
+ 
 
   //curl_multi_cleanup(multi_handle);
 
@@ -2423,8 +2420,6 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
   curl_easy_setopt(hnd, CURLOPT_SSL_VERIFYSTATUS, 1L);
   curl_easy_setopt(hnd, CURLOPT_FILETIME, 1L);
   curl_easy_setopt(hnd, CURLOPT_TCP_KEEPALIVE, 1L);
-  //20191107 max fantuzzi
-  //curl_easy_setopt(hnd, CURLOPT_ENCODING, "");
   //curl_easy_setopt(hnd, CURLOPT_ENCODING, "gzip, deflate, br, sdch");
   curl_easy_setopt(hnd, CURLOPT_ENCODING, "deflate, br, sdch");
   //curl_easy_setopt(hnd, CURLOPT_FOLLOWLOCATION, 1);
@@ -2449,15 +2444,27 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
       fprintf(stderr, "-----\n");
   }
 
+  // init a multi stack
+  multi_handle = curl_multi_init();
+  
+  // add the easy transfer
+  //curl_multi_add_handle(multi_handle, hndtest);
+  curl_multi_add_handle(multi_handle, hnd);
+
+  curl_multi_setopt(multi_handle, CURLMOPT_PIPELINING, CURLPIPE_MULTIPLEX);
+  curl_multi_setopt(multi_handle, CURLMOPT_PUSHFUNCTION, server_push_callback);
+  curl_multi_setopt(multi_handle, CURLMOPT_PUSHDATA, &transfers);
+  curl_multi_setopt(multi_handle, CURLOPT_CAPATH, "/etc/ssl/certs/");
+  
   /* ret on (hnd) is the H2 cousin of original ret used above for (ch). This section has been commented out */
   //if (!(host == NULL) && !(host == "") && !(host == ".") && !(host == "(null)"))
   if (sizeof(host) > 3 ) {
     printf(" *** VALID HOST\t : '%s'\n", host);
     //ret = curl_easy_perform(hnd);
-    ret = curl_multi_perform(hnd,&still_running);
+    res = curl_multi_perform(multi_handle,&still_running);
     //if(ret != CURLE_OK) { fprintf(stderr, "curl_easy_perform() failed: %s\n", curl_easy_strerror(ret)); }
-    if(ret != CURLE_OK) { fprintf(stderr, "curl_multi_perform() failed: %s\n", curl_multi_strerror(ret)); }
-    //printf(" *** OBTAINED VALUE\t : '%s'\n", ret);
+    if(res != CURLE_OK) { fprintf(stderr, " *** CURL: curl_multi_perform() failed: %s\n", curl_multi_strerror(res)); } else { printf("\n *** MULTI -> OK !\n"); }
+    printf(" *** OBTAINED VALUE\t : '%s'\n", res);
     //free(host);
     return;
   } else {
@@ -2468,11 +2475,9 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
   /* Problem in performing the http request */
   if (ret < 0) {
     fprintf(stderr, "Error performing HTTP request (Error %d) - spot on !!!\n", ret);
-    //curl_easy_cleanup(ch);
     free(script_url);
     curl_slist_free_all(list);
 
-    //curl_share_cleanup(curlsh);
     //curl_slist_free_all(hosting);
     //curl_share_cleanup(curlsh);
 
@@ -2494,9 +2499,9 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
     }
 
     //curl_slist_free_all(hosting);
-    //curl_easy_cleanup(ch);
     curl_slist_free_all(list);
     //curl_share_cleanup(curlsh);
+    //curl_easy_cleanup(ch);
     http_response = "0.0.0.0";
     return http_response;
   }
@@ -2511,7 +2516,6 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
     //printf(" *** Response from libCURL -> %s\n", http_response);
   //}
 
-  //curl_easy_cleanup(ch);
   curl_easy_cleanup(hnd);
   hnd = NULL;
 
@@ -2519,6 +2523,7 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
   //free(proxy_url);
   //free(chunk.memory);
   curl_global_cleanup();
+  curl_multi_cleanup(multi_handle);
   curl_slist_free_all(list);
   //curl_slist_free_all(hosting);
   //curl_share_cleanup(curlsh);
@@ -2559,11 +2564,11 @@ void *threadFunc(void *arg) {
   //struct dns_request *xrfcstring = (struct dns_request *)params->xrfcstring;
   
   char *rip = malloc(256 * sizeof(char)),
-       *www = malloc(256 * sizeof(char)),
        *ip = NULL,
        *yhostname = (char *)params->xhostname->hostname;
+       // www = malloc(256 * sizeof(char)),
 
-  //char www[4096];
+  char www[4096];
   www == NULL;
   
   pthread_key_t key_i;
@@ -2739,7 +2744,7 @@ void *threadFunc(void *arg) {
   }
   
   //pthread_exit(NULL);
-  //exit(EXIT_SUCCESS);
+  exit(EXIT_SUCCESS);
 }
 
 int main(int argc, char *argv[]) {
@@ -3349,9 +3354,8 @@ int main(int argc, char *argv[]) {
         //pthread_mutex_destroy(&mutex);
         
         // new 20190221
-        pthread_join(pth[i],NULL);
+        //pthread_join(pth[i],NULL);
         exit(EXIT_SUCCESS);
-
       }
 
       //flag = 1;
@@ -3408,7 +3412,7 @@ int main(int argc, char *argv[]) {
 	    }
       // else if ( flag == 3)
       } else if ( flag > 1) {
-        //pthread_join(pth[i],NULL);
+        pthread_join(pth[i],NULL);
     	printf("flag is NULL or equal 3\n");
     	flag = NULL;
     	//break;
