@@ -152,7 +152,7 @@ void* custom_realloc(void* ptr, size_t size){
 int DEBUG, DNSDUMP, DEBUGCURLTTL, DEBUGCURL, EXT_DEBUG, CNT_DEBUG, THR_DEBUG, LOCK_DEBUG;
 char* substring(char*, int, int);
 
-static int ttl_out_test = 60;
+static int ttl_out_test = 3600;
 static int size_test = 0;
 static char data_test = NULL;
 
@@ -640,28 +640,28 @@ struct dns_request *parse_dns_request(const char *udp_request, size_t request_le
     int total = 0;
 
     while (1) {
-        /* Length of the next label */
-        uint8_t len = udp_request[0];
-        if (len == 0) {
-            //str[k] = dns_req->query[k];
-            //str[0] = '\n';
-            udp_request++;
-            break;
-        }
-
+      /* Length of the next label */
+      uint8_t len = udp_request[0];
+      if (len == 0) {
+        //str[k] = dns_req->query[k];
+        //str[0] = '\n';
         udp_request++;
-        
-        if (dns_req->hostname_len + len >=  sizeof(dns_req->hostname)) {
-	        if (DNSDUMP) { printf(" *** CORE: size issue ! Maybe due to TCP request ?\n"); }
-            //free(dns_req);
-            return NULL;
-        }
+        break;
+      }
 
-        strncat(dns_req->hostname, udp_request, len);   /* Append the current label to dns_req->hostname */
-        strncat(dns_req->hostname, ".", 1);             /* Append a dot '.' */
-        dns_req->hostname_len+=len+1;
-        dots++;
-        udp_request+=len;
+      udp_request++;
+      
+      if (dns_req->hostname_len + len >=  sizeof(dns_req->hostname)) {
+        if (DNSDUMP) { printf(" *** CORE: size issue ! Maybe due to TCP request ?\n"); }
+        //free(dns_req);
+        return NULL;
+      }
+
+      strncat(dns_req->hostname, udp_request, len);   /* Append the current label to dns_req->hostname */
+      strncat(dns_req->hostname, ".", 1);             /* Append a dot '.' */
+      dns_req->hostname_len+=len+1;
+      dots++;
+      udp_request+=len;
     }
 
     /* Qtype */
@@ -791,12 +791,12 @@ void build_dns(int sd, struct sockaddr_in *yclient, struct dns_request *dns_req,
 
   if (DEBUG) {
           printf("\n");
-          printf("-> BUILD-xrequestlen			: %d\n", (uint32_t)(xrequestlen));
-          printf("-> BUILD-ttl				: %d\n", (uint32_t)(ttl));
-          printf("-> BUILD-xtcpoff			: %d\n", (uint32_t)(xtcpoff));
-          printf("-> BUILD-Xsockfd			: %u\n", xsockfd);
-          printf("-> BUILD- sockfd			: %d\n", sockfd);
-          printf("-> BUILD-proto				: %d\n", protoq);
+          printf("-> BUILD-xrequestlen		: %d\n", (uint32_t)(xrequestlen));
+          printf("-> BUILD-ttl			: %d\n", (uint32_t)(ttl));
+          printf("-> BUILD-xtcpoff		: %d\n", (uint32_t)(xtcpoff));
+          printf("-> BUILD-Xsockfd		: %u\n", xsockfd);
+          printf("-> BUILD- sockfd		: %d\n", sockfd);
+          printf("-> BUILD-proto		: %d\n", protoq);
   }
 
   response = malloc(UDP_DATAGRAM_SIZE);
@@ -863,18 +863,18 @@ void build_dns(int sd, struct sockaddr_in *yclient, struct dns_request *dns_req,
 
       if (DNSDUMP) {
         printf(" *** TCP SENT %d bytes of finalresponse\n", finalresponse - finalresponse_ptr);
-        printf(" *** DUMP of (finalresponse_ptr, response - response_ptr)\n");
+        printf(" *** DUMP of (finalresponse_ptr, LENGTH response - response_ptr)\n");
       	hexdump(finalresponse_ptr, response - response_ptr);
         printf(" *** TCP SENT %d bytes of finalresponse (including +2 for TCP)\n", finalresponse - finalresponse_ptr);
-        printf(" *** DUMP of (finalresponse_ptr, finalresponse - finalresponse_ptr)\n");
+        printf(" *** DUMP of (finalresponse_ptr, LENGTH finalresponse - finalresponse_ptr)\n");
         hexdump(finalresponse_ptr, finalresponse - finalresponse_ptr);
       }
     }
 
     /* dump to udpwireformat */
     if (DNSDUMP) {
-      printf(" *** XXX SENT %d bytes of response\n", response - response_ptr);
-      printf(" *** DUMP of (response_ptr, OF LENGTH OF response - response_ptr)\n"); 
+      printf(" *** UDP SENT %d bytes of response\n", response - response_ptr);
+      printf(" *** DUMP of (response_ptr, LENGTH response - response_ptr)\n"); 
       hexdump(response_ptr, response - response_ptr);
     }
 
@@ -1371,7 +1371,7 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
     }
 
     /*
-     * DUMMY ADDITIONAL SECTION
+     * DUMMY ADDITIONAL SECTION (trailing ?)
         *response++ = 0x00; *response++ = 0x00; *response++ = 0x29; *response++ = 0x10;
         *response++ = 0x00; *response++ = 0x00; *response++ = 0x00; *response++ = 0x00;
         *response++ = 0x00; *response++ = 0x00; *response++ = 0x00;
@@ -1417,20 +1417,18 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
 
     // NOT USEFUL TO USE A WHILE-LOOP (got from CURLLIB examples)
     while(!feof(stdin)){
-        //count = fread(buff, sizeof(char), sizeof(buff) / sizeof(char), stdin);
-    	count = sizeof(response);
+      //count = fread(buff, sizeof(char), sizeof(buff) / sizeof(char), stdin);
+      count = sizeof(response);
 
-        for(i = 0; i < count; i++)
-        {
-            line_length += sprintf(curr_out, "%#x, ", buff[i]);
+      for(i = 0; i < count; i++) {
+        line_length += sprintf(curr_out, "%#x, ", buff[i]);
 
-            fprintf(fout, "%s", curr_out);
-            if(line_length >= MAX_LENGTH - offset_length)
-            {
-                fprintf(fout, "\n%s", offset_spc);
-                line_length = 0;
-            }
+        fprintf(fout, "%s", curr_out);
+        if(line_length >= MAX_LENGTH - offset_length) {
+          fprintf(fout, "\n%s", offset_spc);
+          line_length = 0;
         }
+      }
     }
     
     fseek(fout, -2, SEEK_CUR);
@@ -1493,6 +1491,7 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
     } else if (protoq == 1) {
       bytes_sent_tcp = sendto(sd, finalresponse_ptr, finalresponse - finalresponse_ptr, MSG_DONTWAIT, (struct sockaddr *)yclient, 16);
       wait(bytes_sent_tcp); 
+      // 20200220 - GEFAM MAX FANTUZZI - WARNING !
       shutdown(sd,SHUT_RD);
       close(sd);
       free(response_ptr);
@@ -1858,13 +1857,13 @@ static int my_trace(CURL *handle, curl_infotype type, char *data, size_t size, s
               if ( isdigit(*p) || ( (*p=='-'||*p=='+') && isdigit(*(p+1)) )) {
                 long val = strtol(p, &p, 10); // Read number
                 if (maxagevaluefound == 0) {
-                    //printf("FOUND CORRECT HEADER (not s-maxage) !\n");
+                    //printf(" *** FOUND CORRECT HEADER (not s-maxage) !\n");
                     set_ttl(val);
                     //ttl_out_test = 666;
                     //userp = val;
                     if (DEBUGCURL) {
                         printf(" *** max-age token: %ld\n", val);
-                        printf(" *** get_ttl token: %d\n",get_ttl());
+                        printf(" *** get_ttl token: %d\n", get_ttl());
                         //dumptwo(text, stderr, (unsigned char *)data, size, config->trace_ascii);
                     }
                 }
@@ -2091,15 +2090,13 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
   num_transfers = 1;
   //if(!num_transfers || (num_transfers > NUM_HANDLES))
 
-  /* curl setup */
-  /* read: https://curl.haxx.se/libcurl/c/threadsafe.html to implement sharing and locks between threads */
+  /* curl setup, read: https://curl.haxx.se/libcurl/c/threadsafe.html to implement sharing and locks between threads */
   /* set specific nifty options for multi handlers or none at all */
   //ch = curl_easy_init();
-
   hnd = curl_easy_init();
   //setup(hnd,script_url);
 
-  //20191206 - mfantuzzi - TODO
+  //20200220 - GEFAM MAX FANTUZZI - TODO
   /* placeholder for DNS-over-HTTPS (DoH) GET or POST method of choice, to become CLI option ASAP */
   //curl_setopt($ch,CURLOPT_POST,1);
   //curl_setopt($ch,CURLOPT_POSTFIELDS,'customer_id='.$cid.'&password='.$pass);
@@ -2451,12 +2448,14 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
   /* ret on (hnd) is the H2 cousin of original ret used above for (ch). This section has been commented out */
   //if (!(host == NULL) && !(host == "") && !(host == ".") && !(host == "(null)"))
   if (sizeof(host) > 3 ) {
-    printf(" *** VALID HOST\t : '%s'\n", host);
-    ret = curl_easy_perform(hnd);
+    printf(" *** VALID HOST		: '%s'\n", host);
+    res = curl_easy_perform(hnd);
     //ret = curl_multi_perform(multi_handle,&still_running);
-    if(ret != CURLE_OK) { fprintf(stderr, "curl_easy_perform() failed: %s\n", curl_easy_strerror(ret)); }
+    if(res != CURLE_OK) { fprintf(stderr, "curl_easy_perform() failed: %s\n", curl_easy_strerror(res)); }
     //if(ret != CURLE_OK) { fprintf(stderr, " *** CURL: curl_multi_perform() failed: %s\n", curl_multi_strerror(ret)); } //else { printf("\n *** MULTI -> OK !\n"); }
-    printf(" *** OBTAINED VALUE\t : '%s'\n", ret);
+    printf(" *** http_response		: '%x'\n", http_response);
+    printf(" *** ret			: '%d'\n", res);
+    printf(" *** OBTAINED VALUE		: '%s'\n", ret);
     //free(host);
     return;
   } else {
@@ -2466,13 +2465,12 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
   
   /* Problem performing request */
   if (ret < 0) {
-    fprintf(stderr, "Error performing HTTP request (Error %d) - spot on !!!\n", ret);
+    fprintf(stderr, " *** Error performing HTTP request (Error %d) - spot on !!!\n", ret);
     free(script_url);
     curl_slist_free_all(list);
 
     //curl_slist_free_all(hosting);
     //curl_share_cleanup(curlsh);
-
     //printf("%s\n",http_response);
 
     free(n);
@@ -2557,12 +2555,12 @@ void *threadFunc(void *arg) {
   //struct dns_request *xrfcstring = (struct dns_request *)params->xrfcstring;
   
   char *rip = malloc(256 * sizeof(char)),
+       *www = malloc(256 * sizeof(char)),
        *ip = NULL,
        *yhostname = (char *)params->xhostname->hostname;
-       //*www = malloc(256 * sizeof(char)),
 
-  char www[4096];
-  www == NULL;
+  //char www[4096];
+  //www == NULL;
   
   pthread_key_t key_i;
   pthread_key_create(&key_i, NULL);
@@ -2588,8 +2586,8 @@ void *threadFunc(void *arg) {
 
   if (!(params->xhostname->hostname == NULL) && !(yhostname == NULL)) {
     //rip = lookup_host(yhostname, proxy_host_t, proxy_port_t, proxy_user_t, proxy_pass_t, lookup_script, typeq, wport, params->xhostname->rfcstring);
-    rip = lookup_host(yhostname, proxy_host_t, proxy_port_t, proxy_user_t, proxy_pass_t, lookup_script, typeq, wport, rfcstring);
-    //www = lookup_host(yhostname, proxy_host_t, proxy_port_t, proxy_user_t, proxy_pass_t, lookup_script, typeq, wport, rfcstring);
+    //rip = lookup_host(yhostname, proxy_host_t, proxy_port_t, proxy_user_t, proxy_pass_t, lookup_script, typeq, wport, rfcstring);
+    www = lookup_host(yhostname, proxy_host_t, proxy_port_t, proxy_user_t, proxy_pass_t, lookup_script, typeq, wport, rfcstring);
 
     yhostname == NULL;
     params->xhostname->hostname == NULL;
@@ -2621,13 +2619,13 @@ void *threadFunc(void *arg) {
   //printf("building for: %s", inet_ntop(AF_INET, &ip_header->saddr, ipbuf, sizeof(ipbuf)));
   
   if (EXT_DEBUG) {
-    printf("\n *** ANSWER MODE : %d", DNS_MODE_ANSWER);
-    printf("\n *** DOH retcode : %d", ret);
-    //printf("\n *** DOH content : [%s]\n",rip);
-    //printf("\n *** DOH www     : [%s]\n",www);
-    //printf("\n *** DOH r size  : %d",get_size());
-    printf("\n *** base64url   : %s",b64_encode(params->xhostname->rfcstring,sizeof(params->xhostname)+request_len-31));
-    //printf("\n *** base64url   : %s",b64_encode(params->xhostname->rfcstring,sizeof(params->xhostname)+request_len-19));
+    printf("\n *** ANSWER MODE		: %d", DNS_MODE_ANSWER);
+    printf("\n *** DOH retcode		: %d", ret);
+    //printf("\n *** DOH content	: [%s]\n",rip);
+    //printf("\n *** DOH www		: [%s]\n",www);
+    //printf("\n *** DOH r size		: %d",get_size());
+    printf("\n *** base64url		: %s",b64_encode(params->xhostname->rfcstring,sizeof(params->xhostname)+request_len-31));
+    //printf("\n *** base64url		: %s",b64_encode(params->xhostname->rfcstring,sizeof(params->xhostname)+request_len-19));
 
     /*
     printf("THREAD-proxy-host			: %s\n", params->xproxy_host);
@@ -2664,9 +2662,9 @@ void *threadFunc(void *arg) {
   if (www != NULL) {
     if (DEBUG) {
         printf("\n");
-	    printf(" *** THREAD qsize				: %u\n", (uint32_t)request_len);
-	    printf(" *** THREAD typeq				: %s\n", typeq);
-	    printf(" *** THREAD dns_req->qtype		: %d\n", dns_req->qtype);
+	    printf(" *** THREAD qsize		: %u\n", (uint32_t)request_len);
+	    printf(" *** THREAD typeq		: %s\n", typeq);
+	    printf(" *** THREAD dns_req->qtype	: %d\n", dns_req->qtype);
 	    /*
 	    printf("THREAD V-socket-Xsockfd			: %u\n", xsockfd);
 	    printf("THREAD V-socket- sockfd			: %u\n", sockfd);
@@ -2801,137 +2799,137 @@ int main(int argc, char *argv[]) {
   switch (c)
    {
       case 't':
-          stack_size = strtoul(optarg, NULL, 0);
-          fprintf(stdout," *** Stack size %d\n",stack_size);
+        stack_size = strtoul(optarg, NULL, 0);
+        fprintf(stdout," *** Stack size %d\n",stack_size);
       break;
 
       case 'Z':
-          tcp_z_offset = atoi(optarg);
-          if (tcp_z_offset <= 0) {
-              fprintf(stdout," *** Invalid TCP offset !\n");
-              exit(EXIT_FAILURE);
-          } else {
-              fprintf(stdout," *** TCP offset set to %d\n",tcp_z_offset);
-          }
+        tcp_z_offset = atoi(optarg);
+        if (tcp_z_offset <= 0) {
+            fprintf(stdout," *** Invalid TCP offset !\n");
+            exit(EXIT_FAILURE);
+        } else {
+            fprintf(stdout," *** TCP offset set to %d\n",tcp_z_offset);
+        }
       break;
 
       case 'p':
-          port = atoi(optarg);
-          if (port <= 0) {
-              fprintf(stdout," *** Invalid local port\n");
-              exit(EXIT_FAILURE);
-          }
+        port = atoi(optarg);
+        if (port <= 0) {
+            fprintf(stdout," *** Invalid local port\n");
+            exit(EXIT_FAILURE);
+        }
       break;
 
       case 'w':
-          wport = atoi(optarg);
-          if (wport <= 0) {
-              fprintf(stdout," *** Invalid webserver port\n");
-              printf(" *** Invalid webserver port: %d\n", wport);
-              exit(EXIT_FAILURE);
-          }
+        wport = atoi(optarg);
+        if (wport <= 0) {
+            fprintf(stdout," *** Invalid webserver port\n");
+            printf(" *** Invalid webserver port: %d\n", wport);
+            exit(EXIT_FAILURE);
+        }
       break;
 
       case 'r':
-          proxy_port = atoi(optarg);
-          if ((proxy_port <= 0) || (proxy_port >= 65536)) {
-              fprintf(stdout," *** Invalid proxy port\n");
-              exit(EXIT_FAILURE);
-          }
+        proxy_port = atoi(optarg);
+        if ((proxy_port <= 0) || (proxy_port >= 65536)) {
+            fprintf(stdout," *** Invalid proxy port\n");
+            exit(EXIT_FAILURE);
+        }
       break;
               
-      case 'Q':
-          DEBUGCURLTTL = 1;
-          fprintf(stderr," *** CURL DRIVEN TTL .... ON\n");
-      break;
-
       case 'C':
-          DEBUGCURL = 1;
-          fprintf(stderr," *** VERBOSE CURL ....... ON\n");
+        DEBUGCURL = 1;
+        fprintf(stderr," *** CURL-VERBOSE ....... ON\n");
       break;
 
       case 'L':
-          LOCK_DEBUG = 1;
-          fprintf(stderr," *** LOCK DEBUG ......... ON\n");
-      break;
-
-      case 'X':
-          EXT_DEBUG = 1;
-          fprintf(stderr," *** EXTENDED DEBUG ..... ON\n");
+        LOCK_DEBUG = 1;
+        fprintf(stderr," *** WITH LOCK DEBUG .... ON\n");
       break;
       
+      case 'Q':
+        DEBUGCURLTTL = 1;
+        fprintf(stderr," *** CURL-THE-TTL ....... ON\n");
+      break;
+
       case 'R':
-          THR_DEBUG = 1;
-          fprintf(stderr," *** THREAD DEBUG ....... ON\n");
+        THR_DEBUG = 1;
+        fprintf(stderr," *** WITH THREAD DEBUG .. ON\n");
       break;
       
       case 'N':
-          CNT_DEBUG = 1;
-          fprintf(stderr," *** COUNTERS ........... ON\n");
+        CNT_DEBUG = 1;
+        fprintf(stderr," *** WITH COUNTERS ...... ON\n");
       break;
 
       case 'v':
-          DEBUG = 1;
-          fprintf(stderr," *** BASE DEBUG.......... ON\n");
+        DEBUG = 1;
+        fprintf(stderr," *** WITH DEBUG ......... ON\n");
+      break;
+
+      case 'X':
+        EXT_DEBUG = 1;
+        fprintf(stderr," *** EXTENDED DEBUG ..... ON\n");
       break;
 
       case 'T':
-          ttl_in = atoi(optarg);
-          if ((ttl_in >= 2147483648) || (ttl_in <= 0) )  {
-            fprintf(stdout," *** Invalid TTL set. Please choose a value between 1 and 2147483647 seconds ...\n");
-            exit(EXIT_FAILURE);
-          }
-          fprintf(stdout," *** Response TTL set to dec %d / hex %x. 4 bytes field, 0-2147483647 sec (RFC2181) ***\n",ttl_in,ttl_in);
+        ttl_in = atoi(optarg);
+        if ((ttl_in >= 2147483648) || (ttl_in <= 0) )  {
+          fprintf(stdout," *** Invalid TTL set. Please choose a value between 1 and 2147483647 seconds ...\n");
+          exit(EXIT_FAILURE);
+        }
+        fprintf(stdout," *** Response TTL set to dec %d / hex %x. 4 bytes field, 0-2147483647 sec (RFC2181) ***\n",ttl_in,ttl_in);
       break;
 
       case 'n':
-          DNSDUMP = 1;
-          fprintf(stderr," *** HEX DNSDUMP ........ ON\n");
+        DNSDUMP = 1;
+        fprintf(stderr," *** HEX DNSDUMP ........ ON\n");
       break;
       
       case 'l':
-          bind_address = (char *)optarg;
+        bind_address = (char *)optarg;
       break;
 
       case 'H':
-          proxy_host = (char *)optarg;
+        proxy_host = (char *)optarg;
       break;
 
       case 'u':
-          proxy_user = (char *)optarg;
+        proxy_user = (char *)optarg;
       break;
 
       case 'k':
-          proxy_pass = (char *)optarg;
+        proxy_pass = (char *)optarg;
       break;
 
       case 's':
-          lookup_script = (char *)optarg;
+        lookup_script = (char *)optarg;
       break;
 
       case 'h':
-          usage();
+        usage();
       break;
 
       case '?':
-          if (optopt == 'p')
-              fprintf(stderr," *** Invalid local port\n");
-          else 
-          if (optopt == 'w')
-              fprintf(stderr," *** Invalid webserver port\n");
-          else 
-          if (optopt == 'r')
-              fprintf(stderr," *** Invalid proxy port\n");
-          else 
-          if (optopt == 's')
-              fprintf(stderr," *** Invalid lookup script URL\n");
-          else 
-          if  (optopt == 't')
-              fprintf(stderr," *** Invalid stack size\n");
-          else
-          if (isprint(optopt))
-              fprintf(stderr," *** Invalid option -- '%c'\n", optopt);
-          usage();
+        if (optopt == 'p')
+            fprintf(stderr," *** Invalid local port\n");
+        else 
+        if (optopt == 'w')
+            fprintf(stderr," *** Invalid webserver port\n");
+        else 
+        if (optopt == 'r')
+            fprintf(stderr," *** Invalid proxy port\n");
+        else 
+        if (optopt == 's')
+            fprintf(stderr," *** Invalid URL\n");
+        else 
+        if  (optopt == 't')
+            fprintf(stderr," *** Invalid stack size\n");
+        else
+        if (isprint(optopt))
+            fprintf(stderr," *** Invalid option -- '%c'\n", optopt);
+        usage();
       break;
       
       default:
@@ -3189,8 +3187,8 @@ int main(int argc, char *argv[]) {
 
     //}
 
-    //if ((accept(fd, (struct sockaddr *) &serv_addr, sizeof(serv_addr))) < 0) { printf("\nERROR IN INITIAL ACCEPT\n"); close(fd); } else { printf("\nNO ERROR IN INITIAL ACCEPT\n"); }
-    //if ((accept(fd, (struct sockaddr *) &client, sizeof(&client))) < 0) { printf("\nERROR IN ACCEPT\n"); //close(fd); } else { printf("\nNO ERROR IN ACCEPT\n"); }
+    //if ((accept(fd, (struct sockaddr *) &serv_addr, sizeof(serv_addr))) < 0) { printf("\nE INIT ACCEPT\n"); close(fd); } else { printf("\nNOERR INIT ACCEPT\n"); }
+    //if ((accept(fd, (struct sockaddr *) &client, sizeof(&client))) < 0) { printf("\nE ACCEPT\n"); //close(fd); } else { printf("\nNOERR ACCEPT\n"); }
     
     /* Allocate stack for child */
     stack = malloc(STACK_SIZE);
@@ -3249,7 +3247,6 @@ int main(int argc, char *argv[]) {
 
       if (request_len == -1) {
         flag = 1;
-        //if (CNT_DEBUG) { fprintf(stderr, " *** QUANTITY TCP: %x - %d\n", request_tcp, request_len_tcp); }
 
         /* critical section */
         if ((request_len_tcp == -1)) {
@@ -3341,7 +3338,7 @@ int main(int argc, char *argv[]) {
       } else {
     	
         flag = 3;
-        fprintf(stderr," *** OUT ***\n");
+        //fprintf(stderr," *** OUT ***\n");
         fprintf(stderr," *** flag is NULL (3). closing fd and newsockfd\n");
         readParams->xhostname = NULL;
         close(newsockfd);
@@ -3355,7 +3352,7 @@ int main(int argc, char *argv[]) {
       }
 
       //flag = 1;
-      fprintf(stderr," *** OUT ***\n");
+      //fprintf(stderr," *** OUT ***\n");
 
       /*
       if ((dns_req == NULL) || (dns_req_tcp == NULL)) {
@@ -3471,7 +3468,7 @@ int main(int argc, char *argv[]) {
       //if ((!(readParams->xhostname == NULL)) || (!(readParams->xhostname->hostname == NULL))) 
 
       if ((dns_req->hostname == NULL) && (dns_req_tcp->hostname == NULL)) {
-    	printf(" *** BINGO ! Met no-host condition. flag: %d, count TCP: %d, count UDP: %d\n",flag,cnt,cntudp);
+    	printf(" *** BINGO ! Met no-host condition. \n ### flag: %d, TCP: %d, UDP: %d\n",flag,cnt,cntudp);
     	flag = NULL;
     	//return;
     	break;
@@ -3479,7 +3476,7 @@ int main(int argc, char *argv[]) {
 
       if (DNSDUMP) {
         printf("hostname\t : %s\n", readParams->xhostname->hostname);
-        //printf("readParams->xrfcstring c	        : %c\n", readParams->xrfcstring);
+        //printf("readParams->xrfcstring c	      : %c\n", readParams->xrfcstring);
         //printf("readParams->xhostname->rfcstring c  : %c\n", readParams->xhostname->rfcstring);
       }
 
@@ -3493,7 +3490,7 @@ int main(int argc, char *argv[]) {
       //int errore = pthread_create(&tid[i], NULL, threadFunc, &data_array[i]);
       //if (i=sizeof(pth)) { i = 0 ;}
     
-      if (CNT_DEBUG) { printf(" ### flag: %d, count TCP: %d, count UDP: %d ###\n",flag,cnt,cntudp); }
+      if (CNT_DEBUG) { printf(" ### flag: %d, TCP: %d, UDP: %d ###\n",flag,cnt,cntudp); }
 
       if (pthread_mutex_trylock(&mutex)) {
         /* Spin the well-instructed thread ! */
@@ -3526,7 +3523,7 @@ int main(int argc, char *argv[]) {
       	  //fprintf(stderr, " ### OK %d\n", i);
         }
     
-	// WARNING !
+	// 20200220 - GEFAM MAX FANTUZZI - WARNING !
         //pthread_join(pth[i],NULL); /* joining is the trick */
         pthread_join(pth[r],NULL); /* joining is the trick */
 
@@ -3543,6 +3540,7 @@ int main(int argc, char *argv[]) {
           fprintf(stderr, "---> OUTSIDE-THREAD-log: size %d\n",request_len);
           fprintf(stderr, "---> Finished joining thread i-> %d, nnn-> %d, r-> %d \n",i,nnn,r);
         }
+
         i++;
         nnn++;
       }
@@ -3553,7 +3551,7 @@ int main(int argc, char *argv[]) {
       //if (i != 0) { i=0;}
       //if (!(flag == 3))
       
-      // WARNING !
+      // 20200220 GEFAM MAX FANTUZZI - WARNING !
       pthread_join(pth[i],NULL);
      
       /* trying to re-enable this logic, continue() shouldn't be prepended to pthread_setspecific() */
@@ -3621,7 +3619,6 @@ int main(int argc, char *argv[]) {
       if (THR_DEBUG) { fprintf(stderr, "---> Finished joining thread i-> %d, nnn-> %d \n",i,nnn); }
       continue;
       //exit(EXIT_FAILURE); // did we ?
-      //exit(EXIT_SUCCESS);
     }
   }
 }
