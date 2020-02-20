@@ -2,7 +2,7 @@ CC      = gcc
 CFLAGS  = -O2 -Wall -W -pedantic -g -rdynamic
 FLAG    = -DTLS
 CFLAGS += $(FLAG)
-LIBS    = -lcurl -lrt -lnghttp2 -lssl -lbrotlidec -lz -lcrypto -l pthread
+LIBS    = -lcurl -lrt -lnghttp2 -lssl -lbrotlidec -lz -lcrypto -lpthread
 #LIBS    = -L/usr/local/lib -lcurl -lrt -lnghttp2 -lssl -lbrotlidec -lz -lcrypto -l pthread
 
 #CFLAGS  = -std=c99 -O2 -Wall -W -pedantic -g -rdynamic

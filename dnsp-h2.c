@@ -583,9 +583,9 @@ struct dns_request *parse_dns_request(const char *udp_request, size_t request_le
     if (proton  == 1) {
       dns_req = malloc(sizeof(struct dns_request) + 2);
       if (EXT_DEBUG) {
-        printf(" *** TCP .. sizeof(udp_request) IN	: (%08x) // (%d)\n", (uint8_t) sizeof(udp_request),sizeof(udp_request));
-    	printf(" *** TCP .. strlen(udp_request) IN	: (%08x) // (%d)\n", (uint8_t) strlen(udp_request),strlen(udp_request));
-        printf(" *** TCP .... dns_req->tcp_size IN	: (%08x) // (%d)\n", (uint8_t) dns_req->tcp_size,dns_req->tcp_size);
+        printf(" *** TCP .. sizeof(udp_request)	: (%08x) // (%d)\n", (uint8_t) sizeof(udp_request),sizeof(udp_request));
+    	printf(" *** TCP .. strlen(udp_request)	: (%08x) // (%d)\n", (uint8_t) strlen(udp_request),strlen(udp_request));
+        printf(" *** TCP .... dns_req->tcp_size	: (%08x) // (%d)\n", (uint8_t) dns_req->tcp_size,dns_req->tcp_size);
       }
       //udp_request//response[1] = (uint8_t)(dns_req->transaction_id >> 8);
       dns_req->tcp_size = (uint8_t)udp_request[1] + (uint16_t)(udp_request[0] << 8);
@@ -593,9 +593,9 @@ struct dns_request *parse_dns_request(const char *udp_request, size_t request_le
     } else {
       dns_req = malloc(sizeof(struct dns_request));
       if (EXT_DEBUG) {
-    	 printf(" *** UDP .. sizeof(udp_request) IN	: (%08x) // (%d)\n", (uint8_t) sizeof(udp_request),sizeof(udp_request));
-    	 printf(" *** UDP .. strlen(udp_request) IN	: (%08x) // (%d)\n", (uint8_t) strlen(udp_request),strlen(udp_request));
-    	 printf(" *** UDP .... dns_req->udp_size IN	: (%08x) // (%d)\n", (uint8_t) dns_req->tcp_size,dns_req->tcp_size);
+    	printf(" *** UDP .. sizeof(udp_request)	: (%08x) // (%d)\n", (uint8_t) sizeof(udp_request),sizeof(udp_request));
+    	printf(" *** UDP .. strlen(udp_request)	: (%08x) // (%d)\n", (uint8_t) strlen(udp_request),strlen(udp_request));
+    	printf(" *** UDP .... dns_req->udp_size	: (%08x) // (%d)\n", (uint8_t) dns_req->tcp_size,dns_req->tcp_size);
       }
     }
 
@@ -729,7 +729,7 @@ struct dns_request *parse_dns_request(const char *udp_request, size_t request_le
     //str[0] = (uint8_t)(dns_req->qclass >> 8);
     //str[1] = (uint8_t)dns_req->qclass;
 
-    /*
+	/*
     printf("\n--- TEST ---\n");
     for (int f=0;f<sizeof(udp_request);f++) {
       r = base64url_encode_ingest(&s, udp_request[f]);
@@ -737,7 +737,7 @@ struct dns_request *parse_dns_request(const char *udp_request, size_t request_le
       if (r > 0) printf("%c", base64url_encode_getc(&s));
     }
     for (;;) { r = base64url_encode_finish(&s); if (r < 0) return -1; if (r == 0) break; printf("%c", base64url_encode_getc(&s)); }
-    */
+	*/
 
     printf("-----\n");
     //printf("q len rq-q      : %s\n",b64_encode(dns_req->query,strlen(dns_req->query)));
@@ -796,7 +796,7 @@ void build_dns(int sd, struct sockaddr_in *yclient, struct dns_request *dns_req,
           printf("-> BUILD-xtcpoff		: %d\n", (uint32_t)(xtcpoff));
           printf("-> BUILD-Xsockfd		: %u\n", xsockfd);
           printf("-> BUILD- sockfd		: %d\n", sockfd);
-          printf("-> BUILD-proto		: %d\n", protoq);
+          printf("-> BUILD-proto			: %d\n", protoq);
   }
 
   response = malloc(UDP_DATAGRAM_SIZE);
@@ -2448,7 +2448,7 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
   /* ret on (hnd) is the H2 cousin of original ret used above for (ch). This section has been commented out */
   //if (!(host == NULL) && !(host == "") && !(host == ".") && !(host == "(null)"))
   if (sizeof(host) > 3 ) {
-    printf(" *** VALID HOST		: '%s'\n", host);
+    printf(" *** VALID HOST			: '%s'\n", host);
     res = curl_easy_perform(hnd);
     //ret = curl_multi_perform(multi_handle,&still_running);
     if(res != CURLE_OK) { fprintf(stderr, "curl_easy_perform() failed: %s\n", curl_easy_strerror(res)); }
@@ -2576,12 +2576,12 @@ void *threadFunc(void *arg) {
   if (EXT_DEBUG) {
     char *s = inet_ntoa(yclient->sin_addr);
     //char *p = &xclient->sin_addr.s_addr;
-    //printf("params->xhostname			: %s\n",(char *)params->xhostname);
-    //printf("VARIABLE sin_addr			: %d\n", (uint32_t)(yclient->sin_addr).s_addr);
-    //printf("yhostname				: %s\n", yhostname);
-    printf("params->xhostname->hostname		: %s\n",(char *)params->xhostname->hostname);
-    printf("proto					: %d\n",params->xproto);
-    printf("VARIABLE sin_addr human-readable	: %s\n", s);
+    //printf("params->xhostname		: %s\n",(char *)params->xhostname);
+    //printf("VARIABLE sin_addr		: %d\n", (uint32_t)(yclient->sin_addr).s_addr);
+    //printf("yhostname			: %s\n", yhostname);
+    printf(" *** params->xhost->host	: %s\n",(char *)params->xhostname->hostname);
+    printf(" *** proto			: %d\n",params->xproto);
+    printf(" *** sin_addr readable		: %s\n", s);
   }
 
   if (!(params->xhostname->hostname == NULL) && !(yhostname == NULL)) {
@@ -2624,7 +2624,7 @@ void *threadFunc(void *arg) {
     //printf("\n *** DOH content	: [%s]\n",rip);
     //printf("\n *** DOH www		: [%s]\n",www);
     //printf("\n *** DOH r size		: %d",get_size());
-    printf("\n *** base64url		: %s",b64_encode(params->xhostname->rfcstring,sizeof(params->xhostname)+request_len-31));
+    printf("\n *** base64url			: %s",b64_encode(params->xhostname->rfcstring,sizeof(params->xhostname)+request_len-31));
     //printf("\n *** base64url		: %s",b64_encode(params->xhostname->rfcstring,sizeof(params->xhostname)+request_len-19));
 
     /*
@@ -3271,7 +3271,7 @@ int main(int argc, char *argv[]) {
           }
           */
 	  
-          if (CNT_DEBUG) { fprintf(stderr, " *** QUANTITY TCP: %x - %d\n", request_tcp, request_len_tcp); }
+          if (CNT_DEBUG) { fprintf(stderr, " *** QUANTITY TCP		: %x - %d\n", request_tcp, request_len_tcp); }
 
         } else {
 
@@ -3325,7 +3325,7 @@ int main(int argc, char *argv[]) {
 
         flag = 0;
         dns_req = parse_dns_request(request, request_len, 0, 0);
-        if (CNT_DEBUG) { fprintf(stderr, " *** QUANTITY UDP: %x - %d\n", request, request_len); }
+        if (CNT_DEBUG) { fprintf(stderr, " *** QUANTITY UDP		: %x - %d\n", request, request_len); }
 
         readParams->sockfd = sockfd;
         readParams->xproto = 0;
@@ -3383,8 +3383,8 @@ int main(int argc, char *argv[]) {
         }
         // else { { dns_req->qtype == 0xff;} }
     	if (EXT_DEBUG) {
-          printf(" *** TCP query type: %x // %d\r\n",dns_req_tcp->qtype,dns_req_tcp->qtype);
-          printf(" *** TCP trans ID  : %x // %d\r\n",dns_req_tcp->transaction_id,dns_req_tcp->transaction_id);
+          printf(" *** TCP query type		: %x // %d\r\n",dns_req_tcp->qtype,dns_req_tcp->qtype);
+          printf(" *** TCP trans ID		: %x // %d\r\n",dns_req_tcp->transaction_id,dns_req_tcp->transaction_id);
     	}
       } else if (flag == 0) {
         if (dns_req->qtype == 0x02) {
@@ -3400,8 +3400,8 @@ int main(int argc, char *argv[]) {
         }
         // else { { dns_req->qtype == 0xff;} }
     	if (EXT_DEBUG) {
-          printf(" *** UDP query type: %x // %d\r\n",dns_req->qtype,dns_req->qtype);
-          printf(" *** UDP trans ID  : %x // %d\r\n",dns_req->transaction_id,dns_req->transaction_id);
+          printf(" *** UDP query type		: %x // %d\r\n",dns_req->qtype,dns_req->qtype);
+          printf(" *** UDP trans ID		: %x // %d\r\n",dns_req->transaction_id,dns_req->transaction_id);
 	    }
       // else if ( flag == 3)
       } else if ( flag > 1) {
@@ -3475,7 +3475,7 @@ int main(int argc, char *argv[]) {
       }
 
       if (DNSDUMP) {
-        printf("hostname\t : %s\n", readParams->xhostname->hostname);
+        printf(" *** hostname			: %s\n", readParams->xhostname->hostname);
         //printf("readParams->xrfcstring c	      : %c\n", readParams->xrfcstring);
         //printf("readParams->xhostname->rfcstring c  : %c\n", readParams->xhostname->rfcstring);
       }
