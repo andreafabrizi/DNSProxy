@@ -460,8 +460,7 @@ unsigned reverse_general(unsigned val, int bits, int base) {
 void usage(void) {
     fprintf(stderr, "\n dnsp-h2 %s, copyright 2010-2019 @ Massimiliano Fantuzzi HB9GUS, MIT License\n\n"
                        " usage: dnsp-h2 [-l <local_host_address>] [-p <local_port>] [-H <proxy_host>]\n"
-                       "\t[-r <proxy_port>] [-w <lookup_port>]\n"
-                       "\t-s <HTTP_URL_of_DOH-DNS_lookup_script_or_resolving_service>\n"
+                       "\t[-r <proxy_port>] -s <DNS_lookup_resolving_service_URL> [-w <lookup_port>]\n"
                        "\n"
                        " OPTIONS:\n"
                        "  [ -l <IP/FQDN> ]\t Local server address\n"
@@ -1920,7 +1919,7 @@ static void setup(CURL *hndin, char *script_target) {
 
   curl_easy_setopt(hndin, CURLOPT_URL, q);
   curl_easy_setopt(hndin, CURLOPT_NOSIGNAL, 1L);
- 
+
   if (DEBUGCURLTTL) { curl_easy_setopt(hndin, CURLOPT_VERBOSE,  1); } else { curl_easy_setopt(hndin, CURLOPT_VERBOSE,  0); }
   
   //curl_easy_setopt(hndin, CURLOPT_WRITEDATA, (void *)&chunk);
@@ -1941,6 +1940,9 @@ static void setup(CURL *hndin, char *script_target) {
   curl_easy_setopt(hndin, CURLOPT_SSLENGINE_DEFAULT, 1L);
   // OCSP not always available on CloudFlare or other cloud providers (OK for Google's GCP, still need to test with AWS)
   curl_easy_setopt(hndin, CURLOPT_SSL_VERIFYSTATUS, 0L);
+  
+  //curl_easy_setopt(hndin, CURLOPT_PROXY, proxy_host);
+  //curl_easy_setopt(hndin, CURLOPT_PROXYPORT, proxy_port);	
  
   #if (CURLPIPE_MULTIPLEX > 0)
     // wait for pipe connection to confirm
@@ -2425,6 +2427,14 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
   curl_easy_setopt(hnd, CURLOPT_DEBUGFUNCTION, my_trace);
   curl_easy_setopt(hnd, CURLOPT_DEBUGDATA, &config);
 
+  //if ((proxy_user != NULL) && (proxy_pass != NULL))
+  if ((proxy_host != NULL) && (proxy_port != NULL)) {
+	curl_easy_setopt(hnd, CURLOPT_PROXY, proxy_host);
+	curl_easy_setopt(hnd, CURLOPT_PROXYPORT, proxy_port);	
+  	curl_easy_setopt(hnd, CURLOPT_PROXYTYPE, CURLPROXY_HTTP);
+	printf(" *** proxy set !\n");
+  }
+
   /* URL PRINTING */
   if (DEBUG) {
       fprintf(stderr, " *** POST data  : N/A\n",n); 
@@ -2585,9 +2595,10 @@ void *threadFunc(void *arg) {
   }
 
   if (!(params->xhostname->hostname == NULL) && !(yhostname == NULL)) {
-    //rip = lookup_host(yhostname, proxy_host_t, proxy_port_t, proxy_user_t, proxy_pass_t, lookup_script, typeq, wport, params->xhostname->rfcstring);
+    rip = lookup_host(yhostname, proxy_host_t, proxy_port_t, proxy_user_t, proxy_pass_t, lookup_script, typeq, wport, params->xhostname->rfcstring);
     //rip = lookup_host(yhostname, proxy_host_t, proxy_port_t, proxy_user_t, proxy_pass_t, lookup_script, typeq, wport, rfcstring);
-    www = lookup_host(yhostname, proxy_host_t, proxy_port_t, proxy_user_t, proxy_pass_t, lookup_script, typeq, wport, rfcstring);
+    //www = lookup_host(yhostname, proxy_host_t, proxy_port_t, proxy_user_t, proxy_pass_t, lookup_script, typeq, wport, rfcstring);
+    //www = lookup_host(yhostname, proxy_host_t, proxy_port_t, proxy_user_t, proxy_pass_t, lookup_script, typeq, wport, params->xhostname->rfcstring);
 
     yhostname == NULL;
     params->xhostname->hostname == NULL;
@@ -2624,15 +2635,13 @@ void *threadFunc(void *arg) {
     //printf("\n *** DOH content	: [%s]\n",rip);
     //printf("\n *** DOH www		: [%s]\n",www);
     //printf("\n *** DOH r size		: %d",get_size());
-    printf("\n *** base64url			: %s",b64_encode(params->xhostname->rfcstring,sizeof(params->xhostname)+request_len-31));
+    printf("\n *** base64url			: %s\n",b64_encode(params->xhostname->rfcstring,sizeof(params->xhostname)+request_len-31));
     //printf("\n *** base64url		: %s",b64_encode(params->xhostname->rfcstring,sizeof(params->xhostname)+request_len-19));
 
-    /*
-    printf("THREAD-proxy-host			: %s\n", params->xproxy_host);
-    printf("THREAD-proxy-port			: %d\n", params->xproxy_port);
-    printf("THREAD-proxy-host			: %s\n", proxy_host_t);
-    printf("THREAD-proxy-port			: %d\n", proxy_port_t);
-    */
+    printf(" *** THREAD-xproxy-host			: %s\n", params->xproxy_host);
+    printf(" *** THREAD-xproxy-port			: %d\n", params->xproxy_port);
+    printf(" *** THREAD-proxy-host			: %s\n", proxy_host_t);
+    printf(" *** THREAD-proxy-port			: %d\n", proxy_port_t);
   }
   
   /* RIP vs WWW, different data presentation */
@@ -2939,12 +2948,12 @@ int main(int argc, char *argv[]) {
   }
 
   if (proxy_host != NULL) {
-      fprintf(stderr, " ### Yay !! Cache-acceleration enabled, a caching proxy was configured. ###\n");
-      fprintf(stderr, " ### Using proxy-host: %s ###\n",proxy_host);
+      fprintf(stderr, " *** Yay !! Cache-acceleration enabled, a caching proxy was configured.\n");
+      fprintf(stderr, " *** Using proxy-host: %s\n",proxy_host);
       //proxy_host = proxy_address;
       //fprintf(stderr, "Bind proxy string: %s\n",proxy_address);
   } else {
-      fprintf(stderr, " ### Running without cache-acceleration as no caching proxy was configured. ###\n");
+      fprintf(stderr, " *** Running without cache-acceleration as no caching proxy was configured.\n");
   }	
 
   if (bind_address == NULL) { bind_address = "127.0.0.1"; bind_address_tcp = "127.0.0.1"; }
@@ -3240,7 +3249,10 @@ int main(int argc, char *argv[]) {
       struct sockaddr_in *xclient, *yclient;
       struct readThreadParams *readParams = malloc(sizeof(*readParams));
 
-      // int xproxy_port = proxy_port; char* xproxy_user = proxy_user; char* xproxy_pass = proxy_pass; char* xproxy_host = proxy_host;
+      int xproxy_port = proxy_port;
+      char* xproxy_user = proxy_user;
+      char* xproxy_pass = proxy_pass;
+      char* xproxy_host = proxy_host;
 
       //if (dns_req == NULL) { flag = 0; }
       //if (dns_req_tcp == NULL) { flag = 1; } 
