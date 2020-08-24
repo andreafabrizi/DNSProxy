@@ -1937,10 +1937,10 @@ static int my_trace(CURL *handle, curl_infotype type, char *data, size_t size, v
     break;
   case CURLINFO_DATA_IN:
     text = "<= Recv data";
-    if ( DNSDUMP || DEBUGCURL ) {
+    if ( DNSDUMP ) {
       /* dumping response body */
       dump(text, num, (unsigned char *)data, size, 0);
-      hexdump(data, size);
+      //hexdump(data, size);
     }
     /* export response body into set_data */
     set_data(data);
