@@ -1,16 +1,19 @@
 /*
- * Copyright (c) 2010-2019 Massimiliano Fantuzzi HB3YOE/HB9GUS <superfantuz@gmail.com>
-
+ * 
+ * Copyright (c) 2010-2020 Massimiliano Fantuzzi HB3YOE/HB9GUS <superfantuz@gmail.com>
+ *
+ * MIT LICENSE
+ * 
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
  * in the Software without restriction, including without limitation the rights
  * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
  * copies of the Software, and to permit persons to whom the Software is
  * furnished to do so, subject to the following conditions:
-
+ * 
  * The above copyright notice and this permission notice shall be included in all
  * copies or substantial portions of the Software.
-
+ *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
  * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -18,7 +21,7 @@
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
-
+ *
 */
 
 #include <fcntl.h>
@@ -468,7 +471,7 @@ unsigned reverse_general(unsigned val, int bits, int base) {
 //};
 
 void usage(void) {
-    fprintf(stderr, "\n dnsp-h2 %s, copyright 2010-2019 @ Massimiliano Fantuzzi HB9GUS, MIT License\n\n"
+    fprintf(stderr, "\n dnsp-h2 v%s, copyright 2010-2020 Massimiliano Fantuzzi HB3YOE/HB9GUS, MIT License\n\n"
                        " usage: dnsp-h2 [-l <local_host_address>] [-p <local_port>] [-H <proxy_host>]\n"
                        "\t[-r <proxy_port>] -s <DNS_lookup_resolving_service_URL> [-w <lookup_port>]\n"
                        "\n"
@@ -1962,11 +1965,9 @@ static void setup(CURL *hndin, char *script_target) {
   char q[512];
   char filename[128];
   struct data config;
+
   config.trace_ascii = 1; /* enable ascii tracing */ 
   
-  snprintf(filename, 128, "dnsp-h2.response-%d", num);
-  out = fopen(filename, "wb");
-
   /* avoid hardcoding services: provide parameter (or a static list, for blind root-check) with parallel threads */ 
   snprintf(q, sizeof(q)-1, "%s", script_target);
   //snprintf(q, URL_SIZE-1, "%s", script_target);
@@ -1983,9 +1984,12 @@ static void setup(CURL *hndin, char *script_target) {
     curl_easy_setopt(hndin, CURLOPT_VERBOSE,  0);
   }
   
+  snprintf(filename, 128, "dnsp-h2.response-%d", num);
+  out = fopen(filename, "wb");
+
+  // write to this file to be served back from "cache" via HTTP/2
   //curl_easy_setopt(hndin, CURLOPT_WRITEDATA, (void *)&chunk);
   //curl_easy_setopt(hndin, CURLOPT_WRITEFUNCTION, write_data);
-  // write to this file to be served back from "cache" via HTTP/2
   curl_easy_setopt(hndin, CURLOPT_WRITEDATA, out);
   
   curl_easy_setopt(hndin, CURLOPT_DEBUGDATA, &config);
@@ -2013,7 +2017,7 @@ static void setup(CURL *hndin, char *script_target) {
  
   fprintf(stderr, " *** CURL SETUP : %s\n", q);
 
-  // placeholder, can parallelise N threads but is blocking/waiting. About the interest of spawning multiple/multipath things
+  // placeholder, can parallelise N threads but is blocking/waiting. About the intent of spawning multiple/multipath things
   //curl_hndin[num] = 2;
   curl_easy_perform(hndin);
   //fclose(out);
@@ -2074,7 +2078,7 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
   CURLcode res;		// for CURLE error report
   //CURLcode ret;		// for CURLE error report
   int i, ret;
-  char *http_response, *script_url, *script_get, *pointer;
+  char *http_response, *script_url, *script_url_alt, *script_get, *pointer;
   char base[2];
 
   /* CURL structs, different interfaces for different performances and needs */
@@ -2093,8 +2097,10 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
   chunk.size = 0;    /* no data at this point */ 
 
   script_url = malloc(URL_SIZE);
+  script_url_alt = malloc(URL_SIZE);
   http_response = malloc(HTTP_RESPONSE_SIZE);
   bzero(script_url, URL_SIZE);
+  bzero(script_url_alt, URL_SIZE);
   //bzero(stream, HTTP_RESPONSE_SIZE);
   //memcpy(stream, ptr, stream_size);
   
@@ -2160,7 +2166,10 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
   /* set specific nifty options for multi handlers or none at all */
   //ch = curl_easy_init();
   
+  /* New section: spawn two threads, so that one queries Google and the othe goes to CLoudflare */
+  /* This way, one answer can be cross-cheked and/or saver on filesystem */
   hnd = curl_easy_init();
+  snprintf(script_url_alt, URL_SIZE-1, "https://cloudflare-dns.com/dns-query?dns=%s", temp);
   setup(hnd,script_url);
   //setup(hnd,lookup_script);
 

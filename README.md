@@ -135,13 +135,12 @@ The more DNSP resolvers around the world, the less DNS queries will be traceable
 ```bash
 user@machine:~/DNSProxy$ ./dnsp-h2
 
- ### Running without cache-acceleration as no caching proxy was configured. ###
+ *** Running without acceleration as no proxy was entered.
 
- dnsp-h2 2.5, copyright 2010-2019 @ Massimiliano Fantuzzi HB9GUS, MIT License
+ dnsp-h2 v3, Copyright 2010-2020 @ Massimiliano Fantuzzi HB9GUS, MIT License
 
  usage: dnsp-h2 [-l <local_host_address>] [-p <local_port>] [-H <proxy_host>]
-	[-r <proxy_port>] [-w <lookup_port>]
-	-s <HTTP_URL_of_DOH-DNS_lookup_script_or_resolving_service>
+	[-r <proxy_port>] -s <DNS_lookup_resolving_service_URL> [-w <lookup_port>]
 
  OPTIONS:
   [ -l <IP/FQDN> ]	 Local server address
@@ -150,9 +149,9 @@ user@machine:~/DNSProxy$ ./dnsp-h2
   [ -r <3128>    ]	 Cache proxy port
   [ -u <user>    ]	 Cache proxy username
   [ -k <pass>    ]	 Cache proxy password
-  [ -w <443>     ]	 Lookup port
   [ -Q           ]	 Use TTL from CURL, suggested
-    -s <URL>      	 Lookup script URL
+  [ -w <443>     ]	 Lookup port
+    -s <URL>      	 Lookup script URL (either v1 or RFC formats)
 
  EXPERT OPTIONS:
   [ -T <n> ]	 Override TTL [0-2147483647] defined in RFC2181
@@ -165,9 +164,9 @@ user@machine:~/DNSProxy$ ./dnsp-h2
   [ -N     ]	 Enable COUNTERS debug
   [ -C     ]	 Enable CURL debug, useful to debug cache, certs, TLS, etc
 
- TESTING/DISABLED OPTIONS:
+ DISABLED OPTIONS:
   [ -I     ]	 Upgrade Insecure Requests, debug HSTS, work in progress
-  [ -R     ]	 Enable CURL resolve mechanism, avoiding extra gethostbyname
+  [ -r     ]	 Enable CURL resolve mechanism, avoiding extra gethostbyname
   [ -t <n> ]	 Stack size in format 0x1000000 (MB)
 
  Example with direct HTTPS:
@@ -187,7 +186,7 @@ user@machine:~/DNSProxy$ ./dnsp-h2
  - https://sslretail.com/blog/dns-over-https-ultimate-guide/
 ```
 
-## Build / Install
+## Build and Install
 
 Build is easy on Linux, Mac, UNIX and probably even Windows; DNSProxy is based
 on CURL C library, pthread, SSL/TLS and various other strong standards.
