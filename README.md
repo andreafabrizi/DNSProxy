@@ -135,27 +135,29 @@ The more DNSP resolvers around the world, the less DNS queries will be traceable
 ```bash
 user@machine:~/DNSProxy$ ./dnsp-h2
 
+ *** CURL-THE-TTL ....... ON
  *** Running without acceleration as no proxy was entered.
 
  dnsp-h2 v3, Copyright 2010-2020 @ Massimiliano Fantuzzi HB9GUS, MIT License
 
  usage: dnsp-h2 [-l <local_host_address>] [-p <local_port>] [-H <proxy_host>]
-	[-r <proxy_port>] -s <DNS_lookup_resolving_service_URL> [-w <lookup_port>]
+	[-r <proxy_port>] [ -s <DNS_lookup_resolving_service_URL> ] [-w <lookup_port>]
 
  OPTIONS:
-  [ -l <IP/FQDN> ]	 Local server address
+  [ -Q           ]	 Use TTL from CURL, suggested
+  [ -l <IP/FQDN> ]	 Local server address, defaults to all active interfaces
   [ -p <53>      ]	 Local server port, defaults to 53
-  [ -H <IP/FQDN> ]	 Cache proxy address
+  [ -H <IP/FQDN> ]	 Cache proxy address (HTTPS-capable)
   [ -r <3128>    ]	 Cache proxy port
   [ -u <user>    ]	 Cache proxy username
   [ -k <pass>    ]	 Cache proxy password
-  [ -Q           ]	 Use TTL from CURL, suggested
   [ -w <443>     ]	 Lookup port
-    -s <URL>      	 Lookup script URL (either v1 or RFC formats)
+  [ -s <URL>     ]	 Lookup script URL (deprecated, only for dnsp-v1 and old RFCs)
 
- EXPERT OPTIONS:
+ ADVANCED OPTIONS:
   [ -T <n> ]	 Override TTL [0-2147483647] defined in RFC2181
   [ -Z <n> ]	 Override TCP response size to be any 2 bytes at choice
+
   [ -n     ]	 Enable DNS raw dump
   [ -v     ]	 Enable debug
   [ -X     ]	 Enable EXTRA debug
@@ -164,26 +166,16 @@ user@machine:~/DNSProxy$ ./dnsp-h2
   [ -N     ]	 Enable COUNTERS debug
   [ -C     ]	 Enable CURL debug, useful to debug cache, certs, TLS, etc
 
- DISABLED OPTIONS:
-  [ -I     ]	 Upgrade Insecure Requests, debug HSTS, work in progress
+ EXPERT OPTIONS:
   [ -r     ]	 Enable CURL resolve mechanism, avoiding extra gethostbyname
   [ -t <n> ]	 Stack size in format 0x1000000 (MB)
 
- Example with direct HTTPS:
-	./dnsp-h2 -s https://php-dns.appspot.com/
- Example with direct HTTP:
-	./dnsp-h2 -s http://www.fantuz.net/nslookup.php
- Example with HTTP caching proxy:
-	./dnsp-h2 -r 8118 -H http://your.proxy.com/ -s http://www.fantuz.net/nslookup.php
- Further tests:
-	./dnsp-h2 -T 3600 -v -X -C -n -s https://php-dns.appspot.com/ 2>&1
 
  For a more inclusive list of DoH providers, clients, servers and protocol details, see:
  - https://tools.ietf.org/html/rfc8484
- - https://en.wikipedia.org/wiki/DNS_over_HTTPS#cite_note-17
  - https://github.com/curl/curl/wiki/DNS-over-HTTPS
- - https://en.wikipedia.org/wiki/Public_recursive_name_server
- - https://sslretail.com/blog/dns-over-https-ultimate-guide/
+ - https://it.wikipedia.org/wiki/DNS_over_HTTPS#cite_note-8
+
 ```
 
 ## Build and Install

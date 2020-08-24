@@ -65,7 +65,7 @@
 
 #define VERSION           	  "3"
 #define TCP_Z_OFFSET		    2
-#define TTL_IN_DEFAULT		 3600
+#define TTL_IN_DEFAULT		    0
 #define STACK_SIZE	(1024 * 1024)    /* Stack size for cloned child */
 #define MAXCONN          	    2
 #define UDP_DATAGRAM_SIZE	  512
@@ -473,22 +473,23 @@ unsigned reverse_general(unsigned val, int bits, int base) {
 void usage(void) {
     fprintf(stderr, "\n dnsp-h2 v%s, copyright 2010-2020 Massimiliano Fantuzzi HB3YOE/HB9GUS, MIT License\n\n"
                        " usage: dnsp-h2 [-l <local_host_address>] [-p <local_port>] [-H <proxy_host>]\n"
-                       "\t[-r <proxy_port>] -s <DNS_lookup_resolving_service_URL> [-w <lookup_port>]\n"
+                       "\t[-r <proxy_port>] [ -s <DNS_lookup_resolving_service_URL> ] [-w <lookup_port>]\n"
                        "\n"
                        " OPTIONS:\n"
-                       "  [ -l <IP/FQDN> ]\t Local server address\n"
+                       "  [ -Q           ]\t Use TTL from CURL, suggested\n"
+                       "  [ -l <IP/FQDN> ]\t Local server address, defaults to all active interfaces\n"
                        "  [ -p <53>      ]\t Local server port, defaults to 53\n"
-                       "  [ -H <IP/FQDN> ]\t Cache proxy address\n"
+                       "  [ -H <IP/FQDN> ]\t Cache proxy address (HTTPS-capable)\n"
                        "  [ -r <3128>    ]\t Cache proxy port\n"
                        "  [ -u <user>    ]\t Cache proxy username\n"
                        "  [ -k <pass>    ]\t Cache proxy password\n"
-                       "  [ -Q           ]\t Use TTL from CURL, suggested\n"
                        "  [ -w <443>     ]\t Lookup port\n"
-                       "    -s <URL>      \t Lookup script URL (either v1 or RFC formats)\n"
+                       "  [ -s <URL>     ]\t Lookup script URL (deprecated, only for dnsp-v1 and old RFCs)\n"
                        "\n"
-                       " EXPERT OPTIONS:\n"
+                       " ADVANCED OPTIONS:\n"
                        "  [ -T <n> ]\t Override TTL [0-2147483647] defined in RFC2181\n"
                        "  [ -Z <n> ]\t Override TCP response size to be any 2 bytes at choice\n"
+		       "\n"
                        "  [ -n     ]\t Enable DNS raw dump\n"
                        "  [ -v     ]\t Enable debug\n"
                        "  [ -X     ]\t Enable EXTRA debug\n"
@@ -496,27 +497,27 @@ void usage(void) {
                        "  [ -L     ]\t Enable LOCKS debug\n"
                        "  [ -N     ]\t Enable COUNTERS debug\n"
                        "  [ -C     ]\t Enable CURL debug, useful to debug cache, certs, TLS, etc\n"
-        		       "\n"
-                       " DISABLED OPTIONS:\n"
-                       "  [ -I     ]\t Upgrade Insecure Requests, debug HSTS, work in progress\n"
+        	       "\n"
+                       " EXPERT OPTIONS:\n"
+                       //"  [ -I     ]\t Upgrade Insecure Requests, debug HSTS, work in progress\n"
                        "  [ -r     ]\t Enable CURL resolve mechanism, avoiding extra gethostbyname\n"
                        "  [ -t <n> ]\t Stack size in format 0x1000000 (MB)\n"
                        "\n"
-                " Example with direct HTTPS:\n"
-                "\t./dnsp-h2 -s https://php-dns.appspot.com/\n"
-                " Example with direct HTTP:\n"
-                "\t./dnsp-h2 -s http://www.fantuz.net/nslookup.php\n"
-                " Example with HTTP caching proxy:\n"
-                "\t./dnsp-h2 -r 8118 -H http://your.proxy.com/ -s http://www.fantuz.net/nslookup.php\n"
-                " Further tests:\n"
-                "\t./dnsp-h2 -T 3600 -v -X -C -n -s https://php-dns.appspot.com/ 2>&1\n\n"
-                " For a more inclusive list of DoH providers, clients, servers and protocol details, see:\n"
-                " - https://tools.ietf.org/html/rfc8484\n"
-		" - https://en.wikipedia.org/wiki/DNS_over_HTTPS#cite_note-17\n"
-                " - https://github.com/curl/curl/wiki/DNS-over-HTTPS\n"
-                " - https://en.wikipedia.org/wiki/Public_recursive_name_server\n"
-                " - https://sslretail.com/blog/dns-over-https-ultimate-guide/\n"
-                "\n"
+                       //" Example with direct HTTPS:\n"
+                       //"\t./dnsp-h2 -s https://php-dns.appspot.com/\n"
+                       //" Example with direct HTTP:\n"
+                       //"\t./dnsp-h2 -s http://www.fantuz.net/nslookup.php\n"
+                       //" Example with HTTP caching proxy:\n"
+                       //"\t./dnsp-h2 -r 8118 -H http://your.proxy.com/ -s http://www.fantuz.net/nslookup.php\n"
+                       //" TESTS:\n"
+                       //"\t./dnsp-h2 -T 3600 -v -X -C -n -s https://php-dns.appspot.com/ 2>&1\n\n"
+                       "\n"
+		       " For a more inclusive list of DoH providers, clients, servers and protocol details, see:\n"
+                       " - https://tools.ietf.org/html/rfc8484\n"
+                       " - https://github.com/curl/curl/wiki/DNS-over-HTTPS\n"
+		       " - https://it.wikipedia.org/wiki/DNS_over_HTTPS#cite_note-8\n"
+                       //" - https://sslretail.com/blog/dns-over-https-ultimate-guide/\n"
+                       "\n"
     ,VERSION);
     exit(EXIT_FAILURE);
 }
@@ -1813,13 +1814,14 @@ struct data {
   int ttl_out_test_data;
 };
 
-//20191107 max fantuzzi - to review
+// 20200824 20191107 max fantuzzi - reviewed
 //static int my_trace(CURL *handle, curl_infotype type, char *data, size_t size) {
-static int my_trace(CURL *handle, curl_infotype type, char *data, size_t size, void *userp) {
 //static int my_trace(CURL *handle, curl_infotype type, char *data, size_t size, struct data *userp) {
+static int my_trace(CURL *handle, curl_infotype type, char *data, size_t size, void *userp) {
   const char *text;
   int num = hnd2num(handle);
-  (void)handle; /* prevent compiler warning */ 
+  /* prevent compiler warning */ 
+  (void)handle;
   
   (void)userp;
   //struct data *config = (struct data *)userp;
@@ -1865,11 +1867,11 @@ static int my_trace(CURL *handle, curl_infotype type, char *data, size_t size, v
     //dump(text, num, (unsigned char *)data, size, 1);
 
     if(cacheheaderfound == 0) {
-  	if ( DNSDUMP || DEBUGCURL ) {
-	  dump(text, num, (unsigned char *)data, size, 0);
-	} else {
-	  printf("\n *** NO CACHE DATA FOUND\n");
-	}
+//  	if ( DEBUGCURL ) {
+//	  dump(text, num, (unsigned char *)data, size, 0);
+//	} else {
+//	  printf(" *** NO CACHE DATA FOUND\n");
+//	}
    
   	// More general pattern
   	const char *my_str_literal = data;
@@ -1878,12 +1880,14 @@ static int my_trace(CURL *handle, curl_infotype type, char *data, size_t size, v
   	tofree = str = strdup(my_str_literal);  // We own str's memory now.
 
   	while ((token = strsep(&str, ","))) {
-    	  if ( DNSDUMP || DEBUGCURL ) { printf(" ----> %s\n",token); }
+    	  if ( DEBUGCURL ) {
+	    printf(" ----> %s\n",token);
+	  }
     	  continue;
     	}
       
   	free(tofree);
-	//printf("\n -----> %s\n", data);
+	//printf("\n ----> %s\n", data);
 	
         //from: see https://developer.mozilla.org/fr/docs/Web/HTTP/Headers/Cache-Control
         //max-age=<secondes>
@@ -1897,7 +1901,6 @@ static int my_trace(CURL *handle, curl_infotype type, char *data, size_t size, v
         tofree2 = str2 = strdup(my_str_literal);  // We own str's memory now.
 
         tokens = str_split(data, ',');
-        //tokens = str_split(data, '=');
 
         if (tokens != NULL) {
           char *compare2;
@@ -1916,13 +1919,12 @@ static int my_trace(CURL *handle, curl_infotype type, char *data, size_t size, v
               if ( isdigit(*p) || ( (*p=='-'||*p=='+') && isdigit(*(p+1)) )) {
                 long val = strtol(p, &p, 10); // Read number
                 if (maxagevaluefound == 0) {
-                  //printf(" *** FOUND CORRECT HEADER (not s-maxage) !\n");
                   set_ttl(val);
                   //ttl_out_test = 666;
                   //userp = val;
                   if (DEBUGCURL) {
-                    printf(" *** max-age token: %ld\n", val);
-                    printf(" *** get_ttl token: %d\n", get_ttl());
+                    printf(" ----> max-age token: %ld\n", val);
+                    printf(" ----> get_ttl token: %d\n", get_ttl());
                     //dumptwo(text, stderr, (unsigned char *)data, size, config->trace_ascii);
                   }
                 }
@@ -2537,7 +2539,7 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
   /* ret on (hnd) is the H2 cousin of original ret used above for (ch). This section has been commented out */
   //if (!(host == NULL) && !(host == "") && !(host == ".") && !(host == "(null)"))
   if (sizeof(host) > 3 ) {
-    printf(" *** VALID HOST	: '%s'\n", host);
+    //printf(" *** VALID HOST	: '%s'\n", host);
     res = curl_easy_perform(hnd);
     //ret = curl_multi_perform(multi_handle,&still_running);
     if(res != CURLE_OK) { fprintf(stderr, "curl_easy_perform() failed: %s\n", curl_easy_strerror(res)); }
@@ -2590,15 +2592,15 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
     return http_response;
   }
  
-  if (DEBUGCURL) {
-    // max fantuzzi verfied 20200924 20191105
-    hexdump(http_response,sizeof(http_response));
-    //printf("\n[%03ld]\n",http_response);
-
-    //20191212
-    //printf(" *** DOH server : %s\n", script_url);
-    //printf(" *** Response from libCURL -> %s\n", http_response);
-  }
+//  if (DEBUGCURL) {
+//    // max fantuzzi verfied 20200924 20191105
+//    hexdump(http_response,sizeof(http_response));
+//    //printf("\n[%03ld]\n",http_response);
+//
+//    //20191212
+//    //printf(" *** DOH server : %s\n", script_url);
+//    //printf(" *** Response from libCURL -> %s\n", http_response);
+//  }
 
   free(script_url);
   //free(proxy_url);
@@ -2698,10 +2700,10 @@ void *threadFunc(void *arg) {
   
   /* PTHREAD SET SPECIFIC GLOBAL VARIABLE */
   //pthread_setspecific(glob_var_key_ip, rip); // pre-DoH
-  //pthread_setspecific(glob_var_key_ip, www); // DoH-compliant
-  //pthread_getspecific(glob_var_key_ip);
+  pthread_setspecific(glob_var_key_ip, www); // DoH-compliant
+  pthread_getspecific(glob_var_key_ip);
 
-  printf("\n *** VARIABLE-RET-HTTP-GLOBAL	: %x", glob_var_key_ip);
+  if (DEBUGCURL) { printf("\n *** VARIABLE-RET-HTTP-GLOBAL	: %x", glob_var_key_ip); }
   //printf("building for: %s", inet_ntop(AF_INET, &ip_header->saddr, ipbuf, sizeof(ipbuf)));
   
   if (EXT_DEBUG) {
@@ -3026,7 +3028,7 @@ int main(int argc, char *argv[]) {
   }	
 
   if (bind_address == NULL) { bind_address = "127.0.0.1"; bind_address_tcp = "127.0.0.1"; }
-  if (lookup_script == NULL) { usage(); }
+  //if (lookup_script == NULL) { usage(); }
 
   /* Prevent child process from becoming zombie process */
   signal(SIGCLD, SIG_IGN);
@@ -3501,10 +3503,10 @@ int main(int argc, char *argv[]) {
       //	  readParams->uselogin = 1;
     
       if (ttl_in == NULL) {
-        fprintf(stdout," *** TTL not set, forcing default value\n");
+        //fprintf(stdout," *** TTL not set, forcing default value\n");
     	ttl = TTL_IN_DEFAULT;
       } else {
-        fprintf(stdout," *** TTL override, set to %d\n",ttl_in);
+        //fprintf(stdout," *** TTL override, set to %d\n",ttl_in);
         ttl = ttl_in;
       }
     
