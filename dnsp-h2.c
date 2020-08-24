@@ -63,12 +63,12 @@
 #define errExit(msg)		do { perror(msg); exit(EXIT_FAILURE); } while (0)
 #define handle_error(msg)	do { perror(msg); exit(EXIT_FAILURE); } while (0)
 
-#define VERSION           	  "3"
-#define TCP_Z_OFFSET		    2
+#define VERSION                "3.14"
+#define TCP_Z_OFFSET                2
 #define TTL_IN_DEFAULT		    0
-#define STACK_SIZE	(1024 * 1024)    /* Stack size for cloned child */
+#define STACK_SIZE	(1024 * 1024) // Stack size for cloned child
 #define MAXCONN          	    2
-#define UDP_DATAGRAM_SIZE	  512
+#define UDP_DATAGRAM_SIZE	 4096 // 512
 #define TCP_DATAGRAM_SIZE	  512
 #define DNSREWRITE       	  512
 #define HTTP_RESPONSE_SIZE	 4096
@@ -92,6 +92,7 @@
 #define DELAY                   0
 
 //#define STR_SIZE            65536
+
 #define REV(X) ((X << 24) | (( X & 0xff00 ) << 8) | (( X >> 8) & 0xff00 ) | ( X >> 24 ))
 #define R4(X) ((X >> 24 ) &0xff)
 #define R3(X) ((X >> 16) & 0xff )
@@ -490,13 +491,13 @@ void usage(void) {
                        "  [ -T <n> ]\t Override TTL [0-2147483647] defined in RFC2181\n"
                        "  [ -Z <n> ]\t Override TCP response size to be any 2 bytes at choice\n"
 		       "\n"
-                       "  [ -n     ]\t Enable DNS raw dump\n"
                        "  [ -v     ]\t Enable debug\n"
+                       "  [ -n     ]\t Enable DNS raw dump\n"
                        "  [ -X     ]\t Enable EXTRA debug\n"
                        "  [ -R     ]\t Enable THREADS debug\n"
                        "  [ -L     ]\t Enable LOCKS debug\n"
                        "  [ -N     ]\t Enable COUNTERS debug\n"
-                       "  [ -C     ]\t Enable CURL debug, useful to debug cache, certs, TLS, etc\n"
+                       "  [ -C     ]\t Enable CURL debug\n"
         	       "\n"
                        " EXPERT OPTIONS:\n"
                        //"  [ -I     ]\t Upgrade Insecure Requests, debug HSTS, work in progress\n"
@@ -824,7 +825,7 @@ struct dns_request *parse_dns_request(const char *udp_request, size_t request_le
 /* Builds and sends the dns response datagram talking DNS-over-HTTPS RFC8484's standard format */
 void build_dns(int sd, struct sockaddr_in *yclient, struct dns_request *dns_req, const char *ip, int mode, size_t xrequestlen, long int ttl, int protoq, int xtcpoff) {
 
-  char *rip = malloc(4096 * sizeof(char));
+  //char *rip = malloc(4096 * sizeof(char));
   int i,ppch, check = 0, sockfd, xsockfd;
   char *response, *finalresponse, *qhostname, *token, *pch, *maxim, *rr, *tt, *response_ptr, *finalresponse_ptr;
   ssize_t bytes_sent, bytes_sent_tcp, bytes_sent_udp, bytes_encoded;
@@ -875,7 +876,7 @@ void build_dns(int sd, struct sockaddr_in *yclient, struct dns_request *dns_req,
   //response+=2;
 
   int kkk = 0;
-  for (int x=2;x<get_size()+2;x++) {
+  for (int x=2;x<get_size();x++) {
     //*response++ = ip[x];
     response[x] = ip[x];
     kkk++;
@@ -951,7 +952,7 @@ void build_dns(int sd, struct sockaddr_in *yclient, struct dns_request *dns_req,
     //free(response_ptr);
     //free(finalresponse_ptr);
     //fdatasync(sd);
-    free(rip);
+    //free(rip);
     free(dns_req);
     return;
 
@@ -982,7 +983,7 @@ void build_dns(int sd, struct sockaddr_in *yclient, struct dns_request *dns_req,
     bytes_sent = sendto(sd, response_ptr, response - response_ptr, 0, (struct sockaddr *)yclient, 16);
     printf(" *** AN UNKNOWN PARSE HAPPENED\n");
     close(sd);
-    free(rip);
+    //free(rip);
     free(dns_req);
     free(response_ptr);
   }
@@ -2175,7 +2176,7 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
   setup(hnd,script_url);
   //setup(hnd,lookup_script);
 
-  //20200220 - GEFAM MAX FANTUZZI - TODO
+  // 20200220 20200824 - M FANTUZZI
   /* placeholder for DNS-over-HTTPS (DoH) GET or POST method of choice, to become CLI option ASAP */
   //curl_setopt($ch,CURLOPT_POST,1);
   //curl_setopt($ch,CURLOPT_POSTFIELDS,'customer_id='.$cid.'&password='.$pass);
@@ -2219,7 +2220,7 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
   curl_easy_setopt(ch, CURLOPT_WRITEFUNCTION, write_data);
   //curl_easy_setopt(ch, CURLOPT_WRITEFUNCTION, WriteMemoryCallback);
 
-  //20191107 max fantuzzi
+  // 20191107 m fantuzzi
   // we pass our 'chunk' struct to the callback function
   //curl_easy_setopt(ch, CURLOPT_WRITEDATA, http_response);
   //curl_easy_setopt(ch, CURLOPT_WRITEDATA, (void *)&chunk);
@@ -2449,13 +2450,11 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
   list = NULL;
   //list = curl_slist_append(list, "authority = cloudflare-dns.com");
 
-  // 20200307 - fantuzzi: POST -> ‘content-type: application/dns-message’
-  // POST
+  // 20200307 - POST -> ‘content-type: application/dns-message’
   //  slist1 = curl_slist_append(slist1, "content-type = application/dns-message");
   //  slist1 = curl_slist_append(slist1, "content-length = XXXX");
   
-  // 20200307 - fantuzzi: GET  -> ‘accept: application/dns-message’
-  // GET
+  // 20200307 - GET  -> ‘accept: application/dns-message’
   //  slist1 = curl_slist_append(slist1, "accept = application/dns-message; charset = utf-8");
 
   list = curl_slist_append(list, "accept: application/dns-message");
@@ -2592,12 +2591,11 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
     return http_response;
   }
  
+//  //20191212
 //  if (DEBUGCURL) {
 //    // max fantuzzi verfied 20200924 20191105
 //    hexdump(http_response,sizeof(http_response));
 //    //printf("\n[%03ld]\n",http_response);
-//
-//    //20191212
 //    //printf(" *** DOH server : %s\n", script_url);
 //    //printf(" *** Response from libCURL -> %s\n", http_response);
 //  }
@@ -2640,14 +2638,12 @@ void *threadFunc(void *arg) {
   int proto = params->xproto;
   char* typeq = params->xtypeq;
   char* lookup_script = params->xlookup_script;
-  //char* rfcstring = params->xrfcstring;
-  //char *rfcstring = (char *)params->xhostname->rfcstring;
   char *rfcstring = (char *)params->xhostname->rfcstring;
+  //char* rfcstring = params->xrfcstring;
   //char *rfcstring = (char *)params->xrfcstring;
   //struct dns_request *xrfcstring = (struct dns_request *)params->xhostname->rfcstring;
   //struct dns_request *xrfcstring = (struct dns_request *)params->xrfcstring;
   
-  //char *rip = malloc(256 * sizeof(char))
   char *www = malloc(256 * sizeof(char)),
        *ip = NULL,
        *yhostname = (char *)params->xhostname->hostname;
@@ -2678,7 +2674,6 @@ void *threadFunc(void *arg) {
   }
 
   if (!(params->xhostname->hostname == NULL) && !(yhostname == NULL)) {
-    //rip = lookup_host(yhostname, proxy_host_t, proxy_port_t, proxy_user_t, proxy_pass_t, lookup_script, typeq, wport, params->xhostname->rfcstring);
     www = lookup_host(yhostname, proxy_host_t, proxy_port_t, proxy_user_t, proxy_pass_t, lookup_script, typeq, wport, rfcstring);
     yhostname == NULL;
     params->xhostname->hostname == NULL;
@@ -2687,7 +2682,6 @@ void *threadFunc(void *arg) {
     //exit(EXIT_SUCCESS);
   } else {
     // SECTION TO BE SUPPRESSED, WITH DOH THIS CASE IS NO MORE RELEVANT.
-    //rip == "0.0.0.0";
     www == NULL;
     //www == "0.0.0.0";
     yhostname == NULL;
@@ -2699,14 +2693,13 @@ void *threadFunc(void *arg) {
   }
   
   /* PTHREAD SET SPECIFIC GLOBAL VARIABLE */
-  //pthread_setspecific(glob_var_key_ip, rip); // pre-DoH
-  pthread_setspecific(glob_var_key_ip, www); // DoH-compliant
+  pthread_setspecific(glob_var_key_ip, www);
   pthread_getspecific(glob_var_key_ip);
 
-  if (DEBUGCURL) { printf("\n *** VARIABLE-RET-HTTP-GLOBAL	: %x", glob_var_key_ip); }
   //printf("building for: %s", inet_ntop(AF_INET, &ip_header->saddr, ipbuf, sizeof(ipbuf)));
   
   if (EXT_DEBUG) {
+    printf("\n *** RET-HTTP-GLOBAL	: %x", glob_var_key_ip);
     printf("\n *** ANSWER MODE		: %d", DNS_MODE_ANSWER);
     printf("\n *** DOH retcode		: %d", ret);
     //printf("\n *** DOH r size		: %d", get_size());
@@ -2723,12 +2716,10 @@ void *threadFunc(void *arg) {
 //  for (int d=0;d<=get_size()-1;d++) {
 //    fprintf(stdout,"%02hhx\n",www[d]);
 //    snprintf(ip, 1, "%02hhx\n", www[d]);
-//    //fprintf(stdout,"%02hhx\n",rip[d]);
 //    //www[d] = ip[d];
 //  }
 
   //printf("WWW: %02hhx\n",www);
-  //printf("RIP: %02hhx\n",rip);
   //hexdump(www,sizeof(www));
   //hexdump(www,get_size());
   
@@ -2756,12 +2747,9 @@ void *threadFunc(void *arg) {
 	*/
     }
 
-    /* add switch to drive the contruction of DoH vs non-DoH packets */
     if (get_ttl()>0) {
-        //build_dns_response(sockfd, yclient, xhostname, rip, DNS_MODE_ANSWER, request_len, get_ttl(), proto, tcp_z_offset);
         build_dns(sockfd, yclient, xhostname, www, DNS_MODE_ANSWER, request_len, get_ttl(), proto, tcp_z_offset);
     } else {
-        //build_dns_response(sockfd, yclient, xhostname, rip, DNS_MODE_ANSWER, request_len, ttl, proto, tcp_z_offset);
         build_dns(sockfd, yclient, xhostname, www, DNS_MODE_ANSWER, request_len, ttl, proto, tcp_z_offset);
     }
     // new 20190221
@@ -2773,8 +2761,6 @@ void *threadFunc(void *arg) {
     //printf("BLACKLIST: xsockfd %d - hostname %s \r\n", xsockfd, xdns_req->hostname);
     printf("BLACKLIST: xsockfd %d - hostname %s \r\n", xsockfd, yhostname);
 
-    /* add switch to drive the construction of DoH vs non-DoH packets */
-    //build_dns_response(sockfd, yclient, xhostname, rip, DNS_MODE_ANSWER, request_len, ttl, proto, tcp_z_offset);
     build_dns(sockfd, yclient, xhostname, www, DNS_MODE_ANSWER, request_len, ttl, proto, tcp_z_offset);
 
     close(sockfd);
@@ -2788,7 +2774,6 @@ void *threadFunc(void *arg) {
     fprintf(stderr," *** ERROR: pid [%d] - dns_req->hostname %s - host (www) %s - size %d \r\n", getpid(), dns_req->hostname, www, (uint32_t)request_len);
     fprintf(stderr," *** ERROR: xsockfd %d - yhostname %s \r\n", xsockfd, yhostname);
 
-    /* add switch to drive the construction of DoH vs non-DoH packets */
     //build_dns_response(sockfd, yclient, xhostname, rip, DNS_MODE_ERROR, request_len, ttl, proto, tcp_z_offset);
     build_dns(sockfd, yclient, xhostname, www, DNS_MODE_ANSWER, request_len, ttl, proto, tcp_z_offset);
     
