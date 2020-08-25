@@ -857,15 +857,14 @@ void build_dns(int sd, struct sockaddr_in *yclient, struct dns_request *dns_req,
   /* DNS header added to TCP replies: 2-bytes lenght of the corresponding UDP/DNS usual wireformat. limit 64K */
   // 20200825 M FANTUZZI explain correct usage of this option
   if (xproto == 1) {
-    printf(" *** HERE 222\n");
     int norm = (dns_req->tcp_size);
     response[0] = (uint8_t)(norm >> 8);
     response[1] = (uint8_t)norm;
     response+=2;
-    if (DNSDUMP) {
-      printf(" *** TCP HEADER ON DNS WIRE PACKET: read tcp_size		: %d\n",(uint8_t)(dns_req->tcp_size));
-      printf(" *** TCP HEADER ON DNS WIRE PACKET: read dns_req		: %d\n",(uint8_t)(sizeof(dns_req) - 2));
-    }
+    //if (DNSDUMP) {
+    //  printf(" *** TCP HEADER ON DNS WIRE PACKET: read tcp_size		: %d\n",(uint8_t)(dns_req->tcp_size));
+    //  printf(" *** TCP HEADER ON DNS WIRE PACKET: read dns_req		: %d\n",(uint8_t)(sizeof(dns_req) - 2));
+    //}
   }
 
   /* Transaction ID */
@@ -874,7 +873,7 @@ void build_dns(int sd, struct sockaddr_in *yclient, struct dns_request *dns_req,
   // CLOUDFLARE
   //response[0] = 0x00; //(uint8_t)(dns_req->transaction_id >> 8);
   //response[1] = 0x00; //(uint8_t)dns_req->transaction_id;
-  // CLOUDFLARE
+  // RFC/GOOGLE
   //response[0] = 0xAB; //(uint8_t)(dns_req->transaction_id >> 8);
   //response[1] = 0xCD; //(uint8_t)dns_req->transaction_id;
   //response+=2;
@@ -898,8 +897,7 @@ void build_dns(int sd, struct sockaddr_in *yclient, struct dns_request *dns_req,
     /* TCP packet-length DNS header re-stamping */
     if (xproto == 1) {
       int resulttt = NULL;
-      int norm2 = (response - response_ptr + xtcpoff); // account for 2 extra tcp bytes
-      //int norm2 = (response - response_ptr - xtcpoff); // account for 2 extra tcp bytes
+      int norm2 = (response - response_ptr - xtcpoff); // account for 2 extra tcp bytes
       check = 1;
       if (DNSDUMP) {
 	printf(" *** OFFSET from norm2 -> %d\n",norm2);
@@ -940,14 +938,12 @@ void build_dns(int sd, struct sockaddr_in *yclient, struct dns_request *dns_req,
     
     /* send contents back onto the same socket */
     if (check != 1) {
-      //printf(" *** DUMP CHECK UDP\n"); 
       bytes_sent_udp = sendto(sd, (const char*)response_ptr, response - response_ptr, 0, (struct sockaddr *)yclient, 16);
       wait(bytes_sent_udp);
       close(sd);
       free(response_ptr);
       check = 0;
     } else if (xproto == 1) {
-      printf(" *** DUMP CHECK TCP\n"); 
       check = 0;
       bytes_sent_tcp = sendto(sd, finalresponse_ptr, finalresponse - finalresponse_ptr, MSG_DONTWAIT, (struct sockaddr *)yclient, 16);
       wait(bytes_sent_tcp); 
@@ -1994,11 +1990,7 @@ static void setup(CURL *hndin, char *script_target) {
   curl_easy_setopt(hndin, CURLOPT_URL, q);
   curl_easy_setopt(hndin, CURLOPT_NOSIGNAL, 1L);
 
-  if (DEBUGCURLTTL) {
-    curl_easy_setopt(hndin, CURLOPT_VERBOSE,  1);
-  } else {
-    curl_easy_setopt(hndin, CURLOPT_VERBOSE,  0);
-  }
+  if (DEBUGCURLTTL) { curl_easy_setopt(hndin, CURLOPT_VERBOSE,  1); } else { curl_easy_setopt(hndin, CURLOPT_VERBOSE,  0); }
   
   snprintf(filename, 128, "dnsp-h2.response-%d", num);
   out = fopen(filename, "wb");
@@ -2031,7 +2023,7 @@ static void setup(CURL *hndin, char *script_target) {
     //curl_easy_setopt(hndin, CURLOPT_PIPEWAIT, 0L);
   #endif
  
-  fprintf(stderr, " *** CURL SETUP : %s\n", q);
+  //fprintf(stderr, " *** CURL SETUP : %s\n", q);
 
   // placeholder, can parallelise N threads but is blocking/waiting. About the intent of spawning multiple/multipath things
   //curl_hndin[num] = 2;
@@ -2142,7 +2134,7 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
   //snprintf(n, sizeof(n)-1, "?host=%s&type=%s", host, typeq);
 
   /* See: https://developers.google.com/speed/public-dns/docs/doh */
-  if (DEBUG) {
+  if (EXT_DEBUG) {
     //printf("URL: https://cloudflare-dns.com/dns-query?dns=%s\n", b64_encode(rfcstring,sizeof(rfcstring)+strlen(host)+9));
     printf("URL: %s\n", script_url);
     //printf("URL: %s\n", n);
@@ -2267,11 +2259,7 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
   curl_easy_setopt(ch, CURLOPT_NOPROGRESS, 1L);
   curl_easy_setopt(ch, CURLOPT_BUFFERSIZE, 8192L);          // lowering from 100K to 8K
 
-  if (DEBUGCURLTTL) {
-    curl_easy_setopt(ch, CURLOPT_VERBOSE,  1);
-  } else {
-    curl_easy_setopt(ch, CURLOPT_VERBOSE,  0);
-  }
+  if (DEBUGCURLTTL) { curl_easy_setopt(ch, CURLOPT_VERBOSE,  1); } else { curl_easy_setopt(ch, CURLOPT_VERBOSE,  0); }
 
   curl_easy_setopt(ch, CURLOPT_NOSIGNAL, 1L);
 
@@ -2504,11 +2492,7 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
   curl_easy_setopt(hnd, CURLOPT_ENCODING, "deflate, br, sdch");
   //curl_easy_setopt(hnd, CURLOPT_FOLLOWLOCATION, 1);
 
-  if (DEBUGCURLTTL) {
-    curl_easy_setopt(hnd, CURLOPT_VERBOSE,  1);
-  } else {
-    curl_easy_setopt(hnd, CURLOPT_VERBOSE,  0);
-  }
+  if (DEBUGCURLTTL) { curl_easy_setopt(hnd, CURLOPT_VERBOSE,  1); } else { curl_easy_setopt(hnd, CURLOPT_VERBOSE,  0); }
 
   /* send all data to this function */
   curl_easy_setopt(hnd, CURLOPT_WRITEFUNCTION, write_data); 
@@ -2529,8 +2513,7 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
 	printf(" *** proxy set !\n");
   }
 
-  /* URL PRINTING */
-  if (DEBUG) {
+  if (DEBUGCURL) {
       fprintf(stderr, " *** POST data  : N/A\n",n);
       fprintf(stderr, " *** GET string : %s\n",script_url);
       //fprintf(stderr, " *** DOH string : ?dns=%s\n",b64_encode(rfcstring,sizeof(rfcstring)+strlen(host)+9));
@@ -2680,8 +2663,7 @@ void *threadFunc(void *arg) {
     //char *p = &xclient->sin_addr.s_addr;
     //printf("params->xhostname		: %s\n",(char *)params->xhostname);
     //printf("VARIABLE sin_addr		: %d\n", (uint32_t)(yclient->sin_addr).s_addr);
-    //printf("yhostname			: %s\n", yhostname);
-    printf(" *** params->xhost->host	: %s\n",(char *)params->xhostname->hostname);
+    printf(" *** params-xhostname->host	: %s\n",(char *)params->xhostname->hostname);
     printf(" *** proto			: %d\n",params->xproto);
     printf(" *** sin_addr readable		: %s\n", s);
   }
@@ -2694,7 +2676,7 @@ void *threadFunc(void *arg) {
     //pthread_exit(NULL);
     //exit(EXIT_SUCCESS);
   } else {
-    printf("\n *** HALT");
+    //printf("\n *** HALT");
     // SECTION TO BE SUPPRESSED, WITH DOH THIS CASE IS NO MORE RELEVANT.
     www == NULL;
     //www == "0.0.0.0";
@@ -2828,7 +2810,8 @@ int main(int argc, char *argv[]) {
   FD_ZERO(&master);
   FD_ZERO(&read_fds);
 
-  int sockfd, fd, port = DEFAULT_LOCAL_PORT, wport = DEFAULT_WEB_PORT, proxy_port = 0, c, r = 0, ttl_in = TTL_IN_DEFAULT, tcp_z_offset = TCP_Z_OFFSET;
+  //int sockfd, fd, port = DEFAULT_LOCAL_PORT, wport = DEFAULT_WEB_PORT, proxy_port = 0, c, r = 0, ttl_in = TTL_IN_DEFAULT, tcp_z_offset = TCP_Z_OFFSET;
+  int sockfd, fd, port = DEFAULT_LOCAL_PORT, wport = DEFAULT_WEB_PORT, proxy_port = 0, c, r = 0, ttl_in, tcp_z_offset;
   char *stack;            /* Start of stack buffer */
   char *stackTop;         /* End of stack buffer */
   pid_t pid;
@@ -3385,13 +3368,6 @@ int main(int argc, char *argv[]) {
 	  */
     	}
 	
-        readParams->xproto = 1;
-        readParams->xclient = (struct sockaddr_in *)&client;
-        readParams->yclient = (struct sockaddr_in *)&client;
-        readParams->xrequestlen = request_len_tcp;
-        readParams->xhostname = (struct dns_request *)dns_req_tcp;
-        //readParams->xdns_req = (struct dns_request *)&dns_req_tcp;
-
     	if ((flag != 3)) {
           if (CNT_DEBUG) { fprintf(stderr, " *** QUANTITY TCP/2		: %x - %d\n", request_tcp, request_len_tcp); }
 	  dns_req_tcp = parse_dns_request(request_tcp, request_len_tcp, 1, 0);
@@ -3402,6 +3378,13 @@ int main(int argc, char *argv[]) {
           close(fd);
     	  exit(EXIT_SUCCESS);
     	}
+
+        readParams->xproto = 1;
+        readParams->xclient = (struct sockaddr_in *)&client;
+        readParams->yclient = (struct sockaddr_in *)&client;
+        readParams->xrequestlen = request_len_tcp;
+        readParams->xhostname = (struct dns_request *)dns_req_tcp;
+        //readParams->xdns_req = (struct dns_request *)&dns_req_tcp;
 
     	// new 20200824
 	//cnt++;
@@ -3485,11 +3468,12 @@ int main(int argc, char *argv[]) {
           printf(" *** TCP trans ID		: %x // %d\r\n",dns_req_tcp->transaction_id,dns_req_tcp->transaction_id);
     	}
 
-        if (tcp_z_offset > 0) {
-          fprintf(stderr," *** TCP_Z_OFFSET set to %d\n",tcp_z_offset);
+        if (tcp_z_offset) {
+          //fprintf(stderr," *** TCP_Z_OFFSET set to %d\n",tcp_z_offset);
+	  continue;
         } else {
           tcp_z_offset = TCP_Z_OFFSET;
-          fprintf(stderr," *** TCP_Z_OFFSET not set, using 2 as default for A type.");
+          //fprintf(stderr," *** TCP_Z_OFFSET not set, using 2 as default for A type.");
         }
 
       } else if (flag == 0) {
@@ -3529,10 +3513,10 @@ int main(int argc, char *argv[]) {
       //	  readParams->uselogin = 1;
     
       if (ttl_in == NULL) {
-        fprintf(stdout," *** TTL not set, forcing default value\n");
+        //fprintf(stdout," *** TTL not set, forcing default value\n");
     	ttl = TTL_IN_DEFAULT;
       } else {
-        fprintf(stdout," *** TTL override, set to %d\n",ttl_in);
+        //fprintf(stdout," *** TTL override, set to %d\n",ttl_in);
         ttl = ttl_in;
       }
     
@@ -3546,8 +3530,6 @@ int main(int argc, char *argv[]) {
       readParams->xrfcstring = (struct dns_request *)dns_req;
       //readParams->xrfcstring = (struct dns_request *)rfcstring;
       //readParams->xrfcstring = dns_req->rfcstring;
-      //readParams->xrfcstring = xrfcstring;
-      //readParams->xrfcstring = rfcstring;
 
       readParams->xproxy_user = proxy_user;
       readParams->xproxy_pass = proxy_pass;
