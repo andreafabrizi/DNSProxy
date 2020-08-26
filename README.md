@@ -1,6 +1,5 @@
-# DNS-over-HTTPS Proxy - Overview
-
 ## Why DNSP ?
+
 #DNS messaging transport tests, gone too far.
 
 DNSP was born for two reasons: deliver DNS responses to airplanes, and surf TOR anonymously.
@@ -566,7 +565,7 @@ max@trinity:~/DNSProxy$
 ```
 
 
-# Versioning and wvolution of DNSP
+# Versioning and evolution of DNSP
 
 ## Changelog:
 
