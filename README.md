@@ -2,23 +2,26 @@
 
 ## Why DNSP ?
 DNS messaging transport tests, gone too far.
+
 DNSP was born for two reasons: deliver DNS responses to airplanes, and surf TOR anonymously.
 
-About the firs, DNS UDP messages were lost onto satellite pipe, hence I needed to invent a new
+About the first: DNS UDP messages were lost onto satellite pipe, hence I needed to invent a new
 trasnport and caching protocol to transport the very same information. I chose to shift to HTTP
 and leveragge caching onto Polipo/Squid proxy. DNS client used a 127.0.0.1 server, to vehiculate
 such traffic in and out HTTP and DNS.
 
-About the second ... UDP and DNS were not completely socks friendly, nor TOR-compatible. The one
-and inly choice left was to vehiculate DNS messages INSIDE a protocol that could be well-protected
-and easily-ecapsulated within TOR. That protocol was -obviously and again- HTTP, in it's most
-secure version, the S version (HTTPS).
+The second came before the first actually ... UDP and DNS were not completely socks friendly, and
+not even TOR-compatible. The one and only choice left was to vehiculate DNS messages INSIDE a
+protocol that could be well-protected and easily-ecapsulated within TOR.
 
-So yes, that many tests got a bit out of control, up to the point that I was invited to collaborate
-with IETF to the developement of the state-of-the-art DNS-over-HTTPS, ended up in RFC8484.
+That protocol was -obviously and again- HTTP, in it's most secure version, the S version (HTTPS).
+
+That many many tests (since 2010) got a bit out of control, up to the point that I was invited to
+collaborate with IETF to the developement of the state-of-the-art DNS-over-HTTPS, aka RFC8484.
 
 DNS-over-HTTP has been published end 2018 as RFC (c.f. 
 https://www.rfc-editor.org/rfc/rfc8484.txt, https://tools.ietf.org/html/rfc8484).
+
 A new MIME type has been defined (application/dns-message) and design goals are
 perfectly clear.
 
@@ -39,25 +42,28 @@ For more information about MIME types, refer to IANA website: https://www.iana.o
 
 ## How does it work ?
 DNS proxy listens for incoming DNS requests (A,NS,MX,TXT,SRV..) on both
-UDP & TCP. Threads listen for incoming connections; when a query comes in,
+UDP & TCP.
+
+Threads listen for incoming connections; when a query comes in,
 DNSP parses DNS query contents and starts forwarding such queries to a DoH
-service provider (DoH HTTP server) which in turn deals with the real DNS resolution.
+service provider (DoH server) which in turn deals with the real DNS resolution.
 
 Exchange of messaging happens by means of standardized HTTP request & response,
-with the help of headers, either towards an external PHP script or a DoH public
-webservice.
+with the help of HTTP headers.
 
-DoH and DNSP leverage the fancyness of HTTP and TLS, hence are easy to debug and monitor.
+DoH and DNSP leverage the fancyness of HTTP and TLS, therefore are quite easy
+when it come to debug and monitor.
+
+If you can't access "secured" VPN tunnels to resolve names externally (i.e.
+TOR users, Chinese walls), DNSProxy is a rapid and efficient solution for you.
 
 ## Build
 
-DNSP will take care to create a well-formed UDP/TCP packet as reply to the client.
-
-The core PHP-script can be hosted anywhere, i.e. on Google Cloud Platform.
+DNSP will take care to create a well-formed UDP/TCP packet in reply to clients.
 
 Should you be willing to perform "response caching and sharing" you can rely 
-on your favourite HTTP/HTTPS proxy server, as any of polipo, squid, nginx, 
-Varnish, charles, SOCKS, TOR, *any HTTP proxy* will work properly with DNSP.
+on your favourite HTTPS proxy, any between polipo, squid, nginx, Varnish, 
+charles, SOCKS, TOR, *any HTTP(S) proxy* will work properly with DNSP.
 
 DNSP can be configured to cross through (and receiving Via) additional HTTP 
 proxy (i.e. TOR, enterprise-proxy, locked-down countries).
@@ -68,29 +74,26 @@ The DNSP server will just talk to remote resolver webservice, w/out any cache.
 As we all know, "a cache" is often availaible "in the network" when it comes to
 HTTP, no real need for extra local cache (HTTP/2 and HTTPS make local cache uneasy).
 
-If you can't access "secured" VPN tunnels to resolve names externally (i.e.
-TOR users, Chinese walls), DNSProxy is a rapid and efficient solution for you.
-
 As bonus, this software is TOR-friendly and requires minimal resources. Enjoy !
 
 ## Architecture
 ```
-              +---------------------------+
-   +----------| DNSP listens on original  | <<--+
-   |          | sockets [ HTTP(S) & DNS ] |     |
-   |          +---------------------------+     | libCURL handles
-   |                    ^                       | HTTP(S) replies.
-   |                    ^  IF answer found      | DNSP creates DNS
-   |                    |   in HTTP cache       | responses, sent
-   |                    |  THEN faster reply    | via TCP or UDP
-   v                    |  and same security    | as per RFC 1035.
-   v                    :                       :
-  +-------------+     +--------+--------+     /---------------\
-  |client OS    |-->> +    DNSProxy     +-->> |  DoH resolver |
-  +-------------|     +-----------------+     |   webservice  |
-  |sends DNS    |     | manipulate TTL, |     | RFC8484-aware |
-  |to nameserver|     | blacklist,cache |     \---------------/
-  +---+---------+     +-----------------+                ^
+              +----------------------------+
+   +----------| DNSP listens on original   | <<---+
+   |          | sockets [ HTTP(S) & DNS ]  |      |
+   |          +----------------------------+      | libCURL handles
+   |                      ^                       | HTTP(S) replies.
+   |                      ^ IF answer found       | DNSP creates DNS
+   |                      |  in HTTP cache        | responses, sent
+   |                      | THEN faster reply     | via TCP or UDP
+   v                      |  same security        | as per RFC-1035
+   v                      :                       :
+  +--------------+      +--------+--------+      /---------------\
+  |  client OS   | -->> +     DNSProxy    + -->> |  DoH resolver |
+  +--------------|      +-----------------+      |   webservice  |
+  | sends DNS    |      | manipulate TTL, |      | RFC8484-aware |
+  | to nameserver|      | blacklist,cache |      \---------------/
+  +--+-----------+      +-----------------+               ^
      :                                                   ^
      | UDP & TCP queries to DNSP daemon on 127.0.0.1:53  |
      |       are tunneled to a DoH-resolver webservice   |
