@@ -1,19 +1,39 @@
 # DNS-over-HTTPS Proxy
 
 ## Why DNSP ?
-A new idea in terms of transport of DNS messaging, outside of its original design!
-DNS-over-HTTP has been published as RFC (c.f. 
+DNS messaging transport tests, gone too far.
+DNSP was born for two reasons: deliver DNS responses to airplanes, and surf TOR anonymously.
+
+About the firs, DNS UDP messages were lost onto satellite pipe, hence I needed to invent a new
+trasnport and caching protocol to transport the very same information. I chose to shift to HTTP
+and leveragge caching onto Polipo/Squid proxy. DNS client used a 127.0.0.1 server, to vehiculate
+such traffic in and out HTTP and DNS.
+
+About the second ... UDP and DNS were not completely socks friendly, nor TOR-compatible. The one
+and inly choice left was to vehiculate DNS messages INSIDE a protocol that could be well-protected
+and easily-ecapsulated within TOR. That protocol was -obviously and again- HTTP, in it's most
+secure version, the S version (HTTPS).
+
+So yes, that many tests got a bit out of control, up to the point that I was invited to collaborate
+with IETF to the developement of the state-of-the-art DNS-over-HTTPS, ended up in RFC8484.
+
+DNS-over-HTTP has been published end 2018 as RFC (c.f. 
 https://www.rfc-editor.org/rfc/rfc8484.txt, https://tools.ietf.org/html/rfc8484).
 A new MIME type has been defined (application/dns-message) and design goals are
 perfectly clear.
 
-All my Coding efforts -collected in this repository- aimed to support the deploy
-of **DoH client** as rudimental system-resolver.
+All my coding/testing efforts -collected in this repository- aimed to support the deploy
+of **DoH client** as rudimental system-resolver, now fully independent.
 
-DNSP software supports 3 different variations of DoH basic format, being:
+You can run a server without havin ANY access to UDP or port 53. Everything will go via HTTP/2
+using port 443, for the time being. Further developement towards QUIC/HTTP/3 support is WIP.
+
+DNSP software used to support 3 different variations of unoficcial-DoH formats, being:
  - **application/dns-message [RFC8484]**: RFC8484-compliant - newest pure DoH format
  - **application/dns+json    [RFC8427]**: JSON format - legacy
  - **application/dns         [RFC4027]**: text/data format - obsolete
+
+It now supports just and only the first format, the official RFC8484 standard format.
 
 For more information about MIME types, refer to IANA website: https://www.iana.org/assignments/media-types/media-types.xhtml
 
@@ -109,22 +129,19 @@ REDIS... response times incredibly low, very scalable and smart solution, this D
 
 ## Examples provided for DNS and DNS-over-HTTP beginners:
 
-#### You want just to surf anonymously using HTTPS/DNS service without HTTP caching proxy (simplest mode):
+#### Just use standard Google + Cloudflare DoH servers. Suurf anonymously without HTTP cache (simplest mode):
 ```bash
-dnsp-h2 -s https://www.fantuz.net/nslookup-doh.php
-```
-#### Leverage the use of local HTTP caching proxy. Option "-H" to specify proxy's URI (URI!=URL)
-```bash
-dnsp -H http://192.168.3.93/ -r 8118 -s https://www.fantuz.net/nslookup-doh.php
-dnsp -H http://aremoteproxyservice/ -r 3128 -s https://www.fantuz.net/nslookup-doh.php
-```
-#### HTTP mode w/out caching proxies and w/out HTTPS
-```bash
-dnsp -s http://www.fantuz.net/nslookup-doh.php
+dnsp-h2 -Q
 ```
 NB: Some parts of this "distributed cache" might be held on a CDN for a transient period.
 An intermediate cache layer is often present nowadays, unless forbidden by headers or expiry.
 Headers are your friends.
+
+#### Leverage the use of local HTTP caching proxy. Option "-H" to specify proxy's URI (URI!=URL)
+```bash
+dnsp -H http://192.168.3.93/ -r 8118
+dnsp -H http://aremoteproxyservice/ -r 3128
+```
 
 **IMPORTANT:** Please, don't use the script hosted on my server(s) as they serve as demo-only.
 They might be subject to unpredicted change, offlining, defacing.... Trust your own servers, and 
