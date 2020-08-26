@@ -1,4 +1,4 @@
-# DNS-over-HTTPS Proxy
+# DNS-over-HTTPS Proxy - Overview
 
 ## Why DNSP ?
 DNS messaging transport tests, gone too far.
@@ -198,6 +198,8 @@ user@machine:~/DNSProxy$ ./dnsp-h2
 
 ```
 
+# Using DNSP
+
 ## Build and Install
 
 Build is easy on Linux, Mac, UNIX and probably even Windows; DNSProxy is based
@@ -278,11 +280,11 @@ Simply run one of the two available programs as follows.
 
 To start a pre-h2 pre-DoH (HTTP/1.1) DNSProxy server, type:
 ```bash
-dnsp -l 127.0.0.1 -s https://www.fantuz.net/nslookup.php
+dnsp -l 127.0.0.1 -s https://www.fantuz.net/nslookup-doh.php
 ```
 Run a fully-compliant DoH/HTTP2 server (as per DoH's RFC 8484), type:
 ```bash
-dnsp-h2 -l 127.0.0.1 -s https://www.fantuz.net/nslookup-doh.php
+dnsp-h2
 ```
 NB: you might need to stop other daemons bound to 127.0.0.1:53, as:
 dsndist,bind,resolvconf,systemd-resolvconf, and other DNS servers/proxies
@@ -569,7 +571,15 @@ destroy NOT OK..
 max@trinity:~/DNSProxy$ 
 ```
 
+
+# Versioning and wvolution of DNSP
+
 ## Changelog:
+
+#### Version 3.0 - August 2020:
+* fixed TCP listener !
+* perfect parsing of HTTP reply
+* as always, correct encapsulation of response message
 
 #### Version 2.5 - February 2019:
 * having segdumps, no good. adding extra debug on CURL status, suspecting a 400 response
@@ -683,14 +693,13 @@ max@trinity:~/DNSProxy$
 
 ## References:
 
-* https://en.wikipedia.org/wiki/DNS_over_HTTPS#cite_note-17
+* https://tools.ietf.org/html/rfc8484
 * https://datatracker.ietf.org/meeting/101/materials/slides-101-hackathon-sessa-dnsproxy-local-dns-over-http-private-resolver
 * https://www.reddit.com/user/fantamix/comments/7yotib/dnsp_a_dns_proxy_to_avoid_dns_leakage/
 * https://www.reddit.com/r/hacking/comments/7zjbv2/why_to_use_a_dns_proxy_why_shall_it_be/
 * https://github.com/curl/doh/blob/master/doh.c
 * https://www.meetup.com/it-IT/Geneva-Legal-Hackers/messages/boards/thread/51438161
 * https://tools.ietf.org/html/draft-ietf-dnsop-dns-wireformat-http-01
-* https://tools.ietf.org/html/rfc8484
 * https://igit.github.io/
 
 ## License
@@ -728,7 +737,10 @@ Beware: running the PHP script locally on the same machine (not using a
 remote webservice) makes no sense and WILL EXPOSE ALL of your queries to
 DNS leak. Running locally is useful for TESTING purposes only !!
 
-## Appendix A
+
+# Extra useful informations
+
+## Appendix A - Headers and common used Proxies
 
 ```
 
@@ -779,7 +791,7 @@ echo -n 'q80BAAABAAAAAAAABmdpdGh1YgNjb20AAAEAAQ' | base64 -d 2>/dev/null | curl 
 00000040: ac00 0000 0000 00                        ....... 
 
 ```
-## Appendix B
+## Appendix B - reversing base-16 complement
 
 ```
 If you are a bit acquainted with hex you dont need to convert to binary.
@@ -810,7 +822,7 @@ bound on any TTL received, and treat any larger values as if they were that uppe
 0x20 - space
 
 ```
-## Appendix C
+## Appendix C . DNS FAILURE MESSAGES
 
 ```
 DNS_MODE_ERROR should truncate message instead of building it up ... 
@@ -844,7 +856,7 @@ NOTZONE (RCODE:10)       : Name not in zone
 
 ```
 
-## Appendix C
+## Appendix D - Example HTTP Cache Headers
 
 ```
 cache with HTTP/1.1 304 "Not Modified" 
