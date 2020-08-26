@@ -1,7 +1,7 @@
 # DNS-over-HTTPS Proxy - Overview
 
 ## Why DNSP ?
-DNS messaging transport tests, gone too far.
+#DNS messaging transport tests, gone too far.
 
 DNSP was born for two reasons: deliver DNS responses to airplanes, and surf TOR anonymously.
 
@@ -57,25 +57,6 @@ when it come to debug and monitor.
 If you can't access "secured" VPN tunnels to resolve names externally (i.e.
 TOR users, Chinese walls), DNSProxy is a rapid and efficient solution for you.
 
-## Build
-
-DNSP will take care to create a well-formed UDP/TCP packet in reply to clients.
-
-Should you be willing to perform "response caching and sharing" you can rely 
-on your favourite HTTPS proxy, any between polipo, squid, nginx, Varnish, 
-charles, SOCKS, TOR, *any HTTP(S) proxy* will work properly with DNSP.
-
-DNSP can be configured to cross through (and receiving Via) additional HTTP 
-proxy (i.e. TOR, enterprise-proxy, locked-down countries).
-
-Most of users will run DNSP directly through HTTPS w/out caching & extra proxy.
-The DNSP server will just talk to remote resolver webservice, w/out any cache.
-
-As we all know, "a cache" is often availaible "in the network" when it comes to
-HTTP, no real need for extra local cache (HTTP/2 and HTTPS make local cache uneasy).
-
-As bonus, this software is TOR-friendly and requires minimal resources. Enjoy !
-
 ## Architecture
 ```
               +----------------------------+
@@ -102,6 +83,23 @@ As bonus, this software is TOR-friendly and requires minimal resources. Enjoy !
  classic DNS except that messages are being transported over HTTP/2
       with no leackage of UDP whatsoever (see PRIVACY notes)
 ```
+
+DNSP will take care to create a well-formed UDP/TCP packet in reply to clients.
+
+Should you be willing to perform "response caching and sharing" you can rely 
+on your favourite HTTPS proxy, any between polipo, squid, nginx, Varnish, 
+charles, SOCKS, TOR, *any HTTP(S) proxy* will work properly with DNSP.
+
+DNSP can be configured to cross through (and receiving Via) additional HTTP 
+proxy (i.e. TOR, enterprise-proxy, locked-down countries).
+
+Most of users will run DNSP directly through HTTPS w/out caching & extra proxy.
+The DNSP server will just talk to remote resolver webservice, w/out any cache.
+
+As we all know, "a cache" is often availaible "in the network" when it comes to
+HTTP, no real need for extra local cache (HTTP/2 and HTTPS make local cache uneasy).
+
+As bonus, this software is TOR-friendly and requires minimal resources. Enjoy !
 
 Features:
 - DNS-over-HTTPS compliant with RFC 8484, plus older non-standards supported.
@@ -152,13 +150,12 @@ host yourself as many *nslookup-doh.php* scripts as you can, or send it on a fri
 
 The more DNSP resolvers around the world, the less DNS queries will be traceable (TOR leaking problem).
 
+# Using DNSP
+
 ```bash
 user@machine:~/DNSProxy$ ./dnsp-h2
 
- *** CURL-THE-TTL ....... ON
- *** Running without acceleration as no proxy was entered.
-
- dnsp-h2 v3, Copyright 2010-2020 @ Massimiliano Fantuzzi HB9GUS, MIT License
+ dnsp-h2 v3.14, copyright 2010-2020 Massimiliano Fantuzzi HB3YOE/HB9GUS, MIT License
 
  usage: dnsp-h2 [-l <local_host_address>] [-p <local_port>] [-H <proxy_host>]
 	[-r <proxy_port>] [ -s <DNS_lookup_resolving_service_URL> ] [-w <lookup_port>]
@@ -178,13 +175,13 @@ user@machine:~/DNSProxy$ ./dnsp-h2
   [ -T <n> ]	 Override TTL [0-2147483647] defined in RFC2181
   [ -Z <n> ]	 Override TCP response size to be any 2 bytes at choice
 
-  [ -n     ]	 Enable DNS raw dump
   [ -v     ]	 Enable debug
+  [ -n     ]	 Enable DNS raw dump
   [ -X     ]	 Enable EXTRA debug
   [ -R     ]	 Enable THREADS debug
   [ -L     ]	 Enable LOCKS debug
   [ -N     ]	 Enable COUNTERS debug
-  [ -C     ]	 Enable CURL debug, useful to debug cache, certs, TLS, etc
+  [ -C     ]	 Enable CURL debug
 
  EXPERT OPTIONS:
   [ -r     ]	 Enable CURL resolve mechanism, avoiding extra gethostbyname
@@ -195,12 +192,9 @@ user@machine:~/DNSProxy$ ./dnsp-h2
  - https://tools.ietf.org/html/rfc8484
  - https://github.com/curl/curl/wiki/DNS-over-HTTPS
  - https://it.wikipedia.org/wiki/DNS_over_HTTPS#cite_note-8
-
 ```
 
-# Using DNSP
-
-## Build and Install
+## Building and Installing
 
 Build is easy on Linux, Mac, UNIX and probably even Windows; DNSProxy is based
 on CURL C library, pthread, SSL/TLS and various other strong standards.
@@ -227,7 +221,7 @@ Once done with pre-requisites, you will be able to *compile* by running:
 make
 ```
 
-## Deploy DoH infrastructure (only applies to dnsp legacy binary, not to dnsp-h2)
+## Deploy pre-DoH non-standard infrastructure (only applies to dnsp legacy binary, not to dnsp-h2)
 
 #### STEP 1. Create and deploy the HTTP(S) nameserver webservice
 Deploy **nslookup-doh.php** on a webserver, possibly not your local machine (see DISCLAIMER).
@@ -274,7 +268,7 @@ I never meant to state that DNSP is faster or better than any other DNS
 server, but is definitely original on its own. Is a really ugly piece of
 single-threaded code made to help people _transporting_ and _sharing_ DNS.
 
-## Testing dnsp & dnsp-h2
+## Launching an instance of dnsp or dnsp-h2
 
 Simply run one of the two available programs as follows.
 
