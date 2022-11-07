@@ -129,7 +129,7 @@
 #endif
  
 #define NUM_HANDLES 4
-#define OUTPUTFILE "dnsp-h2.download"
+#define OUTPUTFILE "packet.download"
 
 #define S(x) # x
 #define t(m, a, b) ({                                                \
@@ -282,8 +282,8 @@ struct readThreadParams {
 	struct sockaddr_in *yclient;
 	struct dns_request *xproto;
 	struct dns_request *dns_req;
-	char* xpost_data;
-	//struct dns_request *xpost_data;
+	//char* xpost_data;
+	struct dns_request *xpost_data;
 	//struct dns_request *xdns_req;
 	//char* xrfcstring;
 	struct dns_request *xrfcstring;
@@ -730,17 +730,18 @@ struct dns_request *parse_dns_request(const char *wire_request, size_t request_l
     //str[1] = (uint8_t)dns_req->transaction_id;
 
     /* TXID: 0000 as per CloudFlare implementation */
-    //str[0] = 0x00;
-    //str[1] = 0x00;
+    str[0] = 0x00;
+    str[1] = 0x00;
 
     /* TXID: ABCD as per RFC8484 and Google DNS */
-    str[0] = 0xAB;
-    str[1] = 0xCD;
+    //str[0] = 0xAB;
+    //str[1] = 0xCD;
 
     // QR (1) OPCODE (4) AA (1) TC (1) RD (1) RA (1) Z (3) RCODE (4)
     str[2] = (uint8_t)(dns_req->flags >> 8);
-    //str[3] = (uint8_t)dns_req->flags;
-    str[3] = 0x00;
+    str[3] = (uint8_t)dns_req->flags;
+    //str[3] = 0x00; // standard
+    //str[3] = 0x20; // cloudflare
     str[4] = (uint8_t)(dns_req->questions_num >> 8);
     str[5] = (uint8_t)dns_req->questions_num;
     str[6] = 0x00;
@@ -813,11 +814,9 @@ struct dns_request *parse_dns_request(const char *wire_request, size_t request_l
     bzero(dns_req->rfcstring, sizeof(dns_req->rfcstring));
     //memcpy(dns_req->rfcstring, str, sizeof(dns_req->hostname)+16);
     
-//    char *tttt;
-//    tttt = b64_encode(dns_req->rfcstring,sizeof(str)+1);
-//    remchar(tttt, '=');
-//    //printf("dnsreqrfcstring  : %s\n",dns_req->rfcstring);
-
+    //char *tttt;
+    //tttt = b64_encode(dns_req->rfcstring,sizeof(str)+1);
+    //remchar(tttt, '=');
     //dns_req->rfcstring = tttt;
 
     for (int q=0;q <= sizeof(str); q++) {
@@ -826,12 +825,19 @@ struct dns_request *parse_dns_request(const char *wire_request, size_t request_l
       //dns_req->rfcstring[q] = tttt[q];
     }
 
-//    if (DEBUG) {
-//      printf("str              : %s\n",b64_encode(str,sizeof(str)+1));
-//      printf("dnsreqrfcstring  : %s\n",b64_encode(dns_req->rfcstring,sizeof(str)+1));
-//      //printf("dnsreqrfcstring  : %s\n",dns_req->rfcstring);
-//      //printf("dnsreqrfcstring  : %s\n",tttt);
-//    }
+    //if (DEBUG) {
+    //  printf("str              : %s\n",b64_encode(str,sizeof(str)+1));
+    //  printf("dnsreqrfcstring  : %s\n",b64_encode(dns_req->rfcstring,sizeof(str)+1));
+    //  printf("dnsreqrfcstring  : %x\n",dns_req->rfcstring);
+    //  //printf("dnsreqrfcstring  : %s\n",dns_req->rfcstring);
+    //  //printf("dnsreqrfcstring  : %s\n",tttt);
+    //}
+
+    if (DNSDUMP) { 
+      printf(" *** dns_req->rfcstring\n");
+      //printf(" *** DNS raw packet:\n%x\n", hexdump(dns_req->rfcstring,sizeof(dns_req->rfcstring)));
+      hexdump(dns_req->rfcstring,sizeof(str));
+    }
     
     return dns_req;
 }
@@ -1007,7 +1013,11 @@ void build_dns(int sd, struct sockaddr_in *yclient, struct dns_request *dns_req,
     free(response_ptr);
   }
 
-  if (DNSDUMP) { printf(" *** YYY SENT %d bytes\n", (uint32_t)bytes_sent); }
+  if (DNSDUMP) { 
+    //printf(" *** DNS raw packet:\n%x\n", hexdump(dns_req->rfcstring,sizeof(dns_req->rfcstring)));
+    //printf(" *** YYY SENT %d bytes\n", (uint32_t)bytes_sent);
+    hexdump(dns_req->rfcstring,sizeof(dns_req->rfcstring));
+  }
 }
 
 /* Builds and sends the dns response datagram talking Massimiliano Fantuzzi's pre-DoH format */
@@ -1042,6 +1052,10 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
 
   finalresponse = malloc(TCP_DATAGRAM_SIZE);
   bzero(finalresponse, TCP_DATAGRAM_SIZE);
+
+  if (DNSDUMP) { 
+    hexdump(dns_req->rfcstring,sizeof(dns_req->rfcstring));
+  }
 
   //bzero(dns_req->query, sizeof(dns_req->query));
   //memcpy(dns_req->query, udp_request, sizeof(dns_req->query)-1);
@@ -1458,7 +1472,7 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
     //memset(yclient, 0, 0);
 
     /* save HEX packet structure to file, from dns_response->payload for dns_response->length */
-    /* possible use-case: feed local disk cache, or serve it as HTTP content from DNSP daemon */
+    /* use-case: feed local disk cache, or serve it as HTTP content from DNSP daemon */
 
     /*
     #define MAX_LENGTH 512
@@ -1776,7 +1790,7 @@ static size_t header_handler(void *ptr, size_t size, size_t nmemb, void *userdat
     char *x = calloc(size + 1, nmemb);
     assert(x);
     memcpy(x, ptr, size * nmemb);
-    printf("New header:\n%s\n", x);
+    printf("%s", x);
     return size * nmemb;
 }
 
@@ -1859,20 +1873,26 @@ static int my_trace(CURL *handle, curl_infotype type, char *data, size_t size, v
  
   case CURLINFO_HEADER_OUT:
     text = "=> Send header";
-    if (DEBUGCURL) { fprintf(stderr, "== %d Header out  : %s\n", num, data); }
+    if (DEBUGCURL) {
+      fprintf(stderr, "== %d Header out  : %s", num, data);
+    }
     break;
   case CURLINFO_DATA_OUT:
     text = "=> Send data";
-    if (DEBUGCURL) { fprintf(stderr, "== %d Data out    : %s\n", num, data); }
+    if (DEBUGCURL) {
+      fprintf(stderr, "== %d Data out    : %x\n", num, data);
+      //fprintf(stderr, "== %d Data out    : %s\n", num, data);
+      dump(text, num, (unsigned char *)data, size, 0);
+    }
     break;
   case CURLINFO_SSL_DATA_OUT:
     text = "=> Send SSL data";
-    if (DEBUGCURL) { fprintf(stderr, "== %d SSL Data out: %s", num, data); }
+    if (DEBUGCURL) { fprintf(stderr, "\n== %d SSL Data out: %s\n", num, data); }
     break;
   case CURLINFO_HEADER_IN:
     text = "<= Recv header";
     if (DEBUGCURL) {
-	fprintf(stderr, "== %d Header in   : %s", num, data);
+      fprintf(stderr, "== %d Header in   : %s", num, data);
     }
 
     /* Parse headers as tokens, find "cache-control" header */
@@ -1965,9 +1985,10 @@ static int my_trace(CURL *handle, curl_infotype type, char *data, size_t size, v
   case CURLINFO_DATA_IN:
     text = "<= Recv data";
     if ( DNSDUMP ) {
-      /* dumping response body */
+      printf("\n *** CURL INFO dump\n");
       dump(text, num, (unsigned char *)data, size, 0);
-      //hexdump(data, size);
+      printf("\n *** CURL INFO hexdump\n");
+      hexdump(data, size);
     }
     /* export response body into set_data */
     set_data(data);
@@ -1981,60 +2002,59 @@ static int my_trace(CURL *handle, curl_infotype type, char *data, size_t size, v
   return 0;
 }
 
-static void setup(CURL *hndin, char *script_target, char *post_data_2) {
-//static void setup(CURL *hndin, char *script_target, struct dns_request *post_data_2) {
-//static void setup(CURL *hndin, char *script_target) {
-  //FILE *out; // = fopen(OUTPUTFILE, "wb");
+//static void setup(CURL *hndin, char *script_target, char *post_data_2) {
+static void setup(CURL *hndin, char *script_target, struct dns_request *post_data_2) {
   FILE *out = fopen(OUTPUTFILE, "wb");
   int num = 1;
   //char *q = ( char * ) malloc( 512 * sizeof( char ) );
-  char q[512];
+  char q_url[512];
   char filename[128];
-  char content_length2[512];
-  //char *content_length2;
+  char c_length_header[512];
   struct data config;
   struct curl_slist *list2;
 
   config.trace_ascii = 1; /* enable ascii tracing */ 
   
-  int cll2 = sizeof(post_data_2);
-  //snprintf(content_length2, cll2+16, "content-length = %d", cll2);
-  snprintf(content_length2, sizeof(post_data_2)-1+17, "content-length = %d", cll2);
-  fprintf(stderr, " *** HERE -> CURL SETUP cll2 length: %d\n",cll2);
+  //int cll2 = sizeof(post_data_2->rfcstring);
+  int cll2 = sizeof(post_data_2)+strlen(post_data_2->hostname)+9;
+  snprintf(c_length_header, cll2+16, "content-length: %d", cll2);
 
   /* avoid hardcoding services: provide parameter (or a static list, for blind root-check) with parallel threads */ 
-  snprintf(q, sizeof(q)-1, "%s", script_target);
-  //snprintf(q, URL_SIZE-1, "%s", script_target);
-  fprintf(stderr, " *** HERE -> CURL SETUP q length: %d\n", sizeof(q));
+  snprintf(q_url, sizeof(q_url)-1, "%s", script_target);
+  //snprintf(q_url, URL_SIZE-1, "%s", script_target);
   //snprintf(script_url, URL_SIZE-1, "https://dns.google/dns-query?dns=%s", temp);
-  //snprintf(q, sizeof(q)-1, "https://cloudflare-dns.com/dns-query?dns=%s", script_target);
   //snprintf(script_url, URL_SIZE-1, "https://cloudflare-dns.com/dns-query?dns=%s", b64_encode(rfcstring,sizeof(rfcstring)+strlen(host)+9));
+  //snprintf(q_url, sizeof(q_url)-1, "https://cloudflare-dns.com/dns-query?dns=%s", script_target);
 
   list2 = NULL;
-  //list = curl_slist_append(list, "authority: cloudflare-dns.com");
-  // 20200921 - POST -> ‘content-type: application/dns-message’
-  list2 = curl_slist_append(list2, "accept = application/dns-message");
-  list2 = curl_slist_append(list2, "content-type = application/dns-message");
-  list2 = curl_slist_append(list2, content_length2);
+  //list2 = curl_slist_append(list2, "accept: application/dns-udpwireformat");
+  //list2 = curl_slist_append(list2, "accept: application/dns-json");
+  //list2 = curl_slist_append(list2, "authority: cloudflare-dns.com");
+  //list2 = curl_slist_append(list2, "content-type: application/dns-udpwireformat");
+  //list2 = curl_slist_append(list2, "accept-encoding: gzip, deflate, br");
+  list2 = curl_slist_append(list2, "accept: application/dns-message; charset: utf-8");
+  list2 = curl_slist_append(list2, "content-type: application/dns-message");
+  list2 = curl_slist_append(list2, c_length_header);
 
-  // 20200921 - GET  -> ‘accept: application/dns-message’
-  //list2 = curl_slist_append(list2, "accept: application/dns-message; charset: utf-8");
-  //list2 = curl_slist_append(list2, "accept-encoding = gzip, deflate, br");
-  
-  // 20200921 - max fantuzzi - TODO migrate to POST
-  fprintf(stderr, " *** CURL SETUP : %02x\n", post_data_2);
-  curl_easy_setopt(hndin, CURLOPT_URL, q);
-  curl_easy_setopt(hndin, CURLOPT_NOSIGNAL, 1L);
+  //curl_easy_setopt(hndin, CURLOPT_POSTFIELDS, "dns=q80BAAABAAAAAAAAA3d3dwZnb29nbGUCaXQAAAEAAQ");
+  //curl_easy_setopt(hndin, CURLOPT_POSTFIELDS, "dns=q80BAAABAAAAAAAAA3d3dwZmYW50dXoDbmV0AAAAAQA");
+  //curl_easy_setopt(hndin, CURLOPT_POSTFIELDS, post_data_2->rfcstring);
+  //snprintf(testpost, sizeof(post_data_2)+strlen(post_data_2->hostname)+9, "%s", post_data_2);
+  curl_easy_setopt(hndin, CURLOPT_URL, q_url);
+  curl_easy_setopt(hndin, CURLOPT_POSTFIELDSIZE, cll2);
+  curl_easy_setopt(hndin, CURLOPT_POSTFIELDS, post_data_2);
 
   curl_easy_setopt(hndin, CURLOPT_HEADERFUNCTION, header_handler);
   curl_easy_setopt(hndin, CURLOPT_HTTPHEADER, list2);
+  curl_easy_setopt(hndin, CURLOPT_HEADER, 1L); /* set whether or not fetching headers and including in response */
 
-  //curl_easy_setopt(hndin, CURLOPT_POSTFIELDS, "dns=q80BAAABAAAAAAAAA3d3dwZnb29nbGUCaXQAAAEAAQ");
-  curl_easy_setopt(hndin, CURLOPT_POSTFIELDS, "dns=q80BAAABAAAAAAAAA3d3dwZmYW50dXoDbmV0AAAAAQA");
-  //curl_easy_setopt(hndin, CURLOPT_POSTFIELDS, post_data_2);
+  curl_easy_setopt(hndin, CURLOPT_NOSIGNAL, 1L);
+  curl_easy_setopt(hndin, CURLOPT_NOPROGRESS, 1L);
+  curl_easy_setopt(hndin, CURLOPT_NOBODY, 0L); /* placeholder for HEAD method */
+  curl_easy_setopt(hndin, CURLOPT_TCP_FASTOPEN, 0L);
 
   if (DEBUGCURLTTL) { curl_easy_setopt(hndin, CURLOPT_VERBOSE,  1); } else { curl_easy_setopt(hndin, CURLOPT_VERBOSE,  0); }
-  
+
   snprintf(filename, 128, "dnsp-h2.response-%d", num);
   fprintf(" *** FILE: %s", filename);
   //out = fopen(filename, "wb");
@@ -2063,28 +2083,36 @@ static void setup(CURL *hndin, char *script_target, char *post_data_2) {
   curl_easy_setopt(hndin, CURLOPT_SSL_VERIFYSTATUS, 0L);
   curl_easy_setopt(hndin, CURLOPT_HEADER, 1L);
   
-  //curl_easy_setopt(hndin, CURLOPT_PROXY, proxy_host);
-  //curl_easy_setopt(hndin, CURLOPT_PROXYPORT, proxy_port);	
+  //curl_easy_setopt(hndin, CURLOPT_PROXY, "127.0.0.1");
+  //curl_easy_setopt(hndin, CURLOPT_PROXYPORT, 8888);
+  //curl_easy_setopt(hndin, CURLOPT_PROXYTYPE, CURLPROXY_HTTP);
  
-  fprintf(stderr, " *** HERE -> CURL PRE-PERFORM\n");
+  if (DEBUGCURL) {
+    fprintf(stderr, " *** CURL SETUP POST data: %02x\n", post_data_2);
+    hexdump(post_data_2,sizeof(post_data_2)+strlen(post_data_2->hostname)+9);
+    fprintf(stderr, " *** CURL SETUP content-length: %d\n",cll2);
+    fprintf(stderr, " *** CURL SETUP c_length_header: %s\n", c_length_header);
+    fprintf(stderr, " *** CURL SETUP q_url length: %d\n", sizeof(q_url));
+  }
+  
   curl_easy_perform(hndin);
 
   #if (CURLPIPE_MULTIPLEX > 0)
     // wait for pipe connection to confirm
-    curl_easy_setopt(hndin, CURLOPT_PIPEWAIT, 1L);
-    //curl_easy_setopt(hndin, CURLOPT_PIPEWAIT, 0L);
+    //curl_easy_setopt(hndin, CURLOPT_PIPEWAIT, 1L);
+    curl_easy_setopt(hndin, CURLOPT_PIPEWAIT, 0L);
   #endif
 
-  fprintf(stderr, " *** HERE -> CURL PIPE FINISHED\n");
+  curl_easy_setopt(hndin, CURLOPT_PIPEWAIT, 0L);
+  fprintf(stderr, " *** CURL PIPE FINISHED ***\n");
   
   // placeholder, can parallelise N threads but is blocking/waiting. About the intent of spawning multiple/multipath things
   //curl_hndin[num] = 2;
   fclose(out);
   //curl_easy_cleanup(hndin);
+  //curl_slist_free_all(list2);
   //curl_global_cleanup();
   //return 0;
-
-  curl_slist_free_all(list2);
 }
 
 /* called when there's an incoming push */ 
@@ -2121,14 +2149,14 @@ static int server_push_callback(CURL *parent, CURL *easy, size_t num_headers, st
 }
 
 /* Hostname lookup -> OK: Resolved IP, KO: Null */
-char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_port, const char *proxy_user, const char *proxy_pass, const char *lookup_script, const char *typeq, unsigned int wport, const char *rfcstring, const char *post_data) {
-//char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_port, const char *proxy_user, const char *proxy_pass, const char *lookup_script, const char *typeq, unsigned int wport, char *rfcstring, const struct dns_req *post_data) {
+//char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_port, const char *proxy_user, const char *proxy_pass, const char *lookup_script, const char *typeq, unsigned int wport, const char *rfcstring, const char *post_data) {
+char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_port, const char *proxy_user, const char *proxy_pass, const char *lookup_script, const char *typeq, unsigned int wport, const char *rfcstring,const  struct dns_req *post_data) {
 
   CURL *hnd;
   //CURL *hndtest[2];		// for CURLM and parallel
   //CURLSH *shobject = curl_share_init();
   //CURLSH *curlsh;
-  //CURLM *multi_handle;
+  CURLM *multi_handle;
 
   /* keep number of running handles */ 
   int still_running;
@@ -2138,7 +2166,7 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
   CURLcode res;		// for CURLE error report
   //CURLcode ret;	// for CURLE error report
   int i, ret;
-  char *http_response, *script_url, *script_url_alt, *script_get, *pointer;
+  char *http_response, *script_url, *script_url_alt, *script_url_g, *script_get, *pointer;
   char base[2];
 
   /* CURL structs, different interfaces for different performances and needs */
@@ -2158,6 +2186,7 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
 
   script_url = malloc(URL_SIZE);
   script_url_alt = malloc(URL_SIZE);
+  script_url_g = malloc(URL_SIZE);
   
   http_response = malloc(HTTP_RESPONSE_SIZE);
 
@@ -2182,25 +2211,31 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
   
   char *temp = b64_encode(rfcstring,sizeof(rfcstring)+strlen(host)+9);
   remchar(temp, '=');
-  // 20200921 - max fantuzzi - TODO TRANSFORM IN POST
-  snprintf(script_url, URL_SIZE-1, "https://dns.google/dns-query?dns=%s", temp);
-  //snprintf(script_url, URL_SIZE-1, "https://dns.google/dns-query");
-  
   //snprintf(script_url, URL_SIZE-1, "https://dns.google/dns-query?dns=%s", b64_encode(rfcstring,sizeof(rfcstring)+strlen(host)+9));
+  //snprintf(script_url, URL_SIZE-1, "https://dns.google/dns-query?dns=%s", temp);
+  //b64_encode(rfcstring,sizeof(rfcstring)+strlen(host)+9));
+  snprintf(script_url_g, URL_SIZE-1, "https://dns.google/dns-query");
   //snprintf(n, sizeof(n)-1, "https://dns.google/dns-query?dns=%s", b64_encode(rfcstring,sizeof(rfcstring)+strlen(host)+9));
   //snprintf(n, sizeof(n)-1, "?host=%s&type=%s", host, typeq);
 
   /* See: https://developers.google.com/speed/public-dns/docs/doh */
   if (EXT_DEBUG) {
-    //printf("URL: https://cloudflare-dns.com/dns-query?dns=%s\n", b64_encode(rfcstring,sizeof(rfcstring)+strlen(host)+9));
-    //printf("URL: %s\n", n);
-    printf(" *** test: %s\n",script_url);
-    //FAULTY
-    //printf("sizeof(rfcstring)+strlen(host)+9): %d\n", sizeof(rfcstring)+strlen(host)+9);
+    printf(" *** url: https://cloudflare-dns.com/dns-query?dns=%s\n", b64_encode(rfcstring,sizeof(rfcstring)+strlen(host)+9));
+    printf(" *** url: https://cloudflare-dns.com/dns-query?dns=%s\n", temp);
+    printf(" *** url: %s\n",script_url);
+    printf(" *** n: %x\n", n);
+    printf(" *** post sizeof: %x\n",post_data);
+    hexdump(post_data,sizeof(post_data));
+    printf(" *** post strlen: %x\n",post_data);
+    hexdump(post_data,strlen(post_data));
+    printf(" *** rfcstring sizeof: %x\n",rfcstring);
+    hexdump(rfcstring,sizeof(rfcstring)+strlen(host)+9);
+    printf(" *** rfcstring strlen: %x\n",rfcstring);
+    hexdump(rfcstring,strlen(rfcstring));
+    printf(" *** sizeof(rfcstring)+strlen(host)+9): %d\n", sizeof(rfcstring)+strlen(host)+9);
     //printf("URL: https://dns.google.com/query?name=%s&type=%s&dnssec=true\n",host,typeq);
+    //printf(" *** debug: %s",base64_encode(host,strlen(host),((4 * strlen(host) / 3) + 3) & ~3));
   }
-  
-  //printf("DEBUG -> %s",base64_encode(host,strlen(host),((4 * strlen(host) / 3) + 3) & ~3));
 
   /* Beware of proxy-string: not every format is \"welcome\" to be cached .. and CURL fails silently here */
   //snprintf(proxy_url, URL_SIZE-1, "http://%s/", proxy_host);
@@ -2230,21 +2265,27 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
 
   /* curl setup, read: https://curl.haxx.se/libcurl/c/threadsafe.html to implement sharing and locks between threads */
   /* set specific nifty options for multi handlers or none at all */
-  /* New section: spawn two threads, so that one queries Google and the othe goes to CLoudflare */
-  /* This way, one answer can be cross-cheked and/or saved on filesystem */
+  //CURL *hnd;
   hnd = curl_easy_init();
-  // 20200921 - max fantuzzi - TODO - change to POST
-  //snprintf(script_url_alt, URL_SIZE-1, "https://cloudflare-dns.com/dns-query?dns=%s", temp);
+  
+  // GET
+  //snprintf(script_url_alt, URL_SIZE-1, "https://cloudflare-dns.com/dns-query?name=%s", temp);
+  // POST
   snprintf(script_url_alt, URL_SIZE-1, "https://cloudflare-dns.com/dns-query");
 
-  fprintf(stderr, " *** MAIN PRE-PERFORM: %x\n",n);
+  //fprintf(stderr, " *** LOOKUP_HOST PRE-PERFORM: %x\n",n);
   setup(hnd,script_url_alt,post_data);
-  printf(" *** test: %s\n",script_url);
-  printf(" *** test: %x\n",post_data);
-  fprintf(stderr, " *** MAIN POST-PERFORM: %x\n",n);
+  //setup(hnd,script_url_alt,rfcstring);
+  //fprintf(stderr, " *** LOOKUP_HOST POST-PERFORM: %x\n",n);
+
+  if (DEBUGCURL) {
+    printf(" *** test API URL: %s\n",script_url);
+    printf(" *** test POST data: %x\n",post_data);
+    hexdump(post_data,sizeof(post_data));
+    printf(" *** test DNS data: %x\n",rfcstring);
+    hexdump(rfcstring,sizeof(rfcstring));
+  }
   
-  // 20200220 20200824 - M FANTUZZI
-  /* placeholder for DNS-over-HTTPS (DoH) GET or POST method of choice, to become CLI option ASAP */
   //curl_setopt($ch,CURLOPT_POST,1);
   //curl_setopt($ch,CURLOPT_POSTFIELDS,'customer_id='.$cid.'&password='.$pass);
 
@@ -2287,17 +2328,12 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
   curl_easy_setopt(ch, CURLOPT_WRITEFUNCTION, write_data);
   //curl_easy_setopt(ch, CURLOPT_WRITEFUNCTION, WriteMemoryCallback);
 
-  // 20191107 m fantuzzi
   // we pass our 'chunk' struct to the callback function
   //curl_easy_setopt(ch, CURLOPT_WRITEDATA, http_response);
   //curl_easy_setopt(ch, CURLOPT_WRITEDATA, (void *)&chunk);
   //curl_easy_setopt(ch, CURLOPT_DEBUGFUNCTION, my_trace);
 
-  // set curlopt --> FOLLOW-LOCATION, necessary if getting 301 "Moved Permanently"
-  // reacting to "Location: http://www.example.org/index.asp"
   //curl_easy_setopt(ch, CURLOPT_FOLLOWLOCATION, 1);
-
-  // it doesnt cost much to verify, disable only while testing
   curl_easy_setopt(ch, CURLOPT_SSL_VERIFYPEER, 0L);
   curl_easy_setopt(ch, CURLOPT_SSL_VERIFYHOST, 0L);;
 
@@ -2324,28 +2360,21 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
   if (DEBUGCURLTTL) { curl_easy_setopt(ch, CURLOPT_VERBOSE,  1); } else { curl_easy_setopt(ch, CURLOPT_VERBOSE,  0); }
 
   curl_easy_setopt(ch, CURLOPT_NOSIGNAL, 1L);
-
   */
 
   /* wait for pipe to confirm */
-  /*
-  #if (CURLPIPE_MULTIPLEX > 0)
-  	curl_easy_setopt(ch, CURLOPT_PIPEWAIT, 1L);
-  #endif
-  */
-
-  /* do proxies like pipelining ? polipo does, and how about squid, nginx, apache ... ?? */
-  /* anyway all the story changes completely with H2 and DoH specs from RFC8484 */
+  //#if (CURLPIPE_MULTIPLEX > 0)
+  //	curl_easy_setopt(hnd, CURLOPT_PIPEWAIT, 1L);
+  //#endif
 
   /* OPTIONAL HEADERS, set with curl_slist_append */
   //list = NULL;
-  //list = curl_slist_append(list, "content-type: application/dns-message");
+  //list = curl_slist_append(list, "content-type: application/dns-udpwireformat");
   //list = curl_slist_append(list, "accept: application/dns-message");
+  //list = curl_slist_append(list, "content-type: application/dns-message");
   
   /* Defining which one to use, between: gzip, deflate, br, sdch */
   //list = curl_slist_append(list, "accept-encoding: sdch, br, deflate");
-  // WARNING !!
-  //list = curl_slist_append(list, "accept-encoding: deflate");
 
   /* OVERRIDE RESOLVER --> add resolver CURL header, work in progress */
   // in the form of CLI --resolve my.site.com:80:1.2.3.4, -H "Host: my.site.com"
@@ -2386,10 +2415,8 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
   //  curl_easy_setopt(curl2, CURLOPT_URL, "https://example.com/second");
   //  curl_easy_setopt(curl2, CURLOPT_COOKIEFILE, "");
   //  curl_easy_setopt(curl2, CURLOPT_SHARE, shobject);
-
   */
 
-  // WARNING
   // CURL multi-handler spawner, deactivated for the time being. we start some action by calling perform right away
   //curl_multi_perform(multi_handle, &still_running);
 
@@ -2487,62 +2514,66 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
    
   } while(transfers);
   */
- 
 
   //curl_multi_cleanup(multi_handle);
 
   /* multiple transfers */
-  //    for(i = 0; i<num_transfers; i++) {
-  //      easy[i] = curl_easy_init();
-  //      /* set options */ 
-  //      setup(easy[i], i);
-  //   
-  //      /* add the individual transfer */ 
-  //      curl_multi_add_handle(multi_handle, easy[i]);
-  //    }
+  // for(i = 0; i<num_transfers; i++) {
+  //   easy[i] = curl_easy_init();
+  /* set options */ 
+  //   setup(easy[i], i);
+  // 
+  /* add the individual transfer */ 
+  //   curl_multi_add_handle(multi_handle, easy[i]);
+  // }
 
   /* get it! */
-  //res = curl_easy_perform(ch);
+  // res = curl_easy_perform(ch);
   /* check for errors */ 
-  //if(res != CURLE_OK) { fprintf(stderr, "curl_easy_perform() failed: %s\n", curl_easy_strerror(res)); } else { printf("%lu bytes retrieved\n", (long)chunk.size); }
+  // if(res != CURLE_OK) { fprintf(stderr, "curl_easy_perform() failed: %s\n", curl_easy_strerror(res)); } else { printf("%lu bytes retrieved\n", (long)chunk.size); }
 
   /* Now chunk.memory points to memory block chunk.size bytes big and contains the remote file. Do something nice with it! */ 
 
-  /* slist holds specific headers here, beware of H2 reccomendations mentioned above */
   list = NULL;
-  //list = curl_slist_append(list, "authority: cloudflare-dns.com");
-  // 20200921 - POST -> ‘content-type: application/dns-message’
-  list = curl_slist_append(list, "accept: application/dns-message");
+  char content_length_header[512];
+  //int cll = sizeof(post_data);
+  //int cll2 = sizeof(post_data_2->rfcstring);
+  int cll = sizeof(rfcstring)+strlen(host)+9;
+  //int cll2 = sizeof(post_data_2)+strlen(post_data_2->hostname)+9;
+  hexdump(post_data,cll);
+
+  //snprintf(script_url_g, URL_SIZE-1, "https://dns.google/dns-query?dns=%s", temp);
+  snprintf(script_url_g, URL_SIZE-1, "https://dns.google/dns-query");
+  snprintf(content_length_header, cll+16, "content-length: %d", cll);
+
+  //list = curl_slist_append(list, content);
+  list = curl_slist_append(list, "accept: application/dns-message; charset: utf-8");
   list = curl_slist_append(list, "content-type: application/dns-message");
-  
-  char *content_length;
-  int cll = sizeof(post_data);
-
-  //snprintf(script_url, URL_SIZE-1, "https://dns.google/dns-query?dns=%s", temp);
-  snprintf(content_length, sizeof(post_data)-1+17,"content-length: %d",cll);
-  list = curl_slist_append(list, content_length);
-  
-  // 20200921 - GET  -> ‘accept: application/dns-message’
-  //  slist1 = curl_slist_append(slist1, "accept: application/dns-message; charset = utf-8");
+  list = curl_slist_append(list, content_length_header);
+  //list = curl_slist_append(list, "accept: application/dns-udpwireformat");
+  //list = curl_slist_append(list, "content-type: application/dns-udpwireformat");
+  //list = curl_slist_append(list, "accept: application/dns-json");
+  //list = curl_slist_append(list, "accept: application/octet-stream");
   //list = curl_slist_append(list, "accept-encoding: gzip, deflate, br");
-  
-  //slist1 = curl_slist_append(slist1, "accept-charset = utf-8");
-  //slist1 = curl_slist_append(slist1, "accept-encoding = deflate");
-  //slist1 = curl_slist_append(slist1, "accept: application/octet-stream");
-  //slist1 = curl_slist_append(slist1, "upgrade-insecure-requests = 1");
 
-  //curl_easy_setopt(hnd, CURLOPT_BUFFERSIZE, 8192L); /* 8K test, normally 100K buffer, set accordingly to truncation bit and other considerations */ 
+  /* 8K test, normally 100K buffer, set accordingly to truncation bit and other considerations */ 
+  //curl_easy_setopt(hnd, CURLOPT_BUFFERSIZE, 8192L);
   curl_easy_setopt(hnd, CURLOPT_BUFFERSIZE, 102400L);
   //curl_easy_setopt(hnd, CURLOPT_USERAGENT, "dnsp-h2/2.0-DEV");
   curl_easy_setopt(hnd, CURLOPT_USERAGENT, "curl 7.64.1-DEV (x86_64-pc-linux-gnu) libcurl/7.64.1-DEV OpenSSL/1.0.2g zlib/1.2.11 nghttp2/1.37.0-DEV");
 
-  curl_easy_setopt(hnd, CURLOPT_URL, script_url);
-  curl_easy_setopt(hnd, CURLOPT_NOPROGRESS, 1L);
-  curl_easy_setopt(hnd, CURLOPT_TCP_FASTOPEN, 0L);
-  curl_easy_setopt(hnd, CURLOPT_NOBODY, 0L); /* placeholder for HEAD method */
+  curl_easy_setopt(hnd, CURLOPT_URL, script_url_g);
+  curl_easy_setopt(hnd, CURLOPT_POSTFIELDSIZE, cll);
+  curl_easy_setopt(hnd, CURLOPT_POSTFIELDS, post_data);
+
   curl_easy_setopt(hnd, CURLOPT_HEADER, 1L); /* set whether or not fetching headers and including in response */
   curl_easy_setopt(hnd, CURLOPT_HTTPHEADER, list);
   curl_easy_setopt(hnd, CURLOPT_HEADERFUNCTION, header_handler);
+
+  curl_easy_setopt(hnd, CURLOPT_NOSIGNAL, 1L);
+  curl_easy_setopt(hnd, CURLOPT_NOPROGRESS, 1L);
+  curl_easy_setopt(hnd, CURLOPT_NOBODY, 0L); /* placeholder for HEAD method */
+  curl_easy_setopt(hnd, CURLOPT_TCP_FASTOPEN, 0L);
   curl_easy_setopt(hnd, CURLOPT_MAXREDIRS, 2L); /* delegation, RD bit set ? default 50, nice 2 */ 
 
   curl_easy_setopt(hnd, CURLOPT_HTTP_VERSION, (long)CURL_HTTP_VERSION_2TLS);
@@ -2551,32 +2582,25 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
   //curl_easy_setopt(hnd, CURLOPT_SSL_ENABLE_NPN, 1L);
   curl_easy_setopt(hnd, CURLOPT_SSL_VERIFYPEER, 0L);
   curl_easy_setopt(hnd, CURLOPT_SSL_VERIFYHOST, 0L);
-  /* OCSP not always available on CloudFlare or other cloud providers (OK for Google's GCP, still need to test with AWS) */
   curl_easy_setopt(hnd, CURLOPT_SSL_VERIFYSTATUS, 0L);
   curl_easy_setopt(hnd, CURLOPT_FILETIME, 1L);
   curl_easy_setopt(hnd, CURLOPT_TCP_KEEPALIVE, 1L);
   //curl_easy_setopt(hnd, CURLOPT_ENCODING, "gzip, deflate, br, sdch");
-  curl_easy_setopt(hnd, CURLOPT_ENCODING, "deflate, br, sdch");
   //curl_easy_setopt(hnd, CURLOPT_FOLLOWLOCATION, 1);
+
+  curl_easy_setopt(hnd, CURLOPT_WRITEFUNCTION, write_data); 
+  //curl_easy_setopt(hnd, CURLOPT_WRITEFUNCTION, WriteMemoryCallback);
+  curl_easy_setopt(hnd, CURLOPT_WRITEDATA, http_response);
+  //curl_easy_setopt(hnd, CURLOPT_WRITEDATA, (void *)&chunk);
+  
+  curl_easy_setopt(hnd, CURLOPT_DEBUGDATA, &config);
+  curl_easy_setopt(hnd, CURLOPT_DEBUGFUNCTION, my_trace);
 
   if (DEBUGCURLTTL) { curl_easy_setopt(hnd, CURLOPT_VERBOSE,  1); } else { curl_easy_setopt(hnd, CURLOPT_VERBOSE,  0); }
 
   //snprintf(post_data, URL_SIZE-1, "dns=%s",temp);
   //snprintf(post_data, URL_SIZE-1, "%x",post_data);
 
-  curl_easy_setopt(hnd, CURLOPT_POSTFIELDS, post_data);
-
-  /* send all data to this function */
-  curl_easy_setopt(hnd, CURLOPT_WRITEFUNCTION, write_data); 
-  //curl_easy_setopt(hnd, CURLOPT_WRITEFUNCTION, WriteMemoryCallback);
-  
-  /* we pass our 'chunk' struct to the callback function */ 
-  curl_easy_setopt(hnd, CURLOPT_WRITEDATA, http_response);
-  //curl_easy_setopt(hnd, CURLOPT_WRITEDATA, (void *)&chunk);
-
-  curl_easy_setopt(hnd, CURLOPT_DEBUGFUNCTION, my_trace);
-  curl_easy_setopt(hnd, CURLOPT_DEBUGDATA, &config);
-  
   //if ((proxy_user != NULL) && (proxy_pass != NULL))
   if ((proxy_host != NULL) && (proxy_port != NULL)) {
 	curl_easy_setopt(hnd, CURLOPT_PROXY, proxy_host);
@@ -2586,10 +2610,10 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
   }
 
   if (DEBUGCURL) {
-      fprintf(stderr, " *** POST data  : %s\n",post_data);
-      fprintf(stderr, " *** POST data  : %x\n",post_data);
-      fprintf(stderr, " *** POST data  : %s\n",n);
-      fprintf(stderr, " *** GET string : %s\n",script_url);
+      //fprintf(stderr, " *** POST data  : %s\n",post_data);
+      fprintf(stderr, " *** POST data  : %x\n",n);
+      hexdump(post_data,sizeof(post_data));
+      fprintf(stderr, " *** GET string : %s\n",script_url_g);
       //fprintf(stderr, " *** DOH string : ?dns=%s\n",b64_encode(rfcstring,sizeof(rfcstring)+strlen(host)+9));
   }
 
@@ -2610,10 +2634,12 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
   if (sizeof(host) > 3 ) {
     printf(" *** VALID HOST	: '%s'\n", host);
     res = curl_easy_perform(hnd);
+    //setup(hnd,script_url_g,post_data);
+    //curl_easy_perform(hnd);
+
     //ret = curl_multi_perform(multi_handle,&still_running);
     if(res != CURLE_OK) { fprintf(stderr, "curl_easy_perform() failed: %s\n", curl_easy_strerror(res)); }
     //if(ret != CURLE_OK) { fprintf(stderr, " *** CURL: curl_multi_perform() failed: %s\n", curl_multi_strerror(ret)); } //else { printf("\n *** MULTI -> OK !\n"); }
-    // 20200824 - M FANTUZZI - commented out printing
     //printf(" *** http_response	: '%x'\n", http_response);
     //printf(" *** http_response	: '%s'\n", http_response);
     //printf(" *** ret			: '%d'\n", res);
@@ -2629,14 +2655,13 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
   /* Problem performing request */
   if (ret < 0) {
     fprintf(stderr, " *** Error performing HTTP request (Error %d) - spot on !!!\n", ret);
-    free(script_url);
-    curl_slist_free_all(list);
-
+    free(n);
+    //free(script_url_g);
+    //curl_slist_free_all(list);
     //curl_slist_free_all(hosting);
     //curl_share_cleanup(curlsh);
     //printf("%s\n",http_response);
 
-    free(n);
     http_response = "0.0.0.0";
     return http_response;
   }
@@ -2655,28 +2680,31 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
     //curl_slist_free_all(hosting);
     curl_slist_free_all(list);
     //curl_share_cleanup(curlsh);
-    //curl_easy_cleanup(ch);
+    //curl_easy_cleanup(hnd);
     http_response = "0.0.0.0";
     return http_response;
   }
  
-//  //20191212
-//  if (DEBUGCURL) {
-//    // max fantuzzi verfied 20200924 20191105
-//    hexdump(http_response,sizeof(http_response));
-//    //printf("\n[%03ld]\n",http_response);
-//    //printf(" *** DOH server : %s\n", script_url);
-//    //printf(" *** Response from libCURL -> %s\n", http_response);
-//  }
+  //20191212
+  if (DEBUGCURL) {
+    //hexdump(http_response,sizeof(http_response));
+    //printf("\n[%03ld]\n",http_response);
+    printf(" *** DOH server : %s\n", script_url_g);
+    //printf(" *** Response from libCURL -> %s\n", http_response);
+  }
 
-  free(script_url);
+  free(script_url_g);
+  free(script_url_alt);
   //free(proxy_url);
   free(chunk.memory);
   //curl_multi_cleanup(multi_handle);
   //curl_share_cleanup(curlsh);
-  curl_slist_free_all(list);
-  curl_easy_cleanup(hnd);
-  curl_global_cleanup();
+
+  // 20221107 
+  //curl_slist_free_all(list);
+
+  //curl_easy_cleanup(hnd);
+  //curl_global_cleanup();
   //hnd = NULL;
   //free(hnd);
   //free(n);
@@ -2709,8 +2737,8 @@ void *threadFunc(void *arg) {
   char* lookup_script = params->xlookup_script;
 
   //char* post_data = (char *)params->xpost_data;
-  char *post_data = params->xpost_data;
-  //struct dns_request *post_data = (struct dns_request *)params->xpost_data;
+  //char *post_data = params->xpost_data;
+  struct dns_request *post_data = (struct dns_request *)params->xpost_data;
 
   char *rfcstring = (char *)params->xhostname->rfcstring;
   //char* rfcstring = params->xrfcstring;
@@ -2745,18 +2773,27 @@ void *threadFunc(void *arg) {
     printf(" *** sin_addr readable		: %s\n", s);
   }
 
+  if (DNSDUMP) { 
+    //hexdump(dns_req->rfcstring,sizeof(dns_req->rfcstring));
+    printf(" *** params->xhostname->rfcstring\n");
+    hexdump(params->xhostname->rfcstring,sizeof(params->xhostname->rfcstring));
+    //printf(" *** DNS raw packet:\n%x\n", hexdump(dns_req->rfcstring,sizeof(dns_req->rfcstring)));
+    //printf(" *** YYY SENT %d bytes\n", (uint32_t)bytes_sent);
+  }
+
   if (!(params->xhostname->hostname == NULL) && !(yhostname == NULL)) {
+    //www = lookup_host(yhostname, proxy_host_t, proxy_port_t, proxy_user_t, proxy_pass_t, lookup_script, typeq, wport, rfcstring, post_data);
     //www = lookup_host(yhostname, proxy_host_t, proxy_port_t, proxy_user_t, proxy_pass_t, lookup_script, typeq, wport, rfcstring, (char *)post_data);
-    www = lookup_host(yhostname, proxy_host_t, proxy_port_t, proxy_user_t, proxy_pass_t, lookup_script, typeq, wport, rfcstring, post_data);
-    //www = lookup_host(yhostname, proxy_host_t, proxy_port_t, proxy_user_t, proxy_pass_t, lookup_script, typeq, wport, rfcstring, dns_req);
+    //www = lookup_host(yhostname, proxy_host_t, proxy_port_t, proxy_user_t, proxy_pass_t, lookup_script, typeq, wport, rfcstring, rfcstring);
+    www = lookup_host(yhostname, proxy_host_t, proxy_port_t, proxy_user_t, proxy_pass_t, lookup_script, typeq, wport, rfcstring, params->xhostname->rfcstring);
+    //www = lookup_host(yhostname, proxy_host_t, proxy_port_t, proxy_user_t, proxy_pass_t, lookup_script, typeq, wport, rfcstring, (char *)params->xhostname->rfcstring);
+    //www = lookup_host(yhostname, proxy_host_t, proxy_port_t, proxy_user_t, proxy_pass_t, lookup_script, typeq, wport, rfcstring, dns_req->rfcstring);
     yhostname == NULL;
     params->xhostname->hostname == NULL;
-    // 20200921 - max fantuzzi review - 20200924 20190221
     //pthread_exit(NULL);
     //exit(EXIT_SUCCESS);
   } else {
-    //printf("\n *** HALT");
-    // SECTION TO BE SUPPRESSED, WITH DOH THIS CASE IS NO MORE RELEVANT.
+    // SECTION TO BE SUPPRESSED, WITH DoH THIS CASE IS NO MORE RELEVANT.
     www == NULL;
     //www == "0.0.0.0";
     yhostname == NULL;
@@ -3318,9 +3355,9 @@ int main(int argc, char *argv[]) {
     int newsockfd = accept(fd, (struct sockaddr *)&client_tcp,&client_len_tcp);
     // 20200824
     fcntl(newsockfd, F_SETFL, O_NONBLOCK);
-    setsockopt(newsockfd, SOL_SOCKET, SO_RCVTIMEO, &read_timeout_micro, sizeof read_timeout_micro);
     //fcntl(newsockfd, F_SETFL, O_ASYNC);
     //fcntl(newsockfd, F_SETFL, FNDELAY);
+    setsockopt(newsockfd, SOL_SOCKET, SO_RCVTIMEO, &read_timeout_micro, sizeof read_timeout_micro);
 
     if (!(recv_tcp == -1)) fprintf(stderr, " *** TCP newsockfd -> select() contains %d bytes\n",recv_tcp);
     //add to master set
@@ -3607,8 +3644,8 @@ int main(int argc, char *argv[]) {
       
       //readParams->xpost_data = (char *) request;
       //readParams->xpost_data = request;
-      readParams->xpost_data = post_data;
-      //readParams->xpost_data = (struct dns_request *)dns_req;
+      //readParams->xpost_data = post_data;
+      readParams->xpost_data = (struct dns_request *)dns_req;
       
       readParams->xtypeq = typeq;
       readParams->xwport = wport;
