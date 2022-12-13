@@ -3,8 +3,7 @@ CFLAGS  = -O2 -Wall -W -pedantic -rdynamic -g
 FLAG    = -DTLS
 CFLAGS += $(FLAG)
 LIBS    = -lcurl -lrt -lnghttp2 -lssl -lbrotlidec -lz -lcrypto -lpthread -lnghttp2
-LIBS   += -L/usr/local/lib
-#-lnghttp2
+#LIBS   += -L/usr/local/lib
 
 #CFLAGS  = -std=c99 -O2 -Wall -W -pedantic -g -rdynamic
 #LIBS   += -lssl -lboost_system -lboost_system -lboost_thread 
