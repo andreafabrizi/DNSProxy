@@ -1,9 +1,10 @@
 CC      = gcc
-CFLAGS  = -O2 -Wall -W -pedantic -g -rdynamic
+CFLAGS  = -O2 -Wall -W -pedantic -rdynamic -g
 FLAG    = -DTLS
 CFLAGS += $(FLAG)
-LIBS    = -lcurl -lrt -lnghttp2 -lssl -lbrotlidec -lz -lcrypto -lpthread
-#LIBS    = -L/usr/local/lib -lcurl -lrt -lnghttp2 -lssl -lbrotlidec -lz -lcrypto -l pthread
+LIBS    = -lcurl -lrt -lnghttp2 -lssl -lbrotlidec -lz -lcrypto -lpthread -lnghttp2
+LIBS   += -L/usr/local/lib
+#-lnghttp2
 
 #CFLAGS  = -std=c99 -O2 -Wall -W -pedantic -g -rdynamic
 #LIBS   += -lssl -lboost_system -lboost_system -lboost_thread 
@@ -29,15 +30,20 @@ dnsp : dnsp.o
 dnsp.o : dnsp.c
 	${CC} -w -c dnsp.c
 
-dnsp-h2 : dnsp-h2.c
-	${CC} encode.o decode.o dnsp-h2.c ${CFLAGS} ${LIBS} -w -o dnsp-h2
-	
+dnsp-h2 : dnsp-h2.o
+	${CC} encode.o decode.o dnsp-h2.o ${CFLAGS} ${LIBS} -w -o dnsp-h2
+
+dnsp-h2.o : dnsp-h2.c
+	${CC} -w -c dnsp-h2.c
+
+#${CC} encode.o decode.o dnsp-h2.c ${CFLAGS} ${LIBS} -w -o dnsp-h2
+
 #${CC} librb64u.c encode.o decode.o base64.c dnsp-h2.c ${CFLAGS} ${LIBS} -w -o dnsp-h2
 #dnsp-h2.o : dnsp-h2.c
 #	${CC} -w -c dnsp-h2.c
 
 clean :
-	rm -v dnsp dnsp-h2 dnsp.o
+	rm -v dnsp dnsp-h2 dnsp.o dnsp-h2.o
 
 #$(TARGET): $(TARGET).c
 #	@echo "In Makefile: FLAG = <$(FLAG)>"
