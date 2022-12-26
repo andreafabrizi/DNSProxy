@@ -570,6 +570,11 @@ max@trinity:~/DNSProxy$
 
 ## Changelog:
 
+#### Version 3.3.0 - Q4 2022:
+* adjusted to POST by default (no more GET and visible dns= string)
+* reduced memory footprint
+* better debug, smarter hooks
+
 #### Version 3.0 - August 2020:
 * fixed TCP listener !
 * perfect parsing of HTTP reply
@@ -670,19 +675,18 @@ max@trinity:~/DNSProxy$
 * add switch to leverage REUSEPORT and/or REUSEADDRESS
 
 ## Ideas - lower priority:
+* parallelize requests, choose the faster response (in progress)
+* restore performances, currently impacted by TCP handler (optimization in progress)
+* add a /stats backend
 * implement HTTP/2 PUSH, for smoother and opportunistic DNS answers. Remember, there's no ID field in DOH !
 * use h2 "Warning" headers to signal events/failures
 * to use NGHTTP2 in place of CURL. A faster way to support H2 (anyways, CURL requires NGHTTP2)
-* parallelize requests, choose the faster response
-* restore performances, currently impacted by new TCP handlers
-* REDIS: implement or let die
 * DNSSEC validation tests ?
-* add a statistics backend
+* REDIS: implement or drop
 
 ## Non-inclusive DoH providers list
 * 1.1.1.1
 * 8.8.8.8
-* 9.9.9.9
 * see list on https://github.com/curl/curl/wiki/DNS-over-HTTPS#publicly-available-servers
 
 ## References:
@@ -734,7 +738,7 @@ DNS leak. Running locally is useful for TESTING purposes only !!
 
 # Extra useful informations
 
-## Appendix A - Headers and common used Proxies
+## Appendix A - Common Proxy Headers
 
 ```
 
@@ -788,34 +792,14 @@ echo -n 'q80BAAABAAAAAAAABmdpdGh1YgNjb20AAAEAAQ' | base64 -d 2>/dev/null | curl 
 ## Appendix B - reversing base-16 complement
 
 ```
-If you are a bit acquainted with hex you dont need to convert to binary.
-Just take the base-16 complement of each digit, and add 1 to the result.
+If you are a bit acquainted with hex you dont need to convert to binary. Just take the base-16 complement of each digit, and add 1 to the result.
 So you get 0C5E. Add 1 and here's your result: 0C5F.
-for a faster approach you can also flip the bits left to very first set bit
-and find out the 2s complement.
-(instead of finding 1ns and then adding 1 to it) 
+For a faster approach you can also flip the bits left to very first set bit and find out the 2s complement, instead of finding 1ns and then adding 1 to it.
 1111 0011 1010 0001 toggle the bits left to first set bit
 0000 1100 0101 1111
-I expect you would like this if bit pattern is changed to binary than hex :)
-
-The TTL entity/value was foundation in DNSP development, considered for sake of caching.
-With the advent of DNS-over-HTTPS RFC standard, the need to serve (and properly expire)
-caches became imperative. TTL specifies a maximum time to live, not a mandatory time to live.
-RFC2181: "Maximum of 2^31 - 1.  When transmitted, this value shall be encoded in the less
-significant 31 bits of the 32 bit TTL field, with the most significant, or sign, bit set
-to zero. Implementations should treat TTL values received with the most significant bit set
-as if the entire value received was zero. Implementations are always free to place an upper
-bound on any TTL received, and treat any larger values as if they were that upper bound. 
-
-0x08 - backspace \010 octal
-0x09 - horizontal tab
-0x0a - linefeed
-0x0b - vertical tab \013 octal
-0x0c - form feed
-0x0d - carriage return
-0x20 - space
-
+I expect you would like this if bit pattern is changed to binary then hex :)
 ```
+
 ## Appendix C . DNS FAILURE MESSAGES
 
 ```
@@ -850,7 +834,16 @@ NOTZONE (RCODE:10)       : Name not in zone
 
 ```
 
-## Appendix D - Example HTTP Cache Headers
+## Appendix D - Thoughts on TTL and example HTTP Cache Headers
+
+The TTL entity/value was foundation in DNSP development, considered for sake of caching.
+With the advent of DNS-over-HTTPS RFC standard, the need to serve (and properly expire)
+caches became imperative. TTL specifies a maximum time to live, not a mandatory time to live.
+RFC2181: "Maximum of 2^31 - 1.  When transmitted, this value shall be encoded in the less
+significant 31 bits of the 32 bit TTL field, with the most significant, or sign, bit set
+to zero. Implementations should treat TTL values received with the most significant bit set
+as if the entire value received was zero. Implementations are always free to place an upper
+bound on any TTL received, and treat any larger values as if they were that upper bound. 
 
 ```
 cache with HTTP/1.1 304 "Not Modified" 
