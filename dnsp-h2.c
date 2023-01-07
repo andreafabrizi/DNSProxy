@@ -86,8 +86,6 @@
 #define NUM_HANDLER_THREADS	    1
 //#define FILE_CONTENTTYPE_DEFAULT        "application/dns-message"
 #define RESOLVER         "dns.google"
-//https://cloudflare-dns.com/dns-query?dns=%s
-//https://dns.google/dns-query?dns=%s
 
 /* use nghttp2 library to establish, no ALPN/NPN. CURL is not enough, you need builting NGHTTP2 support */
 #define USE_NGHTTP2             1
@@ -132,7 +130,6 @@
 #endif
  
 #define NUM_HANDLES 4
-#define OUTPUTFILE "packet.download"
 
 #define S(x) # x
 #define t(m, a, b) ({                                                \
@@ -285,11 +282,11 @@ struct readThreadParams {
 	struct sockaddr_in *yclient;
 	struct dns_request *xproto;
 	struct dns_request *dns_req;
-	//char* xpost_data;
-	struct dns_request *xpost_data;
 	//struct dns_request *xdns_req;
-	//char* xrfcstring;
+	struct dns_request *xpost_data;
+	//char* xpost_data;
 	struct dns_request *xrfcstring;
+	//char* xrfcstring;
 };
 
 struct thread_info {    	/* Used as argument to thread_start() */
@@ -1691,6 +1688,33 @@ static size_t WriteMemoryCallback(void *contents, size_t size, size_t nmemb, voi
   return realsize;
 }
 
+/* libCurl write data callback chatgpt */
+static size_t write_callback(void *ptr, size_t size, size_t nmemb, void *stream) {
+  size_t written = 0;
+  for (int i = 0; i < size * nmemb; i++)
+  {
+      fputc(((char *)ptr)[i], (FILE *)stream);
+      written++;
+  }
+  return written;
+}
+
+/* libCurl write data callback chatgpt */
+static size_t write_callback_aa(void *ptr, size_t size, size_t nmemb, void *stream) {
+  size_t written = 0;
+  char *buffer = (char *)stream;
+
+  memcpy(buffer, ptr, size * nmemb);
+  buffer[size * nmemb] = '\0';
+
+  for (int i = 0; i < size * nmemb; i++)
+  {
+      fputc(((char *)ptr)[i], (FILE *)stream);
+      written++;
+  }
+
+  return written + 1;
+}
 /* libCurl write data callback */
 static size_t write_data(void *ptr, size_t size, size_t nmemb, void *stream) {
   size_t stream_size;
@@ -1956,7 +1980,8 @@ static int my_trace(CURL *handle, curl_infotype type, char *data, size_t size, v
       //partagés (comme les proxies). Il est donc ignoré par les caches privés (dont les navigateurs).
   
       char *str2, *tofree2;
-      tofree2 = str2 = strdup(my_str_literal);  // We own str's memory now.
+      // We own str's memory now.
+      tofree2 = str2 = strdup(my_str_literal);
   
       tokens = str_split(data, ',');
   
@@ -2018,9 +2043,9 @@ static int my_trace(CURL *handle, curl_infotype type, char *data, size_t size, v
   return 0;
 }
 
-//static void setup(CURL *hndin, char *script_target, struct dns_request *post_data_2)
-static void setup(CURL *hndin, char *script_target, char *post_data_2) {
-  //FILE *out = fopen(OUTPUTFILE, "wb");
+// for Google DoH resolver, min 12, max 512 bytes
+//static void setup(CURL *hndin, char *script_target, char *post_data_2)
+static void setup(CURL *hndin, char *script_target, struct dns_request *post_data_2) {
   int num = 1;
   //char *q = ( char * ) malloc( 512 * sizeof( char ) );
   char q_url[512];
@@ -2029,25 +2054,38 @@ static void setup(CURL *hndin, char *script_target, char *post_data_2) {
   struct data config;
   struct curl_slist *list2;
 
+  // CHATGPT block used as example, explanation
+  struct dns_post_data {
+    char hostname[512];  //1025
+    char rfcstring[512]; //1050
+    //char *testing; // = post_data_2->rfcstring;
+  };
+
+  //struct dns_post_data *post_data_2_ptr = (struct dns_post_data *)post_data_2;
+  struct dns_post_data *post_data_2_ptr = (struct dns_post_data *)post_data_2;
+  //struct dns_request *post_data_2_ptr = (struct dns_request *)post_data_2;
+  int rfcstring_length = strlen(post_data_2_ptr->rfcstring);
+
   curl_global_init(CURL_GLOBAL_ALL);
   hndin = curl_easy_init();
   config.trace_ascii = 1; // enable ascii tracing
   
   //int cll = sizeof(rfcstring)+strlen(host)+9;
   //int cll2 = sizeof(post_data_2->rfcstring);
-  //int cll2 = sizeof(post_data_2)+strlen(post_data_2->hostname)+9;
-  //int cll2 = sizeof(post_data_2)+strlen(post_data_2->rfcstring)+9;
   //int cll2 = sizeof(post_data_2)+strlen(post_data_2->rfcstring)+strlen(post_data_2->hostname)+9; // 20221225
-  int cll2 = sizeof(post_data_2)+strlen(post_data_2)+strlen(post_data_2)+9+5; // 20221225
+  // chatgpt suggestion
+  //int cll2 = strlen(post_data_2) + strlen(post_data_2) + 5;
+  //int cll2 = sizeof(struct dns_post_data) + strlen(post_data_2_ptr->hostname) + 5;
+  //int cll2 = sizeof(struct dns_post_data) + strlen(post_data_2_ptr->rfcstring) + strlen(post_data_2_ptr->hostname) + 5; // 20230107
+  //int cll2 = sizeof(struct dns_post_data) + rfcstring_length + 5;
+  //int cll2 = strlen(post_data_2_ptr->rfcstring) + rfcstring_length + 5 + strlen(post_data_2->rfcstring) + strlen(post_data_2_ptr->hostname);
+  int cll2 = strlen(post_data_2_ptr->rfcstring) + 9 + 5 + 8 + strlen(post_data_2_ptr->hostname);
+  //int cll2 = rfcstring_length + sizeof(post_data_2) + strlen(post_data_2) + strlen(post_data_2) + 9 + 5; // 20221225
   snprintf(c_length_header, cll2+16, "content-length: %d", cll2);
 
   /* avoid hardcoding services: provide parameter (or a static list, for blind root-check) with parallel threads */ 
   //snprintf(q_url, URL_SIZE-1, "%s", script_target);
   snprintf(q_url, sizeof(q_url)-1, "%s", script_target);
-
-  //snprintf(script_url, URL_SIZE-1, "https://dns.google/dns-query?dns=%s", temp);
-  //snprintf(q_url, sizeof(q_url)-1, "https://cloudflare-dns.com/dns-query?dns=%s", script_target);
-  //snprintf(script_url, URL_SIZE-1, "https://cloudflare-dns.com/dns-query?dns=%s", b64_encode(rfcstring,sizeof(rfcstring)+strlen(host)+9));
 
   list2 = NULL;
   //list2 = curl_slist_append(list2, "accept: application/dns-udpwireformat");
@@ -2070,11 +2108,11 @@ static void setup(CURL *hndin, char *script_target, char *post_data_2) {
   curl_easy_setopt(hndin, CURLOPT_POSTFIELDSIZE, cll2);
   curl_easy_setopt(hndin, CURLOPT_POSTFIELDS, post_data_2); // 20221225
   //curl_easy_setopt(hndin, CURLOPT_POSTFIELDS, post_data_2->rfcstring);
-  //curl_easy_setopt(hndin, CURLOPT_POST, 1);
 
   curl_easy_setopt(hndin, CURLOPT_HEADERFUNCTION, header_handler);
   curl_easy_setopt(hndin, CURLOPT_HTTPHEADER, list2);
-  curl_easy_setopt(hndin, CURLOPT_HEADER, 1L); /* set whether or not fetching headers and including in response */
+  // set whether or not fetching headers and including in response // here we only want to save the raw response
+  curl_easy_setopt(hndin, CURLOPT_HEADER, 0L); // 20221225
 
   curl_easy_setopt(hndin, CURLOPT_NOSIGNAL, 1L);
   curl_easy_setopt(hndin, CURLOPT_NOPROGRESS, 1L);
@@ -2082,7 +2120,7 @@ static void setup(CURL *hndin, char *script_target, char *post_data_2) {
   curl_easy_setopt(hndin, CURLOPT_TCP_FASTOPEN, 0L);
 
   // write to this file to feed the cache
-  snprintf(filename, 128, "response-%x", post_data_2);
+  snprintf(filename, 128, "response.%x", post_data_2);
   fprintf(" *** FILE: %s", filename);
   FILE *out_aa = fopen(filename, "wb");
 
@@ -2090,8 +2128,6 @@ static void setup(CURL *hndin, char *script_target, char *post_data_2) {
   //static struct Memory files[MAX_FILES];
   //init_memory(&files[0]);
   
-  //curl_easy_setopt(hndin, CURLOPT_WRITEFUNCTION, WriteMemoryCallback);
-  //curl_easy_setopt(hndin, CURLOPT_WRITEDATA, (void *)&chunk);
   curl_easy_setopt(hndin, CURLOPT_WRITEFUNCTION, write_file);
   curl_easy_setopt(hndin, CURLOPT_WRITEDATA, out_aa);
   curl_easy_setopt(hndin, CURLOPT_VERBOSE, 0); // 20221225
@@ -2110,19 +2146,16 @@ static void setup(CURL *hndin, char *script_target, char *post_data_2) {
   
   //curl_easy_setopt(hndin, CURLOPT_CAPATH, "/etc/ssl/certs/");
   //curl_easy_setopt(hndin, CURLOPT_SSLVERSION, CURL_SSLVERSION_TLSv1_2);
-  //curl_easy_setopt(hndin, CURLOPT_SSLVERSION, CURL_SSLVERSION_DEFAULT); //CURL_SSLVERSION_TLSv1
   //curl_easy_setopt(hndin, CURLOPT_SSLENGINE, "dynamic");
   curl_easy_setopt(hndin, CURLOPT_SSLENGINE_DEFAULT, 1L);
   
-  //curl_easy_setopt(hndin, CURLOPT_PROXY, "http://127.0.0.1:8888");
-  //curl_easy_setopt(hndin, CURLOPT_PROXYPORT, 8888L);
-  //curl_easy_setopt(hndin, CURLOPT_PROXYTYPE, CURLPROXY_HTTP);
   curl_easy_setopt(hndin, CURLOPT_HTTPPROXYTUNNEL, 1L); // 20221225
   curl_easy_setopt(hndin, CURLOPT_NOSIGNAL, 1L); // 20221225
  
   if (DEBUGCURL) {
     fprintf(stderr, " *** CURL SETUP POST data: %02x\n", post_data_2);
     //hexdump(post_data_2,sizeof(post_data_2)+strlen(post_data_2->hostname)+9);
+    hexdump(post_data_2,sizeof(post_data_2)+strlen(post_data_2)+9);
     fprintf(stderr, " *** CURL SETUP content-length: %d\n",cll2);
     fprintf(stderr, " *** CURL SETUP c_length_header: %s\n", c_length_header);
     fprintf(stderr, " *** CURL SETUP q_url length: %d\n", sizeof(q_url));
@@ -2142,10 +2175,11 @@ static void setup(CURL *hndin, char *script_target, char *post_data_2) {
   //curl_hndin[num] = 2;
   //fclose(out);
   fclose(out_aa);
-  //curl_easy_cleanup(hndin);
+  curl_easy_cleanup(hndin);
   //curl_global_cleanup();
-  //curl_slist_free_all(list2);
+  curl_slist_free_all(list2);
   //curl_global_cleanup();
+  return out_aa; // 20230107
   //return 0;
 }
 
@@ -2304,22 +2338,25 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
   // GET
   //snprintf(script_url_alt, URL_SIZE-1, "https://cloudflare-dns.com/dns-query?name=%s", temp);
   // POST
-  snprintf(script_url_alt, URL_SIZE-1, "https://dns.google/dns-query");
+  //snprintf(script_url_alt, URL_SIZE-1, "https://dns.google/dns-query");
+  snprintf(script_url_alt, URL_SIZE-1, "https://cloudflare-dns.com/dns-query");
 
-  //fprintf(stderr, " *** LOOKUP_HOST PRE-PERFORM -1: %x\n",ndebug);
-  setup(hnd,script_url_alt,rfcstring);
-  //fprintf(stderr, " *** LOOKUP_HOST POST-PERFORM-1: %x\n",ndebug);
-  //fprintf(stderr, " *** LOOKUP_HOST PRE-PERFORM -2: %x\n",ndebug);
+  //setup(hnd,script_url_alt,rfcstring);
   setup(hnd,script_url_alt,post_data);
-  //fprintf(stderr, " *** LOOKUP_HOST POST-PERFORM-2: %x\n",ndebug);
 
   if (DEBUGCURL) {
-    printf(" *** test API URL: %s\n",script_url_alt);
+    //printf(" *** API URL: %s\n",script_url_alt);
     printf(" *** test post_data: %x\n",post_data);
     hexdump(post_data,sizeof(post_data));
     printf(" *** test rfcstring: %x\n",rfcstring);
     hexdump(rfcstring,sizeof(rfcstring));
   }
+
+  char afilename[256]; // const char *afilename = "test.response.xxx";
+  snprintf(afilename, 256, "test.response.%x.%s", rfcstring, host);
+  char buffer[1024];
+  size_t nread;
+  FILE *file = fopen(afilename, "wb");
 
   /*
   // HTTP/2 prohibits connection-specific header fields. The following header fields must not appear
@@ -2580,18 +2617,16 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
 
   /* 8K test, normally 100K buffer, set accordingly to truncation bit and other considerations */ 
   curl_easy_setopt(hnd, CURLOPT_BUFFERSIZE, 8192L);
-  //curl_easy_setopt(hnd, CURLOPT_BUFFERSIZE, 102400L);
 
   curl_easy_setopt(hnd, CURLOPT_URL, script_url_g);
   curl_easy_setopt(hnd, CURLOPT_POSTFIELDS, post_data);
   curl_easy_setopt(hnd, CURLOPT_POSTFIELDSIZE, cll);
   //curl_easy_setopt(hnd, CURLOPT_POST, 1);
-  //curl_easy_setopt(hnd, CURLOPT_POSTFIELDSIZE, 0);
-  //curl_easy_setopt(hnd, CURLOPT_POSTFIELDS, '');
   curl_easy_setopt(hnd, CURLOPT_TCP_KEEPALIVE, 1L);
   curl_easy_setopt(hnd, CURLOPT_TCP_FASTOPEN, 1L);
 
-  curl_easy_setopt(hnd, CURLOPT_HEADER, 1L); /* set whether or not fetching headers and including in response */
+  // set whether or not fetching headers and including in response. Needed on this pass for TTL extraction
+  curl_easy_setopt(hnd, CURLOPT_HEADER, 1L);
   curl_easy_setopt(hnd, CURLOPT_HTTPHEADER, list);
   curl_easy_setopt(hnd, CURLOPT_HEADERFUNCTION, header_handler);
 
@@ -2602,8 +2637,6 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
 
   //curl_easy_setopt(hnd, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_2_0);
   //curl_easy_setopt(hnd, CURLOPT_HTTP_VERSION, (long)CURL_HTTP_VERSION_2_PRIOR_KNOWLEDGE);
-  //curl_easy_setopt(hnd, CURLOPT_SSL_ENABLE_ALPN, 1L);
-  //curl_easy_setopt(hnd, CURLOPT_SSL_ENABLE_NPN, 1L);
   curl_easy_setopt(hnd, CURLOPT_SSL_VERIFYPEER, 0L);
   curl_easy_setopt(hnd, CURLOPT_SSL_VERIFYHOST, 0L);
   curl_easy_setopt(hnd, CURLOPT_SSL_VERIFYSTATUS, 0L);
@@ -2612,18 +2645,19 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
   curl_easy_setopt(hnd, CURLOPT_FOLLOWLOCATION, 1);
   //curl_easy_setopt(hnd, CURLOPT_FILETIME, 1L);
 
-  // write to this file to feed the cache
-  //snprintf(filename, 128, "dnsp-h2.response-%d", num);
-  //fprintf(" *** FILE: %s", filename);
-  //FILE *out = fopen("filename.test", "wb");
+  char filename[128];
+  snprintf(filename, 128, "response.%x.%s", rfcstring, host);
+  fprintf(" *** FILE: %s", filename);
+  FILE *out = fopen(filename, "wb");
+  if (out == NULL) { perror("Error opening file!"); return 1; }
 
   curl_easy_setopt(hnd, CURLOPT_WRITEFUNCTION, write_data); 
   curl_easy_setopt(hnd, CURLOPT_WRITEDATA, http_response);
   //curl_easy_setopt(hnd, CURLOPT_WRITEDATA, out);
   curl_easy_setopt(hnd, CURLOPT_DEBUGDATA, &config);
   curl_easy_setopt(hnd, CURLOPT_DEBUGFUNCTION, my_trace);
-
-  //curl_easy_setopt(hnd, CURLOPT_HTTPPROXYTUNNEL, 1L); // 20221225
+  //curl_easy_setopt(hnd, CURLOPT_DEBUGDATA, out);
+  //curl_easy_setopt(hnd, CURLOPT_DEBUGFUNCTION, write_callback_aa);
 
   if (DEBUGCURLTTL) { curl_easy_setopt(hnd, CURLOPT_VERBOSE, 1); } else { curl_easy_setopt(hnd, CURLOPT_VERBOSE, 0); }
 
@@ -2646,7 +2680,7 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
   }
 
   // init a multi stack
-  multi_handle = curl_multi_init();
+  //multi_handle = curl_multi_init(); // 20221225
   
   // add the easy transfer
   //curl_multi_add_handle(multi_handle, hndtest);
@@ -2660,13 +2694,25 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
   /* ret on (hnd) is the H2 cousin of original ret used above for (ch). This section has been commented out */
   //if (!(host == NULL) && !(host == "") && !(host == ".") && !(host == "(null)"))
   if (sizeof(host) > 3 ) {
+
     printf(" *** VALID HOST	: '%s'\n", host);
-    //setup(hnd,script_url_g,&post_data); // 20221225
-    //setup(hnd,script_url_g,post_data);
+    setup(hnd,script_url_g,post_data);
     res = curl_easy_perform(hnd);
     //ret = curl_multi_perform(multi_handle,&still_running);
+    
+    if(res == CURLE_OK) {
+      do {
+        res = curl_easy_recv(hnd, buffer, sizeof buffer, &nread);
+        if (nread > 0) {
+          fputs(buffer, file);
+        }
+      } while (res == CURLE_OK && nread > 0);
+    } else {
+      fprintf(stderr, "curl_easy_perform() failed: %s\n", curl_easy_strerror(res));
+    }
 
-    if(res != CURLE_OK) { fprintf(stderr, "curl_easy_perform() failed: %s\n", curl_easy_strerror(res)); }
+    //fputs(&http_response, out);
+    //fputs(&res, out);
     //if(ret != CURLE_OK) { fprintf(stderr, " *** CURL: curl_multi_perform() failed: %s\n", curl_multi_strerror(ret)); } //else { printf("\n *** MULTI -> OK !\n"); }
     //printf(" *** http_response	: '%x'\n", http_response);
     //printf(" *** http_response	: '%s'\n", http_response);
@@ -2713,8 +2759,10 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
     return http_response;
   }
  
-  //hexdump(http_response,sizeof(http_response));
-  if (DEBUGCURL) { printf(" *** DOH server : %s\n", script_url_g); }
+  if (DEBUGCURL) {
+    printf(" *** DOH server : %s\n", script_url_g);
+    //hexdump(http_response,sizeof(http_response));
+  }
 
   free(script_url_g);
   free(script_url_alt);
@@ -2730,6 +2778,8 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
   //free(hnd);
   //free(n);
 
+  fclose(file);
+  fclose(out);
   return http_response;
 }
 
@@ -2803,18 +2853,17 @@ void *threadFunc(void *arg) {
   }
 
   if (!(params->xhostname->hostname == NULL) && !(yhostname == NULL)) {
-    //www = lookup_host(yhostname, proxy_host_t, proxy_port_t, proxy_user_t, proxy_pass_t, lookup_script, typeq, wport, rfcstring, post_data);
+    //www = lookup_host(yhostname, proxy_host_t, proxy_port_t, proxy_user_t, proxy_pass_t, lookup_script, typeq, wport, rfcstring, params->xhostname->rfcstring); // 20230107
     www = lookup_host(yhostname, proxy_host_t, proxy_port_t, proxy_user_t, proxy_pass_t, lookup_script, typeq, wport, rfcstring, params->xhostname->rfcstring);
-    //www = lookup_host(yhostname, proxy_host_t, proxy_port_t, proxy_user_t, proxy_pass_t, lookup_script, typeq, wport, rfcstring, (char *)params->xhostname->rfcstring);
-    //www = lookup_host(yhostname, proxy_host_t, proxy_port_t, proxy_user_t, proxy_pass_t, lookup_script, typeq, wport, rfcstring, dns_req->rfcstring);
+    // (char *)params->xhostname->rfcstring, dns_req->rfcstring, post_data
     yhostname == NULL;
     params->xhostname->hostname == NULL;
     //pthread_exit(NULL);
     //exit(EXIT_SUCCESS);
   } else {
     // SECTION TO BE SUPPRESSED, WITH DoH THIS CASE IS NO MORE RELEVANT.
+    //www == "0.0.0.0"; // old pre-DoH error representation
     www == NULL;
-    //www == "0.0.0.0";
     yhostname == NULL;
     params->xhostname->hostname == NULL;
     //return;
@@ -2843,23 +2892,19 @@ void *threadFunc(void *arg) {
     //printf(" *** THREAD-proxy-port			: %d\n", proxy_port_t);
   }
   
-  /* RIP vs WWW, different data presentation */
+  /* RIP vs WWW formats, different data presentation pre/post DoH */
   //for (int d=0;d<=get_size()-1;d++) {
   //  fprintf(stdout,"%02hhx\n",www[d]);
   //  snprintf(ip, 1, "%02hhx\n", www[d]);
   //  //www[d] = ip[d];
   //}
 
-  //printf("WWW: %02hhx\n",www);
-  //hexdump(www,sizeof(www));
-  //hexdump(www,get_size());
-  
+  //hexdump(www,sizeof(www)); //hexdump(www,get_size()); //printf("WWW: %02hhx\n",www);
   //printf("BUILD dns-req->hostname	            : %s\n", dns_req->hostname);
   //printf("BUILD yhostname			        : %s\n", yhostname);
 
   // pre-DoH
-  //if ((rip != NULL) && (strncmp(rip, "0.0.0.0", 7) != 0))
-  //if ((rip != NULL) && (www != NULL))
+  //if ((rip != NULL) && (strncmp(rip, "0.0.0.0", 7) != 0)) //if ((rip != NULL) && (www != NULL))
 
   // DoH
   if (www != NULL) {
@@ -2889,8 +2934,8 @@ void *threadFunc(void *arg) {
   } else if ( strstr(dns_req->hostname, "hamachi.cc" ) != NULL ) {
     // BLACKLIST TO BE DEPRECATED WITH DOH
     printf("BALCKLIST: pid [%d] - name %s - host %s - size %d\r\n", getpid(), dns_req->hostname, www, (uint32_t)request_len);
-    //printf("BLACKLIST: xsockfd %d - hostname %s \r\n", xsockfd, xdns_req->hostname);
     printf("BLACKLIST: xsockfd %d - hostname %s \r\n", xsockfd, yhostname);
+    //printf("BLACKLIST: xsockfd %d - hostname %s \r\n", xsockfd, xdns_req->hostname);
 
     build_dns(sockfd, yclient, xhostname, www, DNS_MODE_ANSWER, request_len, ttl, proto, tcp_z_offset);
 
@@ -2900,18 +2945,16 @@ void *threadFunc(void *arg) {
     pthread_exit(NULL);
     exit(EXIT_SUCCESS);
   
-  // else if ((rip == "0.0.0.0") || (strncmp(rip, "0.0.0.0", 7) == 0)) 
   } else if (strncmp(www, "0.0.0.0", 7) == 0) {
     fprintf(stderr," *** ERROR: pid [%d] - dns_req->hostname %s - host (www) %s - size %d \r\n", getpid(), dns_req->hostname, www, (uint32_t)request_len);
     fprintf(stderr," *** ERROR: xsockfd %d - yhostname %s \r\n", xsockfd, yhostname);
 
-    //build_dns_response(sockfd, yclient, xhostname, rip, DNS_MODE_ERROR, request_len, ttl, proto, tcp_z_offset);
     build_dns(sockfd, yclient, xhostname, www, DNS_MODE_ANSWER, request_len, ttl, proto, tcp_z_offset);
+    //build_dns_response(sockfd, yclient, xhostname, rip, DNS_MODE_ERROR, request_len, ttl, proto, tcp_z_offset);
     
     close(sockfd);
     params->xhostname->hostname == NULL;
-    // 20190221
-    //pthread_exit(NULL);
+    //pthread_exit(NULL); // 20190221
     exit(EXIT_SUCCESS);
   }
   
@@ -3436,11 +3479,11 @@ int main(int argc, char *argv[]) {
       int ttl;
       char* xlookup_script = lookup_script, xtypeq = typeq;
 
-      char* xpost_data = post_data;
-      //struct dns_request *xpost_data;
+      //char* xpost_data = post_data; // 20230107
+      struct dns_request *xpost_data;
 
-      char* xrfcstring = xrfcstring;
-      //struct dns_request *xrfcstring;
+      //char* xrfcstring = xrfcstring; //20230107
+      struct dns_request *xrfcstring;
 
       struct dns_request *xhostname;
       struct sockaddr_in *xclient, *yclient;
@@ -3669,13 +3712,15 @@ int main(int argc, char *argv[]) {
       
       readParams->xtypeq = typeq;
       readParams->xwport = wport;
+      
       //readParams->xttl = get_ttl();
       readParams->xttl = ttl;
+
       readParams->xtcpoff = tcp_z_offset;
 
-      readParams->xrfcstring = (struct dns_request *)dns_req;
       //readParams->xrfcstring = (struct dns_request *)rfcstring;
       //readParams->xrfcstring = dns_req->rfcstring;
+      readParams->xrfcstring = (struct dns_request *)dns_req;
 
       readParams->xproxy_user = proxy_user;
       readParams->xproxy_pass = proxy_pass;
@@ -3727,6 +3772,7 @@ int main(int argc, char *argv[]) {
         threadFunc(readParams);
         ret = pthread_create(&pth[i],&attr,threadFunc,readParams);
         //ret = pthread_create(&pth[i],NULL,threadFunc,readParams);
+	
         if (THR_DEBUG) { printf("*** thread spin ... OK\n"); }
       } else {
         if (THR_DEBUG) { printf("*** thread spin ... KO\n"); }
@@ -3778,7 +3824,7 @@ int main(int argc, char *argv[]) {
       //if (!(flag == 3))
       
       // 20200220 - WARNING !
-      //pthread_join(pth[i],NULL); /* joining is the trick */
+      //pthread_join(pth[i],NULL); // joining is the trick
      
       /* trying to re-enable this logic, continue() shouldn't be prepended to pthread_setspecific() */
       /* testing destroy after join, and before setspecific, seems right */
