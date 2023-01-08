@@ -565,23 +565,26 @@ destroy NOT OK..
 max@trinity:~/DNSProxy$ 
 ```
 
-
 # Versioning and evolution of DNSP
 
 ## Changelog:
 
-#### Version 3.3.0 - Q4 2022:
+#### Version 3.3.0 - December 2022:
 * adjusted to POST by default (no more GET and visible dns= string)
 * reduced memory footprint
-* better debug, smarter hooks
+* better debug, Makefile, debug symbols for GDB
+* caching of responses on disk
+* multiple parallel requests to different DoH providers at once
+* supporting now multiple levels of subdomains, CNAME, multiple responses
+* updated dependecies of OK and B64 libraries
 
 #### Version 3.0 - August 2020:
 * fixed TCP listener !
-* perfect parsing of HTTP reply
-* as always, correct encapsulation of response message
+* perfect parsing of HTTP reply (for TTL-rewriting purposes)
+* as always, correct calculation of encapsulation overhead of response message (especially important for TCP replies)
 
 #### Version 2.5 - February 2019:
-* having segdumps, no good. adding extra debug on CURL status, suspecting a 400 response
+* testing different formatrs of GET and POST sumbission to DoH resolvers via HTTPS (unstable)
 * testing further TCP and UDP responses
 
 #### Version 2.5 - February 2019:
@@ -593,7 +596,7 @@ max@trinity:~/DNSProxy$
 * make sure we set accept & content-type to "application/dns" for both POST and GET
 
 #### Version 2.2 - January 2019:
-* completed TCP & UDP listeners
+* completed TCP & UDP listeners' logic
 
 #### Version 2 - March 2018:
 * Added TCP query/response support !
