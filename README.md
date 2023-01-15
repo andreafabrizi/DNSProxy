@@ -75,31 +75,31 @@ to resolve domain names externally (TOR users,Chinese Wall of Fire, evil VPN).
 
 Robustness of architecture proves DNSProxy as a very scalable and smart solution
 ```
-              +---------------------------+
-  +----------| DNSProxy re-uses original | <<--------+
-  |          |  sockets [ DNS & HTTPS ]  |           |      DNSProxy parses
-  |          +---------------------------+           |     HTTP raw response,
-  |                       ^                          |    builds DNS reply and
-  |                       ^                          |   sends back via TCP/UDP
-  |                       | IF answer found          |      as per RFC-1035
-  |                       |  in HTTP cache           | 
-  |                       | THEN faster reply        |  libCURL handles HTTP
-  v                       |  same security           | requests and responses  
-  v                       :                          :
- +---------------+      +--------+---------+       /---------------\
- |  client OS    | -->> +  DNSProxy parser + --->> |  DoH resolver |
- +---------------+      +--------+---------+       \---------------/
- | sends request |      |  blacklist, TTL  |       |               |
- | to DNS server |      | pooling, caching |       | RFC8484-aware |
- +--+------------+      +------------------+       +---------------+
+             +---------------------------+
+  +----------| DNSProxy re-uses original | <<---------+
+  |          |  sockets [ DNS & HTTPS ]  |            |     DNSProxy parses
+  |          +---------------------------+            |    HTTP raw response,
+  |                       ^                           |   builds DNS reply and
+  |                       ^                           |  sends back via TCP/UDP
+  |                       | IF answer found           |     as per RFC-1035
+  |                       |  in HTTP cache            |
+  |                       | THEN faster reply         |   libCURL handles HTTP
+  v                       |  same security            |  requests and responses
+  v                       :                           :
+ +---------------+       +--------+---------+       /---------------\
+ |  client OS    | --->> +  DNSProxy parser + --->> |  DoH resolver |
+ +---------------+       +--------+---------+       \---------------/
+ | sends request |       |  blacklist, TTL  |       |               |
+ | to DNS server |       | pooling, caching |       | RFC8484-aware |
+ +---------------+       +------------------+       +---------------+
     :                                                     ^
     |                                                     ^
     | DNS queries to DNSP daemon on 127.0.0.1:53 will be  |
     |   tunneled towards a DoH-aware resolver webservice  |
     +-----------------------------------------------------+
 
- classic DNS messaging except that raw packets are carried over HTTP/2
- without any privacy leackage whatsoever (see PRIVACY disclaimer below)
+A classic DNS messaging schema except that raw packets are carried over HTTP/2
+guaranteeing against _privacy leacks_ (see PRIVACY disclaimer below).
 ```
 We generally refer to DNSProxy considering both DoH or pre-DoH branches:
 - *dnsp-h2* will take care to craft well-formed DNS packets in accordance to RFC
@@ -171,27 +171,33 @@ ca-certs brotli gnutls-bin openssl libtlsh-dev
 git clone https://github.com/clibs/clib.git /tmp/clib
 cd /tmp/clib
 sudo make install
-```
-```bash
 sudo clib install littlstar/b64.c
-```
-
-```bash
 sudo clib install jwerle/libok
 ```
 Once pre-requisites checked, you will be able to *compile software* by running:
 ```bash
 make
 ```
-### Deploy DoH standard infrastructure (only applies to **standard dnsp-h2** binary, not to dnsp)
+### Deploy DoH standard infrastructure
+Only applies to **standard dnsp-h2** binary, _not to dnsp_.
 
 #### STEP 0. HTTPS webservices are hard-coded into dnsp-h2 server
+See APPENDIX E for extensive list.
 #### STEP 0. Optionally configure an HTTPS MITM proxy - for debug or caching reasons
-#### STEP 1. Invoke *dnsp-h2* binary, spawn listeners and start answering standard DNS queries
+Install and configure SSL MITM intercepting proxy as charles or burp
+#### STEP 1. Invoke *dnsp-h2* and start answering DNS queries
+```bash
+# Use standard Google & Cloudflare DoH resolvers. Surf anonymously in the simplest direct mode
+dnsp-h2 -Q
 
-### Deploy pre-DoH non-standard infrastructure (only applies to **dnsp legacy binary**, not to dnsp-h2)
+# Use DNSProxy behind HTTPS caching proxy (i.e. charles, burp) for debug or caching reasons
+dnsp-h2 -H http://192.168.3.93/ -r 8118
+dnsp-h2 -H http://aremoteproxyservice/ -r 3128
+```
+### Deploy pre-DoH non-standard infrastructure
+Only applies to **dnsp legacy binary**, _not to dnsp-h2_.
 
-#### STEP 1. Create and deploy the PHP nameserver webservice - DEPRECATED
+#### STEP 1. Deploy the PHP nameserver webservice - DEPRECATED
 Deploy **nslookup-doh.php** on a webserver, possibly not your local machine (see
 DISCLAIMER). If you ignore how-to carry on such deploy task or you do not have
 access to any of such services, just use the generic webservice as in examples.
@@ -200,23 +206,11 @@ access to any of such services, just use the generic webservice as in examples.
 Setup an HTTP caching proxy on the local machine or eventually on a remote host.
 Provide host and port of your proxy server as *dnsp* program arguments.
 
-#### STEP 2. Invoke *dnsp* binary,answering standard DNS queries - DEPRECATED
-
-### Starting DNSProxy in the right way
-
-#### Use standard Google & Cloudflare DoH resolvers. Surf anonymously in the simplest direct mode
+#### STEP 3. Invoke *dnsp* and start answering DNS queries - EPRECATED
+Meant to answer DNS queries but using non standard-resolver.
 ```bash
-dnsp-h2 -Q
-```
-#### Use DNSProxy behind HTTPS caching proxy (i.e. charles, burp) for debug or caching reasons
-```bash
-dnsp-h2 -H http://192.168.3.93/ -r 8118
-dnsp-h2 -H http://aremoteproxyservice/ -r 3128
-```
-#### Use non-compliant non-DoH HTTP proxy (i.e. squid, polipo) - DEPRECATED
-```bash
-dnsp -H http://192.168.3.93/ -r 8118
-dnsp -H http://remoteproxyservice.cloud/ -r 3128
+# DEPRECATED, uses non-compliant non-DoH HTTP proxy (i.e. squid, polipo)
+dnsp -H http://192.168.3.93/ -r 8118 -s https://abc.com/nslookup.php
 ```
 ### Getting help on every advanced, experimental and deprecated option
 ```bash
