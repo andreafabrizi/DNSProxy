@@ -262,12 +262,6 @@ user@machine:~/DNSProxy$ ./dnsp-h2 -h
  - https://github.com/curl/curl/wiki/DNS-over-HTTPS
  - https://it.wikipedia.org/wiki/DNS_over_HTTPS#cite_note-8
 ```
-Also note that *dnsp* binary (the pre-DOH version of DNSProxy) is only kept in
-repository for historical reasons, offers  no backward-compatibility, and may
-soon disappear. Please only use, refer to and commit towards *dnsp-h2* branch.
-
-Commits for other legacy components will not be accepted.
-
 ## Integration
 
 DNSPproxy has been built with _simplicity_ and _standards_ in mind. On a modern
@@ -297,6 +291,12 @@ webservers' logs, for example on am untrusted DoH server.
 I never meant to state that DNSProxy is faster or better than other DNS servers
 but it is definitely original on its own. A buggy piece of threaded code which
 I created to help people _transporting_ and _sharing_ DNS data in a fancy way.
+
+Also note that *dnsp* binary (the pre-DOH version of DNSProxy) is only kept in
+repository for historical reasons, offers  no backward-compatibility, and may
+soon disappear. Please only use, refer to and commit towards *dnsp-h2* branch.
+
+Commits for other legacy components will not be accepted.
 
 ### Issues when launching an instance of dnsp or dnsp-h2
 You may have to stop other running daemons bound to 127.0.0.1:53, as:
@@ -560,9 +560,6 @@ Request should end with bits _0D0A_ (HEX is easy to read with xxd):
 00000000: 7364 6e73 332e 7668 6f73 7469 6e67 2d69  sdns3.vhosting-i
 00000010: 742e 636f 6d0d 0a                        t.com..
 ```
-## License
-MIT license, all rights included.
-
 ## Versioning and evolution of DNSProxy family
 
 ### Changelog:
@@ -698,22 +695,6 @@ MIT license, all rights included.
 * https://tools.ietf.org/html/draft-ietf-dnsop-dns-wireformat-http-01
 * https://igit.github.io/
 
-## Disclaimer
-__IF ANONIMITY IS A CONCERN__
-DNSProxy is lazily tunneling DNS into HTTPS using curllib and nghttp2. Such
-encapsulation **do avoid leakage** of DNS queries. Using DNS-over-HTTPS results
-in impossibility to eavesdrop or spoof DNS traffic between client and final DoH
-provider, given the additional security layer provided by HTTP/2.
-
-__IF SPEED IS A CONCERN__
-Performances of underlying sys-calls do lie outside the scope of DNSProxy scope.
-Long testing has been carried on, sufficiently to say the software has no flaw,
-no leakage, only a lot of verbosity, unnecessarly parallel logic, legacy support
-for pre-standard DoH and other less-efficient routines.
-
-**Do not forget to set 127.0.0.1 as your unique system resolver** via
-common system configuration files (as /etc/resolv.conf or systemd-resolved).
-
 ## Further information and bibliography
 ### Appendix A - Common Proxy Headers
 ```
@@ -848,3 +829,23 @@ Cache-Control: stale-if-error=<seconds>
 * 1.1.1.1
 * 8.8.8.8
 * see list on https://github.com/curl/curl/wiki/DNS-over-HTTPS#publicly-available-servers
+
+## License
+MIT license, all rights included.
+
+## Disclaimer
+__IF ANONIMITY IS A CONCERN__
+DNSProxy is lazily tunneling DNS into HTTPS using curllib and nghttp2. Such
+encapsulation **do avoid leakage** of DNS queries. Using DNS-over-HTTPS results
+in impossibility to eavesdrop or spoof DNS traffic between client and final DoH
+provider, given the additional security layer provided by HTTP/2.
+
+__IF SPEED IS A CONCERN__
+Performances of underlying sys-calls do lie outside the scope of DNSProxy scope.
+Long testing has been carried on, sufficiently to say the software has no flaw,
+no leakage, only a lot of verbosity, unnecessarly parallel logic, legacy support
+for pre-standard DoH and other less-efficient routines.
+
+**Do not forget to set 127.0.0.1 as your unique system resolver** via
+common system configuration files (as /etc/resolv.conf or systemd-resolved).
+
