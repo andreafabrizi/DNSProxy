@@ -289,12 +289,9 @@ At this point, you might want to start your traffic capture, either wireshark, t
 Now open a new terminal and invoke **dig** (or **nslookup**) to test the resolver capabilities
 over UDP or TCP. The test consist in resolving an hostname against the server instance of DNSP,
 
-To test the UDP listener, type the following:
+To test the UDP listener, type the following and expect a consistent output:
 ```bash
 dig news.google.com @127.0.0.1
-```
-The result shall correspond to this output, no errors or warning shall be trown.
-```
 ;; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: 17828
 ;; flags: qr aa rd ra; QUERY: 1, ANSWER: 1, AUTHORITY: 0, ADDITIONAL: 0
 
@@ -310,9 +307,6 @@ news.google.com.    524549  IN  A   216.58.206.142
 To test the TCP listener, type:
 ```bash
 dig +tcp facebook.com @127.0.0.1
-```
-Again, results should be similar to the quoted output.
-```
 ;; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: 9475
 ;; flags: qr aa rd ra; QUERY: 1, ANSWER: 1, AUTHORITY: 0, ADDITIONAL: 0
 
@@ -325,9 +319,9 @@ facebook.com.       524549  IN  A   185.60.216.35
 ;; SERVER: 127.0.0.1#53(127.0.0.1)
 ;; MSG SIZE  rcvd: 46
 ```
-Once all listeners have been tested, you can safely replace the actual
-entries inside "/etc/resolv.conf" to point ALL DNS traffic towards DNSP.
-Inserting the following line and delete all other "namaserver" entries:
+Once listeners have been tested you may safely replace the actual instances of
+"/etc/resolv.conf" to direct DNS requests against DNSP daemon by inserting the
+following line and remove other _"nameserver"_ entries already present:
 ```
 nameserver 127.0.0.1
 ```
@@ -563,7 +557,7 @@ destroy NOT OK..
 ## Changelog:
 
 #### Version 3.3.0 - December 2022:
-* adjusted to POST by default (no more GET and visible dns= string)
+* adjusted to POST by default (no more GET with visible _dns=_ string)
 * reduced memory footprint
 * better debug, Makefile, debug symbols for GDB
 * caching of responses on disk
@@ -574,7 +568,7 @@ destroy NOT OK..
 #### Version 3.0 - August 2020:
 * fixed TCP listener !
 * perfect parsing of HTTP reply (for TTL-rewriting purposes)
-* as always, correct calculation of encapsulation overhead of response message (especially important for TCP replies)
+* implement correct calculation of encapsulation overhead on TCP response messages
 
 #### Version 2.5 - February 2019:
 * testing different formatrs of GET and POST sumbission to DoH resolvers via HTTPS (unstable)
@@ -584,9 +578,9 @@ destroy NOT OK..
 * provide base64urlencode of DNS requests !
 * implemented dump of "cache-control" headers from PHP/DoH resolver into DNS packet
 * added new _build\_dns_ to comply with DoH/RFC format, instead of pre-DoH _build\_dns\_response_
-* account for TRANSACTION-ID override (0xabcd by default)
-* account for TYPE override (0x00 by default)
-* make sure we set accept & content-type to "application/dns" for both POST and GET
+* implement TRANSACTION-ID override (0xabcd by default)
+* implement TYPE override (0x00 by default)
+* make sure we set headers _accept_ and _content-type_ to _"application/dns"_ for both POST and GET scenarios
 
 #### Version 2.2 - January 2019:
 * completed TCP & UDP listeners' logic
@@ -834,14 +828,13 @@ Concept of TTL has been taken in account since the foundation of DNSP
 developments for sake of caching purposes. With the advent of DNS-over-HTTPS RFC
 as a standard the need to serve and properly expire caches became imperative.
 
-TTL specifies a maximum time to live, not a mandatory time to live.
-RFC2181: "Maximum of 2^31 - 1.  When transmitted, this value shall be encoded in
-the less significant 31 bits of the 32 bit TTL field, with the most significant,
-or sign, bit set to zero. Implementations should treat TTL values received with
-the most significant bit set as if the entire value received was zero.
-
-Implementations are always free to place an upper bound on any TTL received, and
-treat any larger values as if they were that upper bound. 
+TTL specifies a maximum time to live, not a mandatory time to live. RFC2181
+defines a _maximum of 2^31 - 1_. When transmitted, this value shall be encoded
+in the less significant 31 bits of the 32 bit TTL field, with the most
+significant, or sign, bit set to zero. Implementations should treat TTL values
+received with the most significant bit set as if the entire value received was
+zero. Implementations are always free to place an upper bound on any TTL 
+received, and treat any larger values as if they were that upper bound. 
 
 ```
 https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Cache-Control 
