@@ -69,7 +69,7 @@ logging is quite self-explaing and clean. Documentation is being kept up-to-date
 and new features logged in changelog.
 
 ## Architecture
-### Design
+### Design Overview
 DNSProxy is a rapid and efficient solution if you can't access "secured" tunnels
 to resolve domain names externally (TOR users,Chinese Wall of Fire, evil VPN).
 
@@ -105,7 +105,7 @@ We generally refer to DNSProxy considering both DoH or pre-DoH branches:
 - *dnsp-h2* will take care to craft well-formed DNS packets in accordance to RFC
 - *dnsp* is now **deprecated** and should not be used (pre-DoH formats only)
 
-### Basic and advanced features
+### Basic and more advanced features
 - DNS-over-HTTPS compliant with RFC-8484 and other older non-standards
 - FOLLOWLOCATION, spawning threads to enable HTTP browser cache preemption
     for the benefit of the user experience.
@@ -138,7 +138,7 @@ forbidden via headers or TTL manipulation.
 
 Tested on CloudFlare, Google Cloud Platform, NGINX, Apache, SQUID, polipo, REDIS
 
-### Proxifying a proxy, for debug, access or caching reasons
+### Proxifying your proxy, for debug, access or caching reasons
 **DNSProxy may be configured to pass-through additional chain of proxies**
 (i.e. TOR, enterprise-proxy, locked-down countries, you name it). Important to
 note, "a cache" is often availaible "in the network" (i.e. on CDN) therefore
@@ -157,12 +157,12 @@ remote webservice (resolver) not leveraging any specific cache.
 **IMPORTANT:** DoH resolvers around the world increase global DNS privacy !
 
 ## Running DNSProxy
-### Building and Installing
-
+### Pre-requisites check
 Build is easy on Linux, Mac, UNIX and even Windows; DNSProxy is based on fairly
 simple dependencies on libcurl CURL C library, pthread, SSL/TLS, all standards.
 A recent version of nghttp2 is needed to leverage HTTP/2 CURL capabilities.
 
+To fullfill requirements on a Linux OS, run the following package installations:
 ```bash
 sudo apt-get install libcurl4-openssl-dev curl libsslcommon2-dev libssl-dev \
 ca-certs brotli gnutls-bin openssl libtlsh-dev
@@ -174,6 +174,7 @@ sudo make install
 sudo clib install littlstar/b64.c
 sudo clib install jwerle/libok
 ```
+### Building and Installing.
 Once pre-requisites checked, you will be able to *compile software* by running:
 ```bash
 make
@@ -261,11 +262,11 @@ user@machine:~/DNSProxy$ ./dnsp-h2 -h
  - https://github.com/curl/curl/wiki/DNS-over-HTTPS
  - https://it.wikipedia.org/wiki/DNS_over_HTTPS#cite_note-8
 ```
-Also note that *dnsp* binary (the pre-DOH version of DNSProxy) is only kept for
-historical reasons, offers  no backward-compatibility, and may soon disappear.
+Also note that *dnsp* binary (the pre-DOH version of DNSProxy) is only kept in
+repository for historical reasons, offers  no backward-compatibility, and may
+soon disappear. Please only use, refer to and commit towards *dnsp-h2* branch.
 
-Please only use, refer to and commit towards *dnsp-h2* code branch. Commits for
-other legacy components will not be accepted.
+Commits for other legacy components will not be accepted.
 
 ## Integration
 
@@ -538,14 +539,14 @@ unlock NOT OK..
 destroy NOT OK..
 ^C
 ```
-### Testing deployment of nslookup-doh.php and nslookup.php PHP scripts - DEPRECATED
+### Deployment of nslookup-doh.php and nslookup.php PHP scripts - DEPRECATED
 
 To test the deployment of nslookup-doh.php along with correct DNS resolution,
 you could use **curl** utility within a shell. Replace URL value in accordance
 with your favourite script location.
 
 Here are two simple one-liners I use to check my deploys:
-```
+```bash
  $ curl -s -H "Host: www.fantuz.net" -H "Remote Address:104.27.133.199:80" -H "User-Agent:Mozilla/5.0 \
 (Macintosh; Intel Mac OS X 10_6_8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 \
 Safari/537.36" 'http://www.fantuz.net/nslookup-doh.php?host=fantuz.net&type=NS' | xxd
@@ -554,7 +555,6 @@ Safari/537.36" 'http://www.fantuz.net/nslookup-doh.php?host=fantuz.net&type=NS' 
 AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36" \
 'http://php-dns.appspot.com/helloworld.php?host=fantuz.net&type=NS' | xxd
 ```
-
 Request should end with bits _0D0A_ (HEX is easy to read with xxd):
 ```
 00000000: 7364 6e73 332e 7668 6f73 7469 6e67 2d69  sdns3.vhosting-i
@@ -644,7 +644,7 @@ MIT license, all rights included.
 * Some issue to set the proper ETag on polipo
 
 #### Version 0.99 - July 2014:
-* Add HTTP port selection
+* Add HTTP port selection (80/443)
 * Add NS, MX, AAAA, PTR, CNAME and other resolving capabilities.
 * Code cleanup and performance review.
 * Implementation with nginx and memcache and load testing 
@@ -677,14 +677,14 @@ MIT license, all rights included.
 ### Lower priority ideas:
 * (todo) choose the faster response or wait and compare all parallel responses
 * (todo) worth looking at QUIC, the UDP-multiplexing upcoming HTTP/3 standard.
-* (todo) implement HTTP/2 PUSH, for smoother and opportunistic DNS answers. Remember, there's no ID field in DOH !
-* (todo) use h2 "Warning" headers to signal events/failures
-* (todo) DNSSEC validation tests ?
+* (todo) implement HTTP/2 PUSH, for smoother and opportunistic DNS answers. Remember: there's no ID field in DoH.
+* (todo) use h2 "Warning" headers to signal events or failures
+* (todo) perform DNSSEC validation tests
 * (todo) add a "--resolve" option to pin DoH request to an IP address (see SNI debate on IETF mailing lists)
-* (pending decision) to use directly NGHTTP2 in place of CURL. FYI CURL relies on NGHTTP2
-* (pending decision) REDIS: implement or drop
 * (todo) add an option to provide dynamic list of blacklisted domains (to be read in from file or STDIN)
 * (todo) add switch to leverage REUSEPORT and/or REUSEADDRESS
+* (pending decision) to use directly NGHTTP2 in place of CURL. FYI CURL relies on NGHTTP2
+* (pending decision) REDIS: implement or drop
 * test build on Debian, Windows, MacOS (only tested with Ubuntu 14-18 and very old MacOS)
 * test bynary distribution on Debian, Windows, MacOS
 
@@ -711,7 +711,7 @@ Long testing has been carried on, sufficiently to say the software has no flaw,
 no leakage, only a lot of verbosity, unnecessarly parallel logic, legacy support
 for pre-standard DoH and other less-efficient routines.
 
-**Do not forget to set 127.0.0.1 as your unique system DNS resolver** via
+**Do not forget to set 127.0.0.1 as your unique system resolver** via
 common system configuration files (as /etc/resolv.conf or systemd-resolved).
 
 ## Further information and bibliography
@@ -744,10 +744,10 @@ expect-ct: max-age=604800, report-uri="https://report-uri.cloudflare.com/cdn-cgi
 server: cloudflare
 cf-ray: 3f5d7c83180326a2-FRA
 
-//POST 
+ # POST 
  $ echo -n 'q80BIAABAAAAAAAAB2V4YW1wbGUDY29tAAABAAE' | base64 -d 2>/dev/null | curl -H 'content-type: application/dns-message' --data-binary @- https://cloudflare-dns.com/dns-query -o - | hexdump 
  
-//GET 
+ # GET 
  $ curl -H 'accept: application/dns-message' -v 'https://cloudflare-dns.com/dns-query?dns=q80BIAABAAAAAAAAB2V4YW1wbGUDY29tAAABAAE' | hexdump 
  
  $ curl -o - 'https://cloudflare-dns.com/dns-query?dns=q80BIAABAAAAAAAAA3d3dwdleGFtcGxlA2NvbQAAAQAB' -H 'authority: cloudflare-dns.com' \ 
@@ -763,7 +763,7 @@ cf-ray: 3f5d7c83180326a2-FRA
 00000030: 0001 0000 0013 0004 8c52 7603 0000 2905  .........Rv...). 
 00000040: ac00 0000 0000 00                        ....... 
 ```
-### Appendix B - reversing base-16 complement
+### Appendix B - reversing base-16 complement - inspiration for coding
 ```
 If you are a bit acquainted with hex you dont need to convert to binary. Just
 take the base-16 complement of each digit, and add 1 to the result. So you get
@@ -773,14 +773,14 @@ For a faster approach you can also flip the bits left to very first set bit and
 find out the 2s complement, instead of finding 1ns and then adding 1 to it.
 1111 0011 1010 0001 toggle the bits left to first set bit
 0000 1100 0101 1111
+
 I expect you would like this if bit pattern is changed to binary then hex :)
 ```
-### Appendix C . DNS FAILURE MESSAGES
+### Appendix C - DNS FAILURE MESSAGES
+Nobody likes failures.
+DNS\_MODE\_ERROR should truncate message instead of building up response.
+Using "Server failure (0x8182)" but what if we wanted an NXDOMAIN (0x....) ?
 ```
-DNS_MODE_ERROR should truncate message instead of building it up ... 
-Server failure (0x8182), but what if we wanted an NXDOMAIN (0x....) ?
-As DNSProxy is still under test, we do not care much. Nobody likes failures.
-
 NOERROR (RCODE:0)        : DNS Query completed successfully
 FORMERR (RCODE:1)        : DNS Query Format Error
 SERVFAIL (RCODE:2)       : Server failed to complete the DNS request
