@@ -449,8 +449,8 @@ unsigned reverse16binary(unsigned val) {
     return rv;
 }
 
+/* reverse hex digits in a 16-bit binary number */
 unsigned reverse16hex(unsigned val) {
-    /* reverse hex digits in a 16-bit binary number */
     unsigned rv = 0;
     for (int bit = 0; bit < 16; bit += 4) {
         int digit = (val >> bit) & 0xf;  // extract a digit
@@ -459,10 +459,12 @@ unsigned reverse16hex(unsigned val) {
     return rv;
 }
 
+/*
+ reverse base 2**"base" digits in a "bits"-bit binary number
+ bits must be <= sizeof(unsigned) * CHAR_BIT and a multiple of base
+ base must be < sizeof(unsigned) * CHAR_BIT
+*/
 unsigned reverse_general(unsigned val, int bits, int base) {
-    /* reverse base 2**"base" digits in a "bits"-bit binary number
-       bits must be <= sizeof(unsigned) * CHAR_BIT and a multiple of base
-       base must be < sizeof(unsigned) * CHAR_BIT */
     unsigned rv = 0;
     for (int bit = 0; bit < bits; bit += base) {
         int digit = (val >> bit) & ((1 << base) - 1);  // extract a digit
@@ -487,35 +489,36 @@ unsigned reverse_general(unsigned val, int bits, int base) {
 void usage(void) {
     fprintf(stderr, "\n dnsp-h2 v%s, copyright 2010-2023 Massimiliano Fantuzzi HB3YOE/HB9GUS, MIT License\n\n"
                        " usage: dnsp-h2 [-l <local_host_address>] [-p <local_port>] [-H <proxy_host>]\n"
-                       "\t[-r <proxy_port>] [ -s <DNS_lookup_resolving_service_URL> ] [-w <lookup_port>]\n"
+                       "\t[-r <proxy_port>] [-u <user>] [-k <pass>] [-d <path>] [-Q] \n"
+		       "\t[ -s <DNS_lookup_resolving_service_URL> ] [-w <lookup_port>]\n"
                        "\n"
                        " OPTIONS:\n"
-                       "  [ -Q           ]\t Use TTL from CURL, suggested\n"
+                       "  [ -Q           ]\t Extract TTL from DoH provider HTTP response (suggested)\n"
                        "  [ -l <IP/FQDN> ]\t Local server address, defaults to all active interfaces\n"
                        "  [ -p <53>      ]\t Local server port, defaults to 53\n"
-                       "  [ -H <IP/FQDN> ]\t Cache proxy address (HTTPS-capable)\n"
-                       "  [ -r <3128>    ]\t Cache proxy port\n"
-                       "  [ -u <user>    ]\t Cache proxy username\n"
-                       "  [ -k <pass>    ]\t Cache proxy password\n"
-                       "  [ -w <443>     ]\t Lookup port\n"
-                       "  [ -s <URL>     ]\t Lookup script URL (deprecated, only for dnsp-v1 and old RFCs)\n"
-                       "  [ -d <path>    ]\t File caching working directory\n"
+                       "  [ -H <IP/FQDN> ]\t MITM/Cache Proxy Address (HTTPS-capable as charles, burp)\n"
+                       "  [ -r <3128>    ]\t MITM/Cache Proxy Port\n"
+                       "  [ -u <user>    ]\t MITM/Cache Proxy Username\n"
+                       "  [ -k <pass>    ]\t MITM/Cache Proxy Password\n"
+                       "  [ -d <path>    ]\t Output directory for raw-DNS dump-to-file storage of responses\n"
                        "\n"
                        " ADVANCED OPTIONS:\n"
-                       "  [ -T <n> ]\t Override TTL [0-2147483647] defined in RFC2181\n"
-                       "  [ -Z <n> ]\t Override TCP response size to be any 2 bytes at choice\n"
+                       "  [ -T <n>       ]\t Override TTL [0-2147483647] defined in RFC2181\n"
+                       "  [ -Z <n>       ]\t Override TCP response size to be any 2 bytes at choice\n"
 		       "\n"
-                       "  [ -v     ]\t Enable debug\n"
-                       "  [ -n     ]\t Enable DNS raw dump\n"
-                       "  [ -C     ]\t Enable CURL debug\n"
-                       "  [ -N     ]\t Enable COUNTERS debug\n"
-                       "  [ -R     ]\t Enable THREADS debug\n"
-                       "  [ -L     ]\t Enable LOCKS debug\n"
-                       "  [ -X     ]\t Enable EXTRA debug\n"
+                       "  [ -v           ]\t Enable debug\n"
+                       "  [ -n           ]\t Enable raw DNS dump\n"
+                       "  [ -C           ]\t Enable CURL debug\n"
+                       "  [ -N           ]\t Enable COUNTERS debug\n"
+                       "  [ -R           ]\t Enable THREADS debug\n"
+                       "  [ -L           ]\t Enable LOCKS debug\n"
+                       "  [ -X           ]\t Enable EXTRA debug\n"
         	       "\n"
                        " EXPERT OPTIONS:\n"
-                       "  [ -r     ]\t Enable CURL resolve mechanism, avoiding extra gethostbyname\n"
-                       "  [ -t <n> ]\t Stack size in format 0x1000000 (MB)\n"
+                       "  [ -s <URL>     ]\t Webservice Lookup Script URL (deprecated, only for dnsp-v1 and old RFCs)\n"
+                       "  [ -w <443>     ]\t Webservice Lookup Port (deprecated, only for dnsp-v1 and old RFCs)\n"
+                       "  [ -r           ]\t Enable CURL resolve mechanism, avoiding extra gethostbyname\n"
+                       "  [ -t <n>       ]\t Stack size in format 0x1000000 (MB)\n"
                        "\n"
                        //" Example with direct HTTPS:\n"
                        //"\t./dnsp-h2 -s https://php-dns.appspot.com/\n"
@@ -861,7 +864,7 @@ struct dns_request *parse_dns_request(const char *wire_request, size_t request_l
     return dns_req;
 }
 
-/* Builds and sends the dns response datagram talking DNS-over-HTTPS RFC8484's standard format */
+/* Build and return DNS datagram in compatibility with RFC8484's format */
 void build_dns(int sd, struct sockaddr_in *yclient, struct dns_request *dns_req, const char *ip, int mode, size_t xrequestlen, long int ttl, int xproto, int xtcpoff) {
 
   //char *rip = malloc(4096 * sizeof(char));
@@ -904,15 +907,11 @@ void build_dns(int sd, struct sockaddr_in *yclient, struct dns_request *dns_req,
     //}
   }
 
-  // TX ID for regular DNS
+  // TX ID as set by client
   response[0] = (uint8_t)(dns_req->transaction_id >> 8);
   response[1] = (uint8_t)dns_req->transaction_id;
-  // CLOUDFLARE
-  //response[0] = 0x00;
-  //response[1] = 0x00;
-  // RFC/GOOGLE
-  //response[0] = 0xAB;
-  //response[1] = 0xCD;
+  // CLOUDFLARE //response[0] = 0x00; //response[1] = 0x00;
+  // RFC/GOOGLE //response[0] = 0xAB; //response[1] = 0xCD;
   //response+=2;
 
   int kkk = 0;
@@ -941,7 +940,7 @@ void build_dns(int sd, struct sockaddr_in *yclient, struct dns_request *dns_req,
       finalresponse[0] = (uint8_t)(norm2 >> 8);
       finalresponse[1] = (uint8_t)norm2;
 
-      /* start off 3rd byte to leave the overwritten tcp_size value intact */
+      // start off 3rd byte and leave the overwritten tcp_size value intact
       for (int i=2; i < (response - response_ptr); i++) {
           resulttt <<= 8;
       	  resulttt |= response_ptr[i];
@@ -950,7 +949,7 @@ void build_dns(int sd, struct sockaddr_in *yclient, struct dns_request *dns_req,
 
       finalresponse+=(response-response_ptr);
 
-      /* dump to TCP wireformat */
+      // dump to TCP wireformat
       if (DNSDUMP) {
         printf(" *** TCP SENT %d bytes of finalresponse\n", finalresponse - finalresponse_ptr);
         printf(" *** DUMP of (finalresponse_ptr, LENGTH response - response_ptr)\n");
@@ -960,7 +959,7 @@ void build_dns(int sd, struct sockaddr_in *yclient, struct dns_request *dns_req,
         hexdump(finalresponse_ptr, finalresponse - finalresponse_ptr);
       }
     } else {
-      /* dump to classi UDP wireformat */
+      // dump to UDP wireformat
       if (DNSDUMP) {
         //printf(" *** UDP SENT %d bytes of finalresponse\n", finalresponse - finalresponse_ptr);
         //printf(" *** DUMP of (finalresponse_ptr, LENGTH response - response_ptr)\n"); 
@@ -971,7 +970,7 @@ void build_dns(int sd, struct sockaddr_in *yclient, struct dns_request *dns_req,
       }
     }
     
-    /* send contents back onto the same socket */
+    // send data back onto original socket
     if (check != 1) {
       bytes_sent_udp = sendto(sd, (const char*)response_ptr, response - response_ptr, 0, (struct sockaddr *)yclient, 16);
       wait(bytes_sent_udp);
@@ -998,7 +997,6 @@ void build_dns(int sd, struct sockaddr_in *yclient, struct dns_request *dns_req,
     return;
 
   } else if (mode == DNS_MODE_ERROR) {
-  
     int yclient_len = sizeof(yclient);
     if (EXT_DEBUG) { fprintf(stdout, " *** DNS_MODE_ERROR\n"); }
     //(struct sockaddr *)xclient->sin_family = AF_INET;
@@ -1016,9 +1014,7 @@ void build_dns(int sd, struct sockaddr_in *yclient, struct dns_request *dns_req,
     //free(rip);
     free(dns_req);
     free(response_ptr);
-
   } else {
-
     fprintf(stdout, " *** DNS_MODE_UNKNOWN\n");
     if (DNSDUMP) { hexdump(response_ptr, response - response_ptr); }
     bytes_sent = sendto(sd, response_ptr, response - response_ptr, 0, (struct sockaddr *)yclient, 16);
@@ -1036,7 +1032,7 @@ void build_dns(int sd, struct sockaddr_in *yclient, struct dns_request *dns_req,
   }
 }
 
-/* Builds and sends the dns response datagram talking Massimiliano Fantuzzi's pre-DoH format */
+/* Build and return DNS datagram using pre-DoH format (deprecated) */
 void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request *dns_req, const char *ip, int mode, size_t xrequestlen, long int ttl, int protoq, int xtcpoff) {
 
   char *rip = malloc(256 * sizeof(char));
@@ -1079,7 +1075,6 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
 
   maxim = malloc (DNSREWRITE);
   bzero(maxim, DNSREWRITE);
-
   response_ptr = response;
   finalresponse_ptr = finalresponse;
 
@@ -1100,10 +1095,8 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
   /* Transaction ID */
   response[0] = (uint8_t)(dns_req->transaction_id >> 8);
   response[1] = (uint8_t)dns_req->transaction_id;
-  //response[0] = 0xAB;
-  //response[1] = 0xCD;
-  //response[0] = 0x00;
-  //response[1] = 0x00;
+  //response[0] = 0xAB; //response[1] = 0xCD; // RFC/GOOGLE
+  //response[0] = 0x00; //response[1] = 0x00; // CLOUDFLARE
   response+=2;
 
   /*
@@ -1121,8 +1114,8 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
   */
 
   if (mode == DNS_MODE_ANSWER) {
-    /* Default flags for a standard query (0x8580) */
-    /* Shall it be authoritative answer... or not ? :) */
+    // Default flags for a standard query (0x8580)
+    // Shall it return authoritative answer... or not ?
     response[0] = 0x81;
     //response[0] = 0x85;
     response[1] = 0x80;
@@ -1143,22 +1136,22 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
     response[1] = 0x82;
     response+=2;
 
-    /* Questions 1 */
+    // Set # of Questions to 1
     response[0] = 0x00;
     response[1] = 0x01;
     response+=2;
     
-    /* Answers 0 */
+    // Set # of Answers tp 0
     response[0] = 0x00;
     response[1] = 0x00;
     response+=2;
 
-    /* Are we into "No such name" ?... just an NXDOMAIN ?? */ 
+    // "No such name" ? ... or just an NXDOMAIN ??
     //*response++ = 0x00;
     if (EXT_DEBUG) { printf(" *** EXITING MODE_ERROR\n"); }
   }
   
-  /* Scope of DNSP was to minimise answers ... this part is yet to be perfect */
+  // One of the initial goals of DNSP was to minimise answer size // 20230107
   /* Authority RRs 0 */
   response[0] = 0x00;
   response[1] = 0x00;
@@ -1229,13 +1222,12 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
         //*response++ = 0x01;
     }
     
-    /* Class IN */
-    /* other classes to be supported, not an RFC MUST but could be implemented for general compatibility */
+    // Set Response Class to IN. Other classes may be supported and could be implemented for general compatibility but are not in RFC-8484's scope
     *response++ = 0x00;
     *response++ = 0x01;
 
-    /* TTL: interpretation of HTTP headers completed */
-    /* 0000: Cache-control: public, max-age=276, s-maxage=276 */
+    // TTL: interpretation of HTTP headers completed
+    // 0000: Cache-control: public, max-age=276, s-maxage=276
 
     int i=1, j;
     //int i=1, j, temp;
@@ -3215,8 +3207,7 @@ int main(int argc, char *argv[]) {
   read_timeout_nano.tv_sec = 0;
   read_timeout_nano.tv_nsec = 100000;
 
-  /* socket() UDP */
-  sockfd = socket(AF_INET, SOCK_DGRAM, 17);
+  sockfd = socket(AF_INET, SOCK_DGRAM, 17); // UDP socket
   int reuse_a_udp = 0, reuse_p_udp = 0;
   if (setsockopt(sockfd,SOL_SOCKET,SO_REUSEADDR, (const char*)&reuse_a_udp,sizeof(reuse_a_udp))==-1) { printf("%s",strerror(errno)); }
   if (setsockopt(sockfd,SOL_SOCKET,SO_REUSEPORT, (const char*)&reuse_p_udp,sizeof(reuse_p_udp))==-1) { printf("%s",strerror(errno)); }
@@ -3224,7 +3215,6 @@ int main(int argc, char *argv[]) {
   if (sockfd < 0) error("Error opening socket");
   if ((socketid = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) < 0) error("socket(2) failed");
 
-  /* local address listener guessing UDP */
   bzero((char *) &serv_addr, sizeof(serv_addr));
   local_address = gethostbyname(bind_address);
   if (local_address == NULL) error("Error resolving local host");
@@ -3235,8 +3225,7 @@ int main(int argc, char *argv[]) {
 
   if (bind(sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0) error("Error opening socket (bind)");
   
-  /* socket() TCP */
-  fd = socket(AF_INET, SOCK_STREAM, 6);
+  fd = socket(AF_INET, SOCK_STREAM, 6); // TCP socket
   
   if (fd<0) { printf(" *** %s",strerror(errno)); }
 
@@ -3266,10 +3255,7 @@ int main(int argc, char *argv[]) {
   //bind(fd, (struct sockaddr *) &serv_addr_tcp, sizeof(serv_addr_tcp));
   if ((listen(fd, SOMAXCONN)==-1)) { printf("%s",strerror(errno)); }
 
-  int cnt = 0, cntudp = 0, flag;
-  //int cnt = 0, cntudp = 0, flag = -1;
-
-  // 20200824
+  int cnt = 0, cntudp = 0, flag; // flag = -1;
   int reuse_addr = 1, reuse_port = 1;
   //int reusead = 0, reusepo = 0;
   if (setsockopt(fd,SOL_SOCKET,SO_REUSEADDR, (const char*)&reuse_addr,sizeof(reuse_addr))==-1) { printf("%s",strerror(errno)); }
@@ -3348,7 +3334,7 @@ int main(int argc, char *argv[]) {
     //pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE); // 20221225
     pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
     
-    /* wrong ... DO NOT USE */
+    // DO NOT USE // 20230107
     //sem_wait(&mutex);
 
     pthread_mutex_trylock(&mutex);
@@ -3379,15 +3365,13 @@ int main(int argc, char *argv[]) {
       
     int recv_tcp = select(fd, fd, NULL, NULL, &read_timeout_micro);
     int newsockfd = accept(fd, (struct sockaddr *)&client_tcp,&client_len_tcp);
-    // 20200824 20221225
     fcntl(newsockfd, F_SETFL, O_NONBLOCK);
     //fcntl(newsockfd, F_SETFL, O_ASYNC);
     //fcntl(newsockfd, F_SETFL, FNDELAY);
     setsockopt(newsockfd, SOL_SOCKET, SO_RCVTIMEO, &read_timeout_micro, sizeof read_timeout_micro);
 
     if (!(recv_tcp == -1)) fprintf(stderr, " *** TCP newsockfd -> select() contains %d bytes\n",recv_tcp);
-    // 20221225
-    //add to master set
+    //add to master set // 20230107
     FD_SET(newsockfd, &master);
     //request_len_tcp = recvfrom(newsockfd,request_tcp,TCP_DATAGRAM_SIZE,MSG_WAITALL,(struct sockaddr *)&client_tcp,&client_len_tcp);
     request_len_tcp = recvfrom(newsockfd,request_tcp,TCP_DATAGRAM_SIZE,MSG_DONTWAIT,(struct sockaddr *)&client_tcp,&client_len_tcp);
@@ -3466,11 +3450,11 @@ int main(int argc, char *argv[]) {
       if (request_len == -1) {
         flag = 1;
 
-        // 20200824 20221225 doubts on using close here
         if ((request_len_tcp == -1)) {
           flag = 3;
           
 	  //printf(" *** flag equals 3. closing fd\n");
+          // 20230107 doubts on using close here
 	  close(fd);
           exit(EXIT_SUCCESS);
         }
@@ -3484,7 +3468,7 @@ int main(int argc, char *argv[]) {
 	  }
     	  cnt++;
 
-          /* selfconnect test */
+          // selfconnect test
 	  /*
           if (connect(fd, (struct sockaddr *) &serv_addr_tcp, sizeof(serv_addr_tcp)) < 0) {
             error("caca1\n");
@@ -3523,7 +3507,7 @@ int main(int argc, char *argv[]) {
           fprintf(stderr," *** flag is NULL (3). closing fd\n");
           //printf(" *** flag is NULL (3). closing fd\n");
           //close(newsockfd);
-          //dns_req = parse_dns_request(request, request_len, 1, 1); // 20221225
+          //dns_req = parse_dns_request(request, request_len, 1, 1); // 20230107
           close(fd);
     	  exit(EXIT_SUCCESS);
     	}
@@ -3570,13 +3554,12 @@ int main(int argc, char *argv[]) {
         flag = 3;
         fprintf(stderr," *** flag is NULL (3). closing fd and newsockfd\n");
         readParams->xhostname = NULL;
-        dns_req = parse_dns_request(request, request_len, 0, 1); // 20221225
+        dns_req = parse_dns_request(request, request_len, 0, 1);
         close(newsockfd);
         close(fd);
         
         //pthread_mutex_destroy(&mutex);
-        // 20230107
-        //pthread_join(pth[i],NULL);
+        //pthread_join(pth[i],NULL); // 20230107
 
         exit(EXIT_SUCCESS);
       }
@@ -3755,8 +3738,7 @@ int main(int argc, char *argv[]) {
       	  fprintf(stderr, " ### OK %d\n", i);
         }
     
-	// 20230107 - WARNING
-        pthread_join(pth[r],NULL); /* joining is the trick */
+        pthread_join(pth[r],NULL); // joining is the trick // 20230107 - WARNING
 
         //tidd = pthread_self();
         //fprintf(stderr, "self r - %d \n",pthread_self(pth[i]));
@@ -3808,7 +3790,7 @@ int main(int argc, char *argv[]) {
       }
       wait(NULL);
     
-      /* Spin N number of threads */
+      /* Spin N amount of threads */
       /*
       for(nnn=0; nnn< NUMT; nnn++) {
         //struct sockaddr_in *xclient = (struct sockaddr_in *)params->xclient;

@@ -11,13 +11,13 @@ but switching that traffic on standard DNS-TCP was not an option as the
 platform was not able to receive such, hence I came up inventing this hybrid
 "trasnport and caching protocol" to carry the precious information.
 
-The second inspiration came from another common problem: TOR leaks. UDP and DNS
-are not completely SOCKS-friendly and eventually. The one and only choice left
-on the table was to vehiculate DNS message INSIDE another protocol that could
-be -indeed- well-protected and easily-ecapsulated within TOR.
+The second source of inspiration came from the observation of another common
+and well-known issue: TOR leaks. UDP and DNS are not completely SOCKS-friendly.
+The one and only choice left was to vehiculate DNS message INSIDE another
+standard protocol that could be -indeed- ecapsulated within TOR.
 
-That protocol was -obviously and again- HTTP in it's most secure implementation
-HTTPS.
+That protocol of choice was -obviously and again- HTTP, now in it's most secure
+implementation, HTTPS.
 
 That many many tests (started in 2010) got a bit out of control up to the point
 that I was invited to collaborate with IETF board to the developement and 
@@ -65,30 +65,31 @@ TOR users, Chinese walls) DNSProxy is a rapid and efficient solution for you.
 ## Architecture
 ```
               +----------------------------+
-   +----------| DNSP listens on original   | <<---+
-   |          | sockets [ DNS & HTTPS ]    |      |
-   |          +----------------------------+      | libCURL handles
-   |                      ^                       | HTTP replies.
-   |                      ^ IF answer found       | DNSP creates DNS
-   |                      |  in HTTP cache        | responses, sent
-   |                      | THEN faster reply     | via TCP or UDP
-   v                      |  same security        | as per RFC-1035
-   v                      :                       :
-  +--------------+      +--------+--------+      /---------------\
-  |  client OS   | -->> +     DNSProxy    + -->> |  DoH resolver |
-  +--------------|      +-----------------+      |               |
-  | sends DNS    |      | manipulate TTL, |      | RFC8484-aware |
-  |  request     |      | blacklist,cache |      \---------------/
-  +--+-----------+      +-----------------+               ^
+   +----------| DNSP listens on original   | <<-----+
+   |          | sockets [ DNS & HTTPS ]    |        |
+   |          +----------------------------+        | libCURL handles
+   |                       ^                        | HTTP replies.
+   |                       ^                        | 
+   |                       | IF answer found        | DNSP creates DNS
+   |                       |  in HTTP cache         | responses, sent
+   |                       | THEN faster reply      | via TCP or UDP
+   v                       |  same security         | as per RFC-1035
+   v                       :                        :
+  +---------------+      +--------+---------+      /---------------\
+  |  client OS    | -->> +     DNSProxy     + -->> |  DoH resolver |
+  +---------------+      +--------+---------+      \---------------/
+  | sends request |      | TTL, blacklist,  |      |               |
+  | to DNS server |      | pooling, caching |      | RFC8484-aware |
+  +--+------------+      +------------------+      +---------------+
      :                                                   ^
+     |                                                   ^
      | DNS queries to DNSP daemon on 127.0.0.1:53        |
-     |       are tunneled to a DoH-resolver webservice   |
+     |   are tunneled to a DoH-aware resolver webservice |
      +---------------------------------------------------+
 
- classic DNS except that messages are being transported over HTTP/2
-      with no leackage of UDP whatsoever (see PRIVACY notes)
+ classic DNS messaging except that raw packets are carried over HTTP/2
+ without any privacy leackage whatsoever (see PRIVACY disclaimer below)
 ```
-
 DNSP will take care to create a well-formed DNS packet in reply to clients.
 
 Should you be willing to perform forensics or "response caching and sharing"
@@ -107,20 +108,18 @@ complexify picture HTTP/2 and SSL make local cache -not impossible- but uneasy.
 This software is TOR-friendly and requires minimal resources. Enjoy !
 
 Features:
-- DNS-over-HTTPS compliant with RFC 8484, plus older non-standards supported.
-- FOLLOWLOCATION, spawns threads to enable HTTP browser cache preemption
+- DNS-over-HTTPS compliant with RFC-8484 and other older non-standards
+- FOLLOWLOCATION, spawning threads to enable HTTP browser cache preemption
     for the benefit of the user experience.
-- HTTP/2 ready. Talks HTTP/2 in different combinations of ALPN, NPN, Update & co.
-- as HTTP/2 is the minimum requirement for DOH (see RFC 8484), to comply is easy
-    using libCURL, lesser with nghttp2,
-- ability to dump DNS response packet, then serve such content via local HTTP webserver
-    (not in DNSP intents, but possible for the benefit and simplicity of DOH adoption !)
-- ability to set specific headers according to cache requirements,
-    i.e. translate DNS TTL validity to HTTP cache Validity :)
+- HTTP/2 is the minimum requirement for dnsp-h2 DoW (see RFC 8484), while dnsp
+    runs on pre-h2
+- ability to dump response packet and serve content via local HTTP webserver
+- ability to set specific headers according to cache requirements i.e. translate
+    HTTP cache Validity into DNS TTL value
 
-To recap, in order to start resolving "anonymous DNS" over HTTP, all you need is:
-- a PHP-server hosting the *nslookup-doh.php* resolver script
-- the C software, available as source or compiled
+To wrap-up -in order to start resolving "anonymous DNS" over HTTP- all you need is:
+- the C software, available as source or compiled (dnsp-h2 and dnsp)
+- a PHP-server hosting the *nslookup-doh.php* resolver script (only for legacy dnsp)
 
 ## Caching answers
 
@@ -289,18 +288,15 @@ At this point, you might want to start your traffic capture, either wireshark, t
 Now open a new terminal and invoke **dig** (or **nslookup**) to test the resolver capabilities
 over UDP or TCP. The test consist in resolving an hostname against the server instance of DNSP,
 
-To test the UDP listener, type the following and expect a consistent output:
+To test the UDP server, type the following and expect a consistent output:
 ```bash
 dig news.google.com @127.0.0.1
 ;; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: 17828
 ;; flags: qr aa rd ra; QUERY: 1, ANSWER: 1, AUTHORITY: 0, ADDITIONAL: 0
-
 ;; QUESTION SECTION:
 ;news.google.com.       IN  A
-
 ;; ANSWER SECTION:
 news.google.com.    524549  IN  A   216.58.206.142
-
 ;; SERVER: 127.0.0.1#53(127.0.0.1)
 ;; MSG SIZE  rcvd: 49
 ```
@@ -309,13 +305,10 @@ To test the TCP listener, type:
 dig +tcp facebook.com @127.0.0.1
 ;; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: 9475
 ;; flags: qr aa rd ra; QUERY: 1, ANSWER: 1, AUTHORITY: 0, ADDITIONAL: 0
-
 ;; QUESTION SECTION:
 ;facebook.com.          IN  A
-
 ;; ANSWER SECTION:
 facebook.com.       524549  IN  A   185.60.216.35
-
 ;; SERVER: 127.0.0.1#53(127.0.0.1)
 ;; MSG SIZE  rcvd: 46
 ```
@@ -578,28 +571,30 @@ destroy NOT OK..
 * provide base64urlencode of DNS requests !
 * implemented dump of "cache-control" headers from PHP/DoH resolver into DNS packet
 * added new _build\_dns_ to comply with DoH/RFC format, instead of pre-DoH _build\_dns\_response_
-* implement TRANSACTION-ID override (0xabcd by default)
+* implement TRANSACTION-ID override (0xABCD by default)
 * implement TYPE override (0x00 by default)
 * make sure we set headers _accept_ and _content-type_ to _"application/dns"_ for both POST and GET scenarios
 
 #### Version 2.2 - January 2019:
-* completed TCP & UDP listeners' logic
+* conceived and implemented TCP & UDP listeners
 
 #### Version 2 - March 2018:
 * Added TCP query/response support !
-* backend DOH-ready: raw DNS request printout (for server), base64urlencode of DNS query (for client)
-* pre-emptive HTTP cache population as option (for CDN or local squid/polipo proxies).
-  based on Location header, will force DNSP server software to issue a parallel GET towards
-  the remote domain, in order to preemptively populate HTTP local and intermediate caches.
-  (Not very interesting except in few scenarios, as surfing through high-delay networks).
-* added the arduino+ethernet library with the new select() function [sorry for delay]
-* DNSP for HTTP/1 version freeze, development on H2 only (till Hackathon 101 London 17-18/3).
+* backend RFC-compliancy: base64urlencode DNS query (DNSP client)
+* frontend RFC-compliancy: raw DNS printout (PHP script)
+* preemptive HTTP cache population as option. Using ad-hoc Location header, we
+  can force DNSP server to issue a parallel GET towards requested website, in
+  order to preemptively populate local and intermediate caches. (Not many
+  use-cases except in a few scenarios i.e. surfing through high-delay network.
+* added the arduino+ethernet library with new select() function
+* legacy **dnsp** version freeze, development will proceed only for **dnsp-h2** 
+  (since Hackathon 101 London 3/2018).
 
 #### Version 1.6 - March 2018:
+* fixed implementation of intermediate proxy
+* commented references to different DNSP modes (threaded/forked, mutex, semaphores).
+* updated examples for SQUID in place of POLIPO (unfortunately EOL)
 * almost REDIS-ready _via https://github.com/redis/hiredis_
-* finally fixed "infamous" proxy settings
-* removed and commented references to different DNSP modes (threaded/forked, mutex, semaphores).
-* finally updated examples to strongly suggest SQUID in place of POLIPO (I loved it, but is EOL)
 
 #### Version 1.5 - February 2018:
 * added IETF references and mentions to DoH (HTTP/2, single connection multiple streams)
@@ -622,11 +617,11 @@ destroy NOT OK..
 * published an improved Varnish configuration
 
 #### Version 1.01 - April 2015:
-* HTTPS support (even more privacy)
+* HTTPS support over legacy non-DoH HTTP (even more privacy)
 * Pseudo-Multithreading listener/responder
-* Better nginx/polipo setup ? [ not anymore useful with HTTP/2 ]
-* Stack size option (deprecated)
-* Soon to add TCP listener/responder logic
+* Better nginx/polipo setup but not anymore useful when switching to HTTP/2
+* Stack size option being deprecated, no valid use-case to keep such
+* Drafting addition of TCP listener logic
 * Some issue to set the proper ETag on polipo
 
 #### Version 0.99 - July 2014:
@@ -650,29 +645,29 @@ destroy NOT OK..
 #### Version 0.1 - April 09 2009:
 * Initial release
 
-## WIP - features being developed:
+## Features being actively developed:
 * (in progress) support far more than A, AAAA, CNAME and NS. My pre-DoH test protocol supported MX, PTR and ALL types
 * (in progress) offer choice on method. So far only POST is supported as better privacy
 * (in progress) parallelize requests
-* (todo) add a /stats backend
 * (todo) find out why some requests encounter ";; Question section mismatch: got fantuz.net/RESERVED0/IN"
-* (todo) choose the faster response or wait and compare all parallel responses
-* (todo) add a "--resolve" option to pin DoH request to an IP address (see SNI debate on IETF mailing lists)
+* (todo) add a /stats backend
 * (done) save HEX packet structure and serve it as HTTP content from DNSP daemon priming the local cache
 * (done) reduce memory impact (strace, gdb, valgrind)
 * (done) restore performances, currently impacted by TCP handler
 
-## Ideas - lower priority:
+## Lower priority ideas:
+* (todo) choose the faster response or wait and compare all parallel responses
 * (todo) worth looking at QUIC, the UDP-multiplexing upcoming HTTP/3 standard.
 * (todo) implement HTTP/2 PUSH, for smoother and opportunistic DNS answers. Remember, there's no ID field in DOH !
 * (todo) use h2 "Warning" headers to signal events/failures
 * (todo) DNSSEC validation tests ?
+* (todo) add a "--resolve" option to pin DoH request to an IP address (see SNI debate on IETF mailing lists)
 * (pending decision) to use directly NGHTTP2 in place of CURL. FYI CURL relies on NGHTTP2
 * (pending decision) REDIS: implement or drop
+* (todo) add an option to provide dynamic list of blacklisted domains (to be read in from file or STDIN)
+* (todo) add switch to leverage REUSEPORT and/or REUSEADDRESS
 * test build on Debian, Windows, MacOS (only tested with Ubuntu 14-18 and very old MacOS)
 * test bynary distribution on Debian, Windows, MacOS
-* add an option to provide dynamic list of blacklisted domains (to be read in from file or STDIN)
-* add switch to leverage REUSEPORT and/or REUSEADDRESS
 
 ## Non-inclusive DoH providers list
 * 1.1.1.1
@@ -683,8 +678,8 @@ destroy NOT OK..
 
 * https://tools.ietf.org/html/rfc8484
 * https://datatracker.ietf.org/meeting/101/materials/slides-101-hackathon-sessa-dnsproxy-local-dns-over-http-private-resolver
-* https://www.reddit.com/user/fantamix/comments/7yotib/dnsp_a_dns_proxy_to_avoid_dns_leakage/
-* https://www.reddit.com/r/hacking/comments/7zjbv2/why_to_use_a_dns_proxy_why_shall_it_be/
+* https://www.reddit.com/user/fantamix/comments/7yotib/dnsp\_a\_dns\_proxy\_to\_avoid\_dns\_leakage/
+* https://www.reddit.com/r/hacking/comments/7zjbv2/why\_to\_use\_a\_dns\_proxy\_why\_shall\_it\_be/
 * https://github.com/curl/doh/blob/master/doh.c
 * https://www.meetup.com/it-IT/Geneva-Legal-Hackers/messages/boards/thread/51438161
 * https://tools.ietf.org/html/draft-ietf-dnsop-dns-wireformat-http-01
@@ -694,37 +689,22 @@ destroy NOT OK..
 MIT license, all rights included.
 
 ## Disclaimer
-__IF ANONIMITY IS A CONCERN__ please host *nslookup-doh.php* on a trusted server !
+__IF SPEED IS A CONCERN__
+Performances of underlying sys-calls do lie outside the scope of DNSP.
 
-To be clear, the PHP script DOES DO the underlying job, being the resolution
-via "system calls" of DNS requests, a "classic" UDP or TCP "DNS request".
-Such system call relies on different (leaking) mechanisms to resolve DNS,
-depending on the operating system; in the case of an hosting provider, such
-mechanism and operating systems are often "managed" hence not in FULL-CONTROL
-of the final user.
+Long testing has been carried on, sufficiently to say the software has no flaw,
+no leakage, only lot of verbosity, unnecessarly parallel logic, legacy support
+for pre-standard DoH and other less-efficient routines.
 
-In the context of "managed-hosting" we can probably assume that _everything_
-had been optimised for serving contents at the fastest speed, leveraging the
-best cache available.
-
-Performances of such sys-calls lie therefore outside the scope of DNSP.
-
-The DNSProxy *DNSP* is just lazily tunneling into HTTP(S) using curllib and
-nghttp2. By doing this encapsulation, **it avoids leakage** of UDP queries.
-To be on the safe side, using DNS-over-HTTPS makes almost impossible to
-eavesdrop and spoof the DNS traffic between you and the DoH provider, or
-at least much less likely, given the layer of security provided by HTTP/2.
-
-That said, you **MUST** use an external resolver/server that you trust, one
-where you can deploy stuff !
+__IF ANONIMITY IS A CONCERN__
+DNSProxy *DNSP* is lazily tunneling DNS into HTTPS using curllib and nghttp2.
+By doing this encapsulation, **it avoids leakage** of DNS queries. To be on the
+safe side, using DNS-over-HTTPS makes almost impossible to eavesdrop or spoof
+DNS traffic between client and DoH provider, or at least much less likely, given
+security layer provided by HTTP/2.
 
 **Do not forget to set 127.0.0.1 as your unique system DNS resolver** via
 common system configuration files (as /etc/resolv.conf or systemd-resolved).
-
-Beware: running the PHP script locally on the same machine (not using a
-remote webservice) makes no sense and WILL EXPOSE ALL of your queries to
-DNS leak. Running locally is useful for TESTING purposes only !!
-
 
 # Extra useful informations
 
@@ -782,9 +762,10 @@ echo -n 'q80BAAABAAAAAAAABmdpdGh1YgNjb20AAAEAAQ' | base64 -d 2>/dev/null | curl 
 ```
 If you are a bit acquainted with hex you dont need to convert to binary. Just
 take the base-16 complement of each digit, and add 1 to the result. So you get
-0C5E. Add 1 and here's your result: 0C5F. For a faster approach you can also
-flip the bits left to very first set bit and find out the 2s complement,
-instead of finding 1ns and then adding 1 to it.
+0C5E. Add 1 and here's your result: 0C5F.
+
+For a faster approach you can also flip the bits left to very first set bit and
+find out the 2s complement, instead of finding 1ns and then adding 1 to it.
 1111 0011 1010 0001 toggle the bits left to first set bit
 0000 1100 0101 1111
 I expect you would like this if bit pattern is changed to binary then hex :)
