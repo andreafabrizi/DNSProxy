@@ -1,10 +1,11 @@
-# DNSP - RFC8484-compliant DNS-over-HTTPS Proxy - An Overview
+# DNSProxy - RFC8484-compliant DNS-over-HTTPS proxy
 
-## Why DNSP ?
+## Why DNSProxy ?
 ### DNS transport tests, gone too far :)
 
-DNSP was born for two specific reasons: deliver DNS responses via satellite
-towards airplanes, and surf TOR anonymously.
+Historically, DNSProxy was born for two quite exotic reasons: simplify DNS
+messaging between satellite base-station and client airplanes, and to surf
+TOR anonymously - avoiding leaks.
 
 First _niche_ use-case: DNS UDP messages were lost within the satellite pipe
 but switching that very traffic on standard DNS-TCP was not an option as the
@@ -169,7 +170,7 @@ dnsp -H http://aremoteproxyservice/ -r 3128
 
 **IMPORTANT:** DNSP-H2 resolvers around the world increase global DNS privacy !
 
-# Using DNSP-H2
+## Using DNSP-H2
 
 ```bash
 user@machine:~/DNSProxy$ ./dnsp-h2
@@ -214,7 +215,7 @@ user@machine:~/DNSProxy$ ./dnsp-h2
  - https://it.wikipedia.org/wiki/DNS_over_HTTPS#cite_note-8
 ```
 
-## Building and Installing
+### Building and Installing
 
 Build is easy on Linux, Mac, UNIX and even Windows; DNSProxy is based on fairly
 simple dependencies on libcurl CURL C library, pthread, SSL/TLS, all standards.
@@ -239,13 +240,13 @@ Once done with pre-requisites, you will be able to *compile dnsp and dnsp-h2* by
 ```bash
 make
 ```
-## Deploy DoH standard infrastructure (only applies to standard **dnsp-h2** binary, not to dnsp)
+### Deploy DoH standard infrastructure (only applies to standard **dnsp-h2** binary, not to dnsp)
 
 #### STEP 0. HTTPS webservices are hard-coded into dnsp-h2 server
 #### STEP 0. Optionally configure an HTTPS MITM proxy - for debug or caching reasons
 #### STEP 1. Invoke DNSP-H2 binary listener and start submitting standard DNS queries
 
-## Deploy pre-DoH non-standard infrastructure (only applies to **dnsp legacy binary**, not to dnsp-h2)
+### Deploy pre-DoH non-standard infrastructure (only applies to **dnsp legacy binary**, not to dnsp-h2)
 
 #### STEP 1. Create and deploy the HTTP(S) nameserver webservice
 Deploy **nslookup-doh.php** on a webserver, possibly not your local machine (see
@@ -256,7 +257,7 @@ access to any of such services, just use my webservice as suggested in examples.
 Setup an HTTP caching proxy on the local machine or on a remote host. Feed host
 and port of your proxy server to the *dnsp* program arguments.
 
-# Integration
+## Integration
 
 DNSPproxy has been built with _simplicity_ and _standards_ in mind. On a modern
 Linux box- an extra layer of caching DNS is often provided by nscd or dnsmasq
@@ -286,7 +287,7 @@ I never meant to state that DNSP is faster or better than any other DNS server
 but is definitely original on its own. Is a buggy piece of threaded code which 
 I created to help people _transporting_ and _sharing_ DNS data in a fancy way.
 
-## Launching an instance of dnsp or dnsp-h2
+### Launching an instance of dnsp or dnsp-h2
 Simply invoke one of the two available program binaries as follows.
 
 Start a fully-compliant DoH/h2 server with:
@@ -305,7 +306,7 @@ Please use *dnsp-h2 by default*. Commits will be accepted only for that branch.
 Note that *dnsp* binary (the pre-DOH version of DNSProxy) is kept only for
 historical reasons, has no backwards compatibility, and may soon disappear.
 
-## Testing deployment of DNSProxy using dig or nslookup
+### Testing deployment of DNSProxy using dig or nslookup
 
 Now open a new terminal and invoke **dig** (or **nslookup**) to test the resolver capabilities
 over UDP or TCP. The test consist in resolving an hostname against the server instance of DNSP,
@@ -343,7 +344,7 @@ nameserver 127.0.0.1
 NB: in case you use systemd-resolved, you would need to edit the proper
 systemd service file at /etc/systemd/resolved.conf or similar.
 
-## Debug deployment of dnsp-h2 using tcpdump and a MITM proxy
+### Debug deployment of dnsp-h2 using tcpdump and a MITM proxy
 At this point, you may already:
 - have started your traffic capture, either using wireshark, tshark or tcpdump.
 - have a working MITM proxy setup i.e. charles, burp or similar software.
@@ -539,7 +540,7 @@ unlock NOT OK..
 destroy NOT OK..
 ^C
 ```
-## Testing deployment of PHP script over the web - DEPRECATED
+### Testing deployment of PHP script over the web - DEPRECATED
 
 To test the deploy of nslookup-doh.php along with correct DNS
 resolution, you could use **curl** utility within a shell.
@@ -560,13 +561,12 @@ Values should end with bits 0d0a. on any server (HEX is easy to read):
 00000000: 7364 6e73 332e 7668 6f73 7469 6e67 2d69  sdns3.vhosting-i
 00000010: 742e 636f 6d0d 0a                        t.com..
 ```
-
-# License
+## License
 MIT license, all rights included.
 
-# Versioning and evolution of DNSP
+## Versioning and evolution of DNSP
 
-## Changelog:
+### Changelog:
 
 #### Version 3.3.0 - December 2022:
 * adjusted to POST by default (no more GET with visible _dns=_ string)
@@ -664,7 +664,7 @@ MIT license, all rights included.
 #### Version 0.1 - April 09 2009:
 * Initial release
 
-## Features being actively developed:
+### Features being actively developed:
 * (in progress) support far more than A, AAAA, CNAME and NS. My pre-DoH test protocol supported MX, PTR and ALL types
 * (in progress) offer choice on method. So far only POST is supported as better privacy
 * (in progress) parallelize requests
@@ -674,7 +674,7 @@ MIT license, all rights included.
 * (done) reduce memory impact (strace, gdb, valgrind)
 * (done) restore performances, currently impacted by TCP handler
 
-## Lower priority ideas:
+### Lower priority ideas:
 * (todo) choose the faster response or wait and compare all parallel responses
 * (todo) worth looking at QUIC, the UDP-multiplexing upcoming HTTP/3 standard.
 * (todo) implement HTTP/2 PUSH, for smoother and opportunistic DNS answers. Remember, there's no ID field in DOH !
@@ -688,13 +688,7 @@ MIT license, all rights included.
 * test build on Debian, Windows, MacOS (only tested with Ubuntu 14-18 and very old MacOS)
 * test bynary distribution on Debian, Windows, MacOS
 
-## Non-inclusive DoH providers list
-* 1.1.1.1
-* 8.8.8.8
-* see list on https://github.com/curl/curl/wiki/DNS-over-HTTPS#publicly-available-servers
-
-## References:
-
+### References:
 * https://tools.ietf.org/html/rfc8484
 * https://datatracker.ietf.org/meeting/101/materials/slides-101-hackathon-sessa-dnsproxy-local-dns-over-http-private-resolver
 * https://www.reddit.com/user/fantamix/comments/7yotib/dnsp\_a\_dns\_proxy\_to\_avoid\_dns\_leakage/
@@ -720,8 +714,8 @@ for pre-standard DoH and other less-efficient routines.
 **Do not forget to set 127.0.0.1 as your unique system DNS resolver** via
 common system configuration files (as /etc/resolv.conf or systemd-resolved).
 
-# Extra useful informations
-## Appendix A - Common Proxy Headers
+## Further information and bibliography
+### Appendix A - Common Proxy Headers
 ```
 Common proxy ports: 
   1080 (generic HTTP proxy) 
@@ -769,7 +763,7 @@ cf-ray: 3f5d7c83180326a2-FRA
 00000030: 0001 0000 0013 0004 8c52 7603 0000 2905  .........Rv...). 
 00000040: ac00 0000 0000 00                        ....... 
 ```
-## Appendix B - reversing base-16 complement
+### Appendix B - reversing base-16 complement
 ```
 If you are a bit acquainted with hex you dont need to convert to binary. Just
 take the base-16 complement of each digit, and add 1 to the result. So you get
@@ -781,7 +775,7 @@ find out the 2s complement, instead of finding 1ns and then adding 1 to it.
 0000 1100 0101 1111
 I expect you would like this if bit pattern is changed to binary then hex :)
 ```
-## Appendix C . DNS FAILURE MESSAGES
+### Appendix C . DNS FAILURE MESSAGES
 ```
 DNS_MODE_ERROR should truncate message instead of building it up ... 
 Server failure (0x8182), but what if we wanted an NXDOMAIN (0x....) ?
@@ -812,7 +806,7 @@ NOTZONE (RCODE:10)       : Name not in zone
 4096-65535      available for assignment
   0x1000-0xFFFF
 ```
-## Appendix D - Thoughts on TTL and recap on HTTP Cache Headers
+### Appendix D - Thoughts on TTL and recap on HTTP Cache Headers
 Concept of TTL has been taken in account since the foundation of DNSP
 developments for sake of caching purposes. With the advent of DNS-over-HTTPS RFC
 as a standard the need to serve and properly expire caches became imperative.
@@ -850,3 +844,7 @@ Cache-Control: immutable
 Cache-Control: stale-while-revalidate=<seconds> 
 Cache-Control: stale-if-error=<seconds> 
 ```
+### Appendix E - Non-inclusive DoH providers list
+* 1.1.1.1
+* 8.8.8.8
+* see list on https://github.com/curl/curl/wiki/DNS-over-HTTPS#publicly-available-servers
