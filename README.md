@@ -10,20 +10,20 @@ TOR anonymously - avoiding leaks.
 First _niche_ use-case: DNS UDP messages were lost within the satellite pipe
 but switching that very traffic on standard DNS-TCP was not an option as the
 platform was not able to receive such, hence I came up inventing this hybrid
-"trasnport and caching protocol" to carry the precious information.
+"transport and caching protocol" to carry the precious information.
 
 The second source of inspiration came from the observation of another common
 and well-known issue: TOR leaks. UDP and DNS are not completely SOCKS-friendly.
-The one and only choice left was to vehiculate DNS message INSIDE another
-standard protocol that could be -indeed- ecapsulated within TOR.
+The one and only choice left was to vehiculate DNS message _inside_ another
+standard protocol that could be -indeed- easily ecapsulated within TOR.
 
 The protocol of choice was HTTP, now in it's most secure implementation, HTTPS.
 
 ### Standardization of protocol
 I started testing with the pseudo-protocol back in 2010 and things went bit out
 of control up to the point that I was invited to collaborate with IETF board in
-the developement and publication of standard state-of-the-art DNS-over-HTTPS
-- RFC8484. (c.f. https://tools.ietf.org/html/rfc8484)
+the developement and publication of standard state-of-the-art DNS-over-HTTPS,
+RFC8484. (c.f. https://tools.ietf.org/html/rfc8484)
 
 A new MIME type has since been defined (application/dns-message) and protocol
 design goals are perfectly clear. For more information about MIME types refer to
@@ -53,7 +53,7 @@ will parse its contents, transforming DNS in b64-encoded HTTP request and
 forward that raw content towards a DoH service provider.
 
 The DoH provider in turn will deal with underlying DNS resolution and return
-HTTP response.DNSProxy will receive incoming HTTP data and will opportunely
+HTTP response. DNSProxy will receive incoming HTTP data and will opportunely
 craft a DNS response to the calling UDP/TCP DNS client.
 
 Exchange of messaging relies on means of standardized HTTP request and response
@@ -64,16 +64,20 @@ supported by different helpers as:
  - b64 logic, checksumming, ...
 
 DNSProxy leverage the fancyness of HTTP, DNS, TLS, hence debug and monitor are
-simplified and easy with standard toolsset. Hooks and symbols are in place,
-logging is quite self-explaing and clean. Documentation is being kept up-to-date
-and new features logged in changelog.
+simplified and easy with standard toolset. Hooks and symbols are in place,
+logging is quite self-explanatory and clean. Documentation is kept up-to-date
+for the benefit of community, and every new features logged in changelog.
 
 ## Architecture
 ### Design Overview
-DNSProxy is a rapid and efficient solution if you can't access "secured" tunnels
-to resolve domain names externally (TOR users,Chinese Wall of Fire, evil VPN).
 
-Robustness of architecture proves DNSProxy as a very scalable and smart solution
+A classic DNS messaging schema except that raw packets are carried over HTTP/2
+guaranteeing against _privacy leaks_ (see PRIVACY disclaimer below).
+
+DNSProxy is a rapid and efficient solution if you can't access "secured" tunnels
+to resolve domain names externally (TOR users, Chinese Wall of Fire, evil VPN).
+
+Robustness of architecture proves DNSProxy a very scalable and smart solution.
 ```
              +---------------------------+
   +----------| DNSProxy re-uses original | <<---------+
@@ -87,7 +91,7 @@ Robustness of architecture proves DNSProxy as a very scalable and smart solution
   v                       |  same security            |  requests and responses
   v                       :                           :
  +---------------+       +--------+---------+       /---------------\
- |  client OS    | --->> +  DNSProxy parser + --->> |  DoH resolver |
+ |   client OS   | --->> +  DNSProxy parser + --->> |  DoH resolver |
  +---------------+       +--------+---------+       \---------------/
  | sends request |       |  blacklist, TTL  |       |               |
  | to DNS server |       | pooling, caching |       | RFC8484-aware |
@@ -97,27 +101,32 @@ Robustness of architecture proves DNSProxy as a very scalable and smart solution
     | DNS queries to DNSP daemon on 127.0.0.1:53 will be  |
     |   tunneled towards a DoH-aware resolver webservice  |
     +-----------------------------------------------------+
-
-A classic DNS messaging schema except that raw packets are carried over HTTP/2
-guaranteeing against _privacy leacks_ (see PRIVACY disclaimer below).
 ```
-We generally refer to DNSProxy considering both DoH or pre-DoH branches:
+We generally mention *DNSProxy* by considering both DoH and pre-DoH branches, as
+design is the same for both:
 - *dnsp-h2* will take care to craft well-formed DNS packets in accordance to RFC
 - *dnsp* is now **deprecated** and should not be used (pre-DoH formats only)
+
+Also note that *dnsp* binary (pre-DOH version of DNSProxy) is only kept in
+repository for historical reasons, offers  no backward-compatibility and may
+soon disappear. Please only use, refer to and commit towards *dnsp-h2* branch.
+
+Commits for other legacy components will not be accepted.
 
 ### Basic and more advanced features
 - DNS-over-HTTPS compliant with RFC-8484 and other older non-standards
 - FOLLOWLOCATION, spawning threads to enable HTTP browser cache preemption
     for the benefit of the user experience.
-- HTTP/2 is the minimum requirement for dnsp-h2 DoW (see RFC 8484), while dnsp
+- HTTP/2 is the minimum requirement for dnsp-h2 DoH (see RFC 8484), while dnsp
     runs on pre-h2
 - ability to dump response packet and serve content via local HTTP webserver
 - ability to set specific headers according to cache requirements i.e. translate
     HTTP cache Validity into DNS TTL value
 
-To KISS, in order to start resolving "anonymous DNS" over HTTP- all you need is:
+To KISS, in order to start resolving anonymous DNS over HTTP(S) all you need is:
 - the C software, available as source or compiled **(dnsp-h2 and dnsp)**
-- a PHP-server hosting the *nslookup-doh.php* resolver script **(only by dnsp)**
+- a PHP-server hosting *nslookup-doh.php* resolver script **(needed only by
+legacy dnsp)**
 
 This software is OSS, TOR-friendly and requires minimal resources. Enjoy !
 
@@ -151,8 +160,8 @@ you can still rely on standard HTTPS proxy MITM techniques; *any HTTP(S) proxy*
 will work properly with DNSProxy as polipo, squid, nginx, charles, burp, ...
 
 **Though, the majority of DNSProxy users will directly run dnsp-h2 without any 
-proxy settings**. The DNSProxy server will therefore connect directly to the
-remote webservice (resolver) not leveraging any specific cache.
+chained proxy settings**. The DNSProxy server will therefore connect directly to
+the remote webservice (resolver) not leveraging any specific cache.
 
 **IMPORTANT:** DoH resolvers around the world increase global DNS privacy !
 
@@ -189,10 +198,10 @@ See APPENDIX E for extensive list.
 Install and configure SSL MITM intercepting proxy as charles or burp
 #### STEP 1. Invoke *dnsp-h2* and start answering DNS queries
 ```bash
-# Use standard Google & Cloudflare DoH resolvers. Surf anonymously in the simplest direct mode
+# Run DNSProxy with standard Google & Cloudflare DoH resolvers. Surf anonymously in the simplest direct mode
 dnsp-h2 -Q
 
-# Use DNSProxy behind HTTPS caching proxy (i.e. charles, burp) for debug or caching reasons
+# Run DNSProxy behind HTTPS caching proxy (i.e. charles, burp) for debug or caching reasons
 dnsp-h2 -Q -H http://192.168.3.93/ -r 8118
 dnsp-h2 -Q -H http://aremoteproxyservice.internal/ -r 3128
 ```
@@ -212,10 +221,10 @@ Provide host and port of your proxy server as *dnsp* program arguments.
 #### STEP 3. Invoke *dnsp* and start answering DNS queries - EPRECATED
 Meant to answer DNS queries but using non standard-resolver.
 ```bash
-Use non-compliant non-DoH HTTP proxy (i.e. squid, polipo)
-- no proxy:
+# Run non-compliant pre-DoH DNSProxy without chained proxy:
 dnsp -l 127.0.0.1 -s https://www.fantuz.net/nslookup-doh.php
-- with chained proxy:
+
+# Run non-compliant non-DoH HTTP proxy (i.e. squid, polipo) with chained proxy
 dnsp -H http://192.168.3.93/ -r 8118 -s https://abc.com/nslookup.php
 ```
 ### Getting help on every advanced, experimental and deprecated option
@@ -263,7 +272,6 @@ user@machine:~/DNSProxy$ ./dnsp-h2 -h
  - https://it.wikipedia.org/wiki/DNS_over_HTTPS#cite_note-8
 ```
 ## Integration
-
 DNSPproxy has been built with _simplicity_ and _standards_ in mind. On a modern
 Linux box- an extra layer of caching DNS is often provided by nscd or dnsmasq
 services. Even in presence of such caches all the UDP+TCP DNS traffic accounts
@@ -292,18 +300,11 @@ I never meant to state that DNSProxy is faster or better than other DNS servers
 but it is definitely original on its own. A buggy piece of threaded code which
 I created to help people _transporting_ and _sharing_ DNS data in a fancy way.
 
-Also note that *dnsp* binary (the pre-DOH version of DNSProxy) is only kept in
-repository for historical reasons, offers  no backward-compatibility, and may
-soon disappear. Please only use, refer to and commit towards *dnsp-h2* branch.
-
-Commits for other legacy components will not be accepted.
-
 ### Issues when launching an instance of dnsp or dnsp-h2
 You may have to stop other running daemons bound to 127.0.0.1:53, as:
 _dsndist,bind,resolvconf,systemd-resolvconf_ and other DNS servers or proxies
 
 ### Testing deployment of DNSProxy using dig or nslookup
-
 Now open a terminal and invoke **dig** (or _nslookup_) to test resolver
 capabilities over UDP or TCP. The test consist in resolving an hostname against
 the server instance of DNSProxy,
@@ -561,9 +562,7 @@ Request should end with bits _0D0A_ (HEX is easy to read with xxd):
 00000010: 742e 636f 6d0d 0a                        t.com..
 ```
 ## Versioning and evolution of DNSProxy family
-
 ### Changelog:
-
 #### Version 3.3.0 - January 2023:
 * adjusted to POST by default (no more GET with visible _dns=_ string)
 * reduced memory footprint
@@ -572,16 +571,13 @@ Request should end with bits _0D0A_ (HEX is easy to read with xxd):
 * multiple requests are issues in parallel against different DoH providers
 * supporting multiple levels of subdomains, CNAME, mixed object responses
 * updated dependecies of OK and B64 libraries
-
 #### Version 3.0 - August 2020:
 * fixed TCP listener !
 * implement correct calculation of encapsulation overhead for TCP DNS messages
-
 #### Version 2.5 - February 2019:
 * perfect parsing of HTTP reply (for TTL-rewriting purposes)
 * testing different scenarios with GET and POST towards DoH resolvers (unstable)
 * testing further TCP and UDP sturdyness
-
 #### Version 2.5 - February 2019:
 * provide base64urlencode of DNS requests !
 * implemented dump of "cache-control" headers from PHP/DoH resolver into DNS packet
@@ -589,10 +585,8 @@ Request should end with bits _0D0A_ (HEX is easy to read with xxd):
 * implement TRANSACTION-ID override (0xABCD by default)
 * implement TYPE override (0x00 by default)
 * make sure we set headers _accept_ and _content-type_ to _"application/dns"_ for both POST and GET scenarios
-
 #### Version 2.2 - January 2019:
 * designed and implemented both TCP and UDP listeners
-
 #### Version 2 - March 2018:
 * Added TCP query/response support !
 * backend RFC-compliancy: base64urlencode DNS query (DNSProxy HTTP client)
@@ -604,14 +598,12 @@ Request should end with bits _0D0A_ (HEX is easy to read with xxd):
 * added the arduino+ethernet library with new select() function
 * legacy **dnsp** version freeze, development will proceed only for **dnsp-h2**
   (since Hackathon 101 London 3/2018).
-
 #### Version 1.6 - March 2018:
 * fixed implementation of intermediate proxy
 * commented references to different modes (threaded/forked, mutex, semaphores)
 * updated examples for SQUID in place of POLIPO (unfortunately EOL)
 * almost REDIS-ready _via https://github.com/redis/hiredis_
 * other thought and implementations pending
-
 #### Version 1.5 - February 2018:
 * added references and mentions to IETF DoH (HTTP/2, single connection multiple
   streams, opportunistic PUSH)
@@ -624,14 +616,12 @@ Request should end with bits _0D0A_ (HEX is easy to read with xxd):
 * deleted some junk files, renamed dirs for clarity
 * multiversion PHP 5/7, depending on hosting provider due to slightly different
   implementation of print(), random css, incompatibility of h1/h2, headers, etc
-
 #### Version 1.01 - March 2017:
 * works with millions query [not anymore since I added TCP]
 * few issues caching of CloudFlare-alike caches (304 no-more ?) or Etag header
 * going back to either threads or vfork...
 * more crash-test, memory-leak hunting, strace statistics and performance tests
 * published an improved Varnish configuration
-
 #### Version 1.01 - April 2015:
 * HTTPS support over legacy non-DoH HTTP (even more privacy)
 * Pseudo-Multithreading listener/responder
@@ -639,28 +629,23 @@ Request should end with bits _0D0A_ (HEX is easy to read with xxd):
 * Stack size option being deprecated, no valid use-case to keep such
 * Drafting addition of TCP listener logic
 * Some issue to set the proper ETag on polipo
-
 #### Version 0.99 - July 2014:
 * Add HTTP port selection (80/443)
 * Add NS, MX, AAAA, PTR, CNAME and other resolving capabilities.
 * Code cleanup and performance review.
 * Implementation with nginx and memcache and load testing 
-
 #### Version 0.5 - May 17 2013:
 * Add proxy authentication support
 * port option is now optional (default is 53)
 * Fixed compilation error
 * Minor bug fixes
-
 #### Version 0.4 - November 16 2009:
 * Now using libCurl for http requests
 * Implemented concurrent DNS server
 * Bug fixes
 * Code clean
-
 #### Version 0.1 - April 09 2009:
 * Initial release
-
 ### Features being actively developed:
 * (in progress) support far more than A, AAAA, CNAME and NS. My pre-DoH test protocol supported MX, PTR and ALL types
 * (in progress) offer choice on method. So far only POST is supported as better privacy
@@ -670,7 +655,6 @@ Request should end with bits _0D0A_ (HEX is easy to read with xxd):
 * (done) save HEX packet structure and serve it as HTTP content from DNSP daemon priming the local cache
 * (done) reduce memory impact (strace, gdb, valgrind)
 * (done) restore performances, currently impacted by TCP handler
-
 ### Lower priority ideas:
 * (todo) choose the faster response or wait and compare all parallel responses
 * (todo) worth looking at QUIC, the UDP-multiplexing upcoming HTTP/3 standard.
@@ -684,7 +668,6 @@ Request should end with bits _0D0A_ (HEX is easy to read with xxd):
 * (pending decision) REDIS: implement or drop
 * test build on Debian, Windows, MacOS (only tested with Ubuntu 14-18 and very old MacOS)
 * test bynary distribution on Debian, Windows, MacOS
-
 ### References:
 * https://tools.ietf.org/html/rfc8484
 * https://datatracker.ietf.org/meeting/101/materials/slides-101-hackathon-sessa-dnsproxy-local-dns-over-http-private-resolver
