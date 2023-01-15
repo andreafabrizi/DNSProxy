@@ -156,7 +156,7 @@ remote webservice (resolver) not leveraging any specific cache.
 
 **IMPORTANT:** DoH resolvers around the world increase global DNS privacy !
 
-## Using DNSProxy
+## Running DNSProxy
 ### Building and Installing
 
 Build is easy on Linux, Mac, UNIX and even Windows; DNSProxy is based on fairly
@@ -179,6 +179,7 @@ Once pre-requisites checked, you will be able to *compile software* by running:
 make
 ```
 ### Deploy DoH standard infrastructure
+Start a fully-compliant DoH/h2 server.
 Only applies to **standard dnsp-h2** binary, _not to dnsp_.
 
 #### STEP 0. HTTPS webservices are hard-coded into dnsp-h2 server
@@ -191,10 +192,11 @@ Install and configure SSL MITM intercepting proxy as charles or burp
 dnsp-h2 -Q
 
 # Use DNSProxy behind HTTPS caching proxy (i.e. charles, burp) for debug or caching reasons
-dnsp-h2 -H http://192.168.3.93/ -r 8118
-dnsp-h2 -H http://aremoteproxyservice/ -r 3128
+dnsp-h2 -Q -H http://192.168.3.93/ -r 8118
+dnsp-h2 -Q -H http://aremoteproxyservice.internal/ -r 3128
 ```
-### Deploy pre-DoH non-standard infrastructure
+### Deploy pre-DoH non-standard infrastructure - DEPRECATED
+Start a pre-h2 pre-DoH (HTTP/1.1) legacy server.
 Only applies to **dnsp legacy binary**, _not to dnsp-h2_.
 
 #### STEP 1. Deploy the PHP nameserver webservice - DEPRECATED
@@ -209,7 +211,10 @@ Provide host and port of your proxy server as *dnsp* program arguments.
 #### STEP 3. Invoke *dnsp* and start answering DNS queries - EPRECATED
 Meant to answer DNS queries but using non standard-resolver.
 ```bash
-# DEPRECATED, uses non-compliant non-DoH HTTP proxy (i.e. squid, polipo)
+Use non-compliant non-DoH HTTP proxy (i.e. squid, polipo)
+- no proxy:
+dnsp -l 127.0.0.1 -s https://www.fantuz.net/nslookup-doh.php
+- with chained proxy:
 dnsp -H http://192.168.3.93/ -r 8118 -s https://abc.com/nslookup.php
 ```
 ### Getting help on every advanced, experimental and deprecated option
@@ -256,6 +261,12 @@ user@machine:~/DNSProxy$ ./dnsp-h2 -h
  - https://github.com/curl/curl/wiki/DNS-over-HTTPS
  - https://it.wikipedia.org/wiki/DNS_over_HTTPS#cite_note-8
 ```
+Also note that *dnsp* binary (the pre-DOH version of DNSProxy) is only kept for
+historical reasons, offers  no backward-compatibility, and may soon disappear.
+
+Please only use, refer to and commit towards *dnsp-h2* code branch. Commits for
+other legacy components will not be accepted.
+
 ## Integration
 
 DNSPproxy has been built with _simplicity_ and _standards_ in mind. On a modern
@@ -286,25 +297,9 @@ I never meant to state that DNSProxy is faster or better than other DNS servers
 but it is definitely original on its own. A buggy piece of threaded code which
 I created to help people _transporting_ and _sharing_ DNS data in a fancy way.
 
-### Launching an instance of dnsp or dnsp-h2
-Simply invoke one of the two available program binaries as follows.
-
-Start a fully-compliant DoH/h2 server:
-```bash
-dnsp-h2 -Q
-```
-Start a pre-h2 pre-DoH (HTTP/1.1) server - DEPRECATED:
-```bash
-dnsp -l 127.0.0.1 -s https://www.fantuz.net/nslookup-doh.php
-```
-NB: you may have to stop other running daemons bound to 127.0.0.1:53, as:
+### Issues when launching an instance of dnsp or dnsp-h2
+You may have to stop other running daemons bound to 127.0.0.1:53, as:
 _dsndist,bind,resolvconf,systemd-resolvconf_ and other DNS servers or proxies
-
-Also note that *dnsp* binary (the pre-DOH version of DNSProxy) is only kept for
-historical reasons, offers  no backward-compatibility, and may soon disappear.
-
-Please only use, refer to and commit towards *dnsp-h2* code branch. Commits for
-other legacy components will not be accepted.
 
 ### Testing deployment of DNSProxy using dig or nslookup
 
