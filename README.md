@@ -3,11 +3,11 @@
 # Why DNSP ?
 ## DNS transport tests, gone too far :)
 
-DNSP was born for two main reasons: deliver DNS responses to airplanes and surf
-TOR anonymously.
+DNSP was born for two specific reasons: deliver DNS responses via satellite
+towards airplanes, and surf TOR anonymously.
 
-One insipiring use-case came in: DNS UDP messages were lost onto satellite pipe
-but switching that traffic on standard DNS-TCP was not an option as the
+First _niche_ use-case: DNS UDP messages were lost within the satellite pipe
+but switching that very traffic on standard DNS-TCP was not an option as the
 platform was not able to receive such, hence I came up inventing this hybrid
 "trasnport and caching protocol" to carry the precious information.
 
@@ -25,85 +25,95 @@ publication of standard the state-of-the-art DNS-over-HTTPS, in RFC8484.
 (c.f. https://tools.ietf.org/html/rfc8484)
 
 A new MIME type has since been defined (application/dns-message) and protocol
-design goals are perfectly clear.
+design goals are perfectly clear. For more information about MIME types refer to
+IANA's website https://www.iana.org/assignments/media-types/media-types.xhtml.
 
 All the coding efforts -collected in this repository- aim to support the deploy
 of **DoH client** as a rudimental and non-intrusive system-resolver. 
 
-To run this serevr you do not need to have ANY access to UDP proto nor port 53.
-All request/responses will fly via HTTP/2.Further developement of support for
-newer QUIC/HTTP/3 is WIP.
+Since publication of RFC-8484 DNSProxy software has been split in two branches:
+- **dnsp-h2** supports **only** RFC8484-compliant format.
+- **dnsp** - now legacy - supported non-compliant pre-DoH formats
 
-DNSP software (used to) support 3 different flavours of DoH formats, being:
+DNSProxy software did support different flavours of DoH formats, being:
  - **application/dns-message [RFC8484]**: RFC8484-compliant, purest DoH format
  - **application/dns+json    [RFC8427]**: JSON format, legacy - DO NOT USE
- - **application/dns         [RFC4027]**: text/data format, obsolete - DNU
+ - **application/dns         [RFC4027]**: text/data format - DO NOT USE
 
-For more information about MIME types refer to IANA's website.
-(c.f. https://www.iana.org/assignments/media-types/media-types.xhtml)
-
-**dnsp-h2** now supports **only** RFC8484-compliant format.
+Further developement of support for newer QUIC/HTTP/3 is now work-in-progress.
 
 ## How does it work ?
-DNSP proxy will listen for incoming DNS requests (A,NS,MX,TXT,SRV..) on both
-UDP & TCP sockets. Threads would listen for incoming connections then when the
-query comes in, DNSP parses its contents, transforms it into a b64 encoded HTTP
-request and forwards it towards a DoH service provider which in turn will deal
-with the underlying (real) DNS resolution. DNSP will listen for incoming data
-and will opportunely craft a DNS response to the calling client.
+To run DNSP-H2 server you do not need ANY access to UDP proto nor to port 53.
+All requests/responses will be transported within TCP HTTP/2.
 
-Exchange of messaging happens by means of standardized HTTP request & response
-with different helpers as HTTP header parser (for TTL, CF-RAY-ID caching), a
-TCP restamping helper, a module for blacklisting, and so forth.
+Once started DNSP-H2 will listen for incoming DNS requests (A,NS,MX,TXT,SRV)
+on both UDP & TCP sockets with multiple threads. As a query arrives, DNSProxy
+will parse its contents, transforming DNS in b64-encoded HTTP request and
+forward that raw content towards a DoH service provider.
 
-DNSP leverage the fancyness of HTTP, TLS, DNS, therefore debug and monitor are
-made easy. Hooks and symbols are in place, logging is quite self-explaing, etc.
+The DoH provider in turn will deal with underlying DNS resolution and return
+HTTP response.DNSProxy will receive incoming HTTP data and will opportunely
+craft a DNS response to the calling UDP/TCP DNS client.
 
-If you can't access "secured" VPN tunnels to resolve names externally (i.e.
-TOR users, Chinese walls) DNSProxy is a rapid and efficient solution for you.
+Exchange of messaging relies on means of standardized HTTP request and response
+supported by different helpers as:
+ - HTTP header parser (for TTL, CF-RAY caching)
+ - a TCP restamping helper
+ - a module for blacklisting
+ - b64 logic, checksumming, ...
+
+DNSProxy leverage the fancyness of HTTP, DNS, TLS, hence debug and monitor are
+simplified and easy with standard toolsset. Hooks and symbols are in place,
+logging is quite self-explaing and clean. Documentation is being kept up-to-date
+and new features logged in changelog.
 
 ## Architecture
+DNSProxy is a rapid and efficient solution if you can't access "secured" tunnels
+to resolve domain names externally (TOR users,Chinese Wall of Fire, evil VPN).
 ```
               +----------------------------+
-   +----------| DNSP listens on original   | <<-----+
-   |          | sockets [ DNS & HTTPS ]    |        |
-   |          +----------------------------+        | libCURL handles
-   |                       ^                        | HTTP replies.
-   |                       ^                        | 
-   |                       | IF answer found        | DNSP creates DNS
-   |                       |  in HTTP cache         | responses, sent
-   |                       | THEN faster reply      | via TCP or UDP
-   v                       |  same security         | as per RFC-1035
-   v                       :                        :
-  +---------------+      +--------+---------+      /---------------\
-  |  client OS    | -->> +     DNSProxy     + -->> |  DoH resolver |
-  +---------------+      +--------+---------+      \---------------/
-  | sends request |      | TTL, blacklist,  |      |               |
-  | to DNS server |      | pooling, caching |      | RFC8484-aware |
-  +--+------------+      +------------------+      +---------------+
-     :                                                   ^
-     |                                                   ^
-     | DNS queries to DNSP daemon on 127.0.0.1:53        |
-     |   are tunneled to a DoH-aware resolver webservice |
-     +---------------------------------------------------+
+   +----------| DNSP listens on original   | <<-------+
+   |          | sockets [ DNS & HTTPS ]    |          |
+   |          +----------------------------+          | libCURL handles
+   |                       ^                          | HTTP replies.
+   |                       ^                          | 
+   |                       | IF answer found          | DNSP creates DNS
+   |                       |  in HTTP cache           | responses, sent
+   |                       | THEN faster reply        | via TCP or UDP
+   v                       |  same security           | as per RFC-1035
+   v                       :                          :
+  +---------------+      +--------+---------+       /---------------\
+  |  client OS    | -->> +     DNSProxy     + --->> |  DoH resolver |
+  +---------------+      +--------+---------+       \---------------/
+  | sends request |      | TTL, blacklist,  |       |               |
+  | to DNS server |      | pooling, caching |       | RFC8484-aware |
+  +--+------------+      +------------------+       +---------------+
+     :                                                     ^
+     |                                                     ^
+     | DNS queries to DNSP daemon on 127.0.0.1:53 will be  |
+     |   tunneled towards a DoH-aware resolver webservice  |
+     +-----------------------------------------------------+
 
  classic DNS messaging except that raw packets are carried over HTTP/2
  without any privacy leackage whatsoever (see PRIVACY disclaimer below)
 ```
-DNSP will take care to create a well-formed DNS packet in reply to clients.
-
-Should you be willing to perform forensics or "response caching and sharing"
-you can still realy on standard HTTPS proxy MITM techniques; *any HTTP(S) proxy*
-will work properly with DNSP, as polipo, squid, nginx, Varnish, charles, burp
+*DNSP-H2* will take care to craft a well-formed DNS packet in reply to clients.
+*DNSP* also does, but is now deprecated and **should not be used**.
 
 DNSP can be configured to pass-through additional HTTP chains of proxies
 (i.e. TOR, enterprise-proxy, locked-down countries, you name it).
 
-Majority of DNSP users will directly run through HTTPS w/out caching or extra
-proxy. The DNSP server will talk to remote resolver webservice not using any
-cache. Important to note, "cache" is often availaible "in the network" when it
-comes to CDN, therefore there is no impellent need for extra local cache. To
-complexify picture HTTP/2 and SSL make local cache -not impossible- but uneasy.
+Important to note, "cache" is often availaible "in the network" (i.e. on CDN)
+therefore there is no impellent need for extra local cache (eventually, speed).
+
+To complexify the picture, HTTP/2 (TLS) makes cache rather uneasy to share.
+Should you be willing to perform forensics or "response caching and sharing"
+you can still realy on standard HTTPS proxy MITM techniques; *any HTTP(S) proxy*
+will work properly with DNSP, as polipo, squid, nginx, Varnish, charles, burp
+
+Though, the majority of DNSProxy users will directly run through HTTPS without
+caching or extra proxy. The DNSProxy server will directly connect to the remote
+webservice (resolver) and not using any specific cache.
 
 This software is TOR-friendly and requires minimal resources. Enjoy !
 
@@ -117,15 +127,25 @@ Features:
 - ability to set specific headers according to cache requirements i.e. translate
     HTTP cache Validity into DNS TTL value
 
-To wrap-up -in order to start resolving "anonymous DNS" over HTTP- all you need is:
-- the C software, available as source or compiled (dnsp-h2 and dnsp)
-- a PHP-server hosting the *nslookup-doh.php* resolver script (only for legacy dnsp)
+To KISS, in order to start resolving "anonymous DNS" over HTTP- all you need is:
+- the C software, available as source or compiled **(dnsp-h2 and dnsp)**
+- a PHP-server hosting the *nslookup-doh.php* resolver script **(only by dnsp)**
 
 ## Caching answers
 
-DNS cache is populated on disk out of HTTP answers from the remote webservice.
-DNS cache is also managed by DoH resolver's.
-DNS cache can be fed into HTTPS-capable proxy (i.e. charles)
+DNSProxy is capable of leveraging cache on very different locations:
+- a first layer of DNS cache is populated on disk as a result of raw answer 
+  dump, obtained from the remote webservice. Note: this binary content can be
+  reused both from a DNS and a secondary HTTP DoH server. Call it "raw packet".
+- a second layer of DoH cache can be demanded to an HTTPS-capable proxy (i.e.
+  _charles proxy_). Can be referred as "volountary cache" adhering to standards.
+- a third layer of DNS cache is considered to be managed by DoH resolver's for
+  example via implementation of CDN, Anycast, ISP caching. This this one can be
+  referred to as "cache in the network".
+
+NB: Some parts of this "network-distributed cache" might be held on CDN for
+transient period. An intermediate cache layer is often present nowadays unless
+forbidden via headers or TTL manipulation.
 
 Tested on CloudFlare, Google Cloud Platform, NGINX, Apache, SQUID, polipo, REDIS
 
@@ -133,27 +153,24 @@ Robustness of architecture proves DNSP as a very scalable and smart solution.
 
 ## Examples provided for DNS and DNS-over-HTTP beginners:
 
-#### Just use standard Google + Cloudflare DoH servers. Suurf anonymously without HTTP cache (simplest mode):
+#### Use standard Google & Cloudflare DoH resolvers. Surf anonymously in the simplest mode.
 ```bash
 dnsp-h2 -Q
 ```
-NB: Some parts of this "distributed cache" might be held on a CDN for a transient period.
-An intermediate cache layer is often present nowadays, unless forbidden by headers or expiry.
-Headers are your friends.
-
-#### Leverage the use of local HTTP caching proxy. Option "-H" to specify proxy's URI (URI!=URL)
+#### Leverage the use of standard HTTPS caching proxy (i.e. charles, burp).
+```bash
+dnsp-h2 -H http://192.168.3.93/ -r 8118
+dnsp-h2 -H http://aremoteproxyservice/ -r 3128
+```
+#### Leverage the use of non-standard HTTP caching proxy (i.e. squid, polipo). WARNING: legacy mode, deprecated
 ```bash
 dnsp -H http://192.168.3.93/ -r 8118
 dnsp -H http://aremoteproxyservice/ -r 3128
 ```
 
-**IMPORTANT:** Please, don't use the script hosted on my server(s) as they serve as demo-only.
-They might be subject to unpredicted change, offlining, defacing.... Trust your own servers, and 
-host yourself as many *nslookup-doh.php* scripts as you can, or send it on a friend's server!
+**IMPORTANT:** DNSP-H2 resolvers around the world increase global DNS privacy !
 
-The more DNSP resolvers around the world, the less DNS queries will be traceable (TOR leaking problem).
-
-# Using DNSP
+# Using DNSP-H2
 
 ```bash
 user@machine:~/DNSProxy$ ./dnsp-h2
@@ -290,7 +307,7 @@ over UDP or TCP. The test consist in resolving an hostname against the server in
 
 To test the UDP server, type the following and expect a consistent output:
 ```bash
-dig news.google.com @127.0.0.1
+ $ dig news.google.com @127.0.0.1
 ;; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: 17828
 ;; flags: qr aa rd ra; QUERY: 1, ANSWER: 1, AUTHORITY: 0, ADDITIONAL: 0
 ;; QUESTION SECTION:
@@ -302,7 +319,7 @@ news.google.com.    524549  IN  A   216.58.206.142
 ```
 To test the TCP listener, type:
 ```bash
-dig +tcp facebook.com @127.0.0.1
+ $ dig +tcp facebook.com @127.0.0.1
 ;; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: 9475
 ;; flags: qr aa rd ra; QUERY: 1, ANSWER: 1, AUTHORITY: 0, ADDITIONAL: 0
 ;; QUESTION SECTION:
@@ -336,11 +353,11 @@ resolution, you could use **curl** utility within a shell.
 Replace URL value in accordance with your favourite script location.
 Here are two simple one-liners that I use to check my deploys:
 ```
-# curl -s -H "Host: www.fantuz.net" -H "Remote Address:104.27.133.199:80" -H "User-Agent:Mozilla/5.0 \
+ $ curl -s -H "Host: www.fantuz.net" -H "Remote Address:104.27.133.199:80" -H "User-Agent:Mozilla/5.0 \
 (Macintosh; Intel Mac OS X 10_6_8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 \
 Safari/537.36" 'http://www.fantuz.net/nslookup-doh.php?host=fantuz.net&type=NS' | xxd
 
-# curl -s -H "Host: php-dns.appspot.com" -H "User-Agent:Mozilla/5.0 (Macintosh; Intel Mac OS X 10_6_8) \
+ $ curl -s -H "Host: php-dns.appspot.com" -H "User-Agent:Mozilla/5.0 (Macintosh; Intel Mac OS X 10_6_8) \
 AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.135 Safari/537.36" \
 'http://php-dns.appspot.com/helloworld.php?host=fantuz.net&type=NS' | xxd
 ```
@@ -719,9 +736,9 @@ Common proxy ports:
   9500 (tor) 
   1090 (socks) 
 
-#echo | openssl s_client -showcerts -servername php-dns.appspot.com -connect php-dns.appspot.com:443 2>/dev/null | openssl x509 -inform pem -noout -text
+ $ echo | openssl s_client -showcerts -servername php-dns.appspot.com -connect php-dns.appspot.com:443 2>/dev/null | openssl x509 -inform pem -noout -text
 
-#curl --http2 -I 'https://www.fantuz.net/nslookup.php?name=google.it'
+ $ curl --http2 -I 'https://www.fantuz.net/nslookup.php?name=google.it'
 HTTP/2 200 
 date: Sat, 03 Mar 2018 16:30:13 GMT
 content-type: text/plain;charset=UTF-8
@@ -738,18 +755,18 @@ expect-ct: max-age=604800, report-uri="https://report-uri.cloudflare.com/cdn-cgi
 server: cloudflare
 cf-ray: 3f5d7c83180326a2-FRA
 
-POST 
-echo -n 'q80BIAABAAAAAAAAB2V4YW1wbGUDY29tAAABAAE' | base64 -d 2>/dev/null | curl -H 'content-type: application/dns-message' --data-binary @- https://cloudflare-dns.com/dns-query -o - | hexdump 
+//POST 
+ $ echo -n 'q80BIAABAAAAAAAAB2V4YW1wbGUDY29tAAABAAE' | base64 -d 2>/dev/null | curl -H 'content-type: application/dns-message' --data-binary @- https://cloudflare-dns.com/dns-query -o - | hexdump 
  
-GET 
-curl -H 'accept: application/dns-message' -v 'https://cloudflare-dns.com/dns-query?dns=q80BIAABAAAAAAAAB2V4YW1wbGUDY29tAAABAAE' | hexdump 
+//GET 
+ $ curl -H 'accept: application/dns-message' -v 'https://cloudflare-dns.com/dns-query?dns=q80BIAABAAAAAAAAB2V4YW1wbGUDY29tAAABAAE' | hexdump 
  
-curl -o - 'https://cloudflare-dns.com/dns-query?dns=q80BIAABAAAAAAAAA3d3dwdleGFtcGxlA2NvbQAAAQAB' -H 'authority: cloudflare-dns.com' \ 
+ $ curl -o - 'https://cloudflare-dns.com/dns-query?dns=q80BIAABAAAAAAAAA3d3dwdleGFtcGxlA2NvbQAAAQAB' -H 'authority: cloudflare-dns.com' \ 
 -H 'upgrade-insecure-requests: 1' \ 
 -H 'user-agent: curl 7.64.1-DEV (x86_64-pc-linux-gnu) libcurl/7.64.1-DEV OpenSSL/1.0.2g zlib/1.2.11 nghttp2/1.37.0-DEV' \ 
 -H 'accept: application/dns-message' -H 'accept-encoding: gzip, deflate, br' -H 'accept-language: en-US,en;q=0.9' --compressed | xxd 
  
-echo -n 'q80BAAABAAAAAAAABmdpdGh1YgNjb20AAAEAAQ' | base64 -d 2>/dev/null | curl -s -H 'content-type: application/dns-message' \ 
+ $ echo -n 'q80BAAABAAAAAAAABmdpdGh1YgNjb20AAAEAAQ' | base64 -d 2>/dev/null | curl -s -H 'content-type: application/dns-message' \ 
 --data-binary @- https://cloudflare-dns.com/dns-query -o - | xxd 
 00000000: abcd 8180 0001 0002 0000 0001 0667 6974  .............git 
 00000010: 6875 6203 636f 6d00 0001 0001 c00c 0001  hub.com......... 
