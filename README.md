@@ -19,21 +19,22 @@ standard protocol that could be -indeed- ecapsulated within TOR.
 
 The protocol of choice was HTTP, now in it's most secure implementation, HTTPS.
 
-I started testing the pseudo-protocol back in 2010 and things went bit out of
-control up to the point that I was invited to collaborate with IETF board to
-the developement and publication of standard the state-of-the-art DNS-over-HTTPS
-resulting in RFC8484. (c.f. https://tools.ietf.org/html/rfc8484)
+### Standardization of protocol
+I started testing with the pseudo-protocol back in 2010 and things went bit out
+of control up to the point that I was invited to collaborate with IETF board in
+the developement and publication of standard state-of-the-art DNS-over-HTTPS
+- RFC8484. (c.f. https://tools.ietf.org/html/rfc8484)
 
 A new MIME type has since been defined (application/dns-message) and protocol
 design goals are perfectly clear. For more information about MIME types refer to
 IANA's website https://www.iana.org/assignments/media-types/media-types.xhtml.
 
 All the coding efforts -collected in this repository- aim to support the deploy
-of **DoH client** as a rudimental and non-intrusive system-resolver. 
+of **DoH client/server** as a rudimental and non-intrusive system-resolver. 
 
 Since publication of RFC-8484 DNSProxy software has been split in two branches:
-- **dnsp-h2** supports **only** RFC8484-compliant format.
-- **dnsp** - now legacy - supported non-compliant pre-DoH formats
+- **dnsp-h2 supports only RFC8484-compliant format**.
+- **dnsp** - now legacy - used to support non-compliant pre-DoH formats.
 
 DNSProxy software did support different flavours of DoH formats, being:
  - **application/dns-message [RFC8484]**: RFC8484-compliant, purest DoH format
@@ -68,8 +69,10 @@ logging is quite self-explaing and clean. Documentation is being kept up-to-date
 and new features logged in changelog.
 
 ## Architecture
+### Design
 DNSProxy is a rapid and efficient solution if you can't access "secured" tunnels
 to resolve domain names externally (TOR users,Chinese Wall of Fire, evil VPN).
+Robustness of architecture proves DNSProxy as a very scalable and smart solution.
 ```
               +----------------------------+
    +----------| DNSP listens on original   | <<-------+
@@ -97,27 +100,11 @@ to resolve domain names externally (TOR users,Chinese Wall of Fire, evil VPN).
  classic DNS messaging except that raw packets are carried over HTTP/2
  without any privacy leackage whatsoever (see PRIVACY disclaimer below)
 ```
-*DNSP-H2* will take care to craft a well-formed DNS packet in reply to clients.
-*DNSP* also does, but is now deprecated and **should not be used**.
+We generally refer to DNSProxy considering both DoH or pre-DoH branches:
+- *dnsp-h2* will take care to craft well-formed DNS packets in accordance to RFC
+- *dnsp* is now **deprecated** and should not be used (pre-DoH formats only)
 
-DNSP can be configured to pass-through additional HTTP chains of proxies
-(i.e. TOR, enterprise-proxy, locked-down countries, you name it).
-
-Important to note, "cache" is often availaible "in the network" (i.e. on CDN)
-therefore there is no impellent need for extra local cache (eventually, speed).
-
-To complexify the picture, HTTP/2 (TLS) makes cache rather uneasy to share.
-Should you be willing to perform forensics or "response caching and sharing"
-you can still realy on standard HTTPS proxy MITM techniques; *any HTTP(S) proxy*
-will work properly with DNSP, as polipo, squid, nginx, Varnish, charles, burp
-
-Though, the majority of DNSProxy users will directly run through HTTPS without
-caching or extra proxy. The DNSProxy server will directly connect to the remote
-webservice (resolver) and not using any specific cache.
-
-This software is TOR-friendly and requires minimal resources. Enjoy !
-
-Features:
+### Basic and advanced features
 - DNS-over-HTTPS compliant with RFC-8484 and other older non-standards
 - FOLLOWLOCATION, spawning threads to enable HTTP browser cache preemption
     for the benefit of the user experience.
@@ -131,8 +118,9 @@ To KISS, in order to start resolving "anonymous DNS" over HTTP- all you need is:
 - the C software, available as source or compiled **(dnsp-h2 and dnsp)**
 - a PHP-server hosting the *nslookup-doh.php* resolver script **(only by dnsp)**
 
-### Caching answers
+This software is OSS, TOR-friendly and requires minimal resources. Enjoy !
 
+### Caching answers (on disk, on another proxy, in the network)
 DNSProxy is capable of leveraging cache on very different locations:
 - a first layer of DNS cache is populated on disk as a result of raw answer 
   dump, obtained from the remote webservice. Note: this binary content can be
@@ -149,9 +137,23 @@ forbidden via headers or TTL manipulation.
 
 Tested on CloudFlare, Google Cloud Platform, NGINX, Apache, SQUID, polipo, REDIS
 
-Robustness of architecture proves DNSP as a very scalable and smart solution.
+### Proxifying a proxy, for debug, access or caching reasons
+**DNSProxy may be configured to pass-through additional chain of proxies**
+(i.e. TOR, enterprise-proxy, locked-down countries, you name it). Important to
+note, "a cache" is often availaible "in the network" (i.e. on CDN) therefore
+there is no impellent mandatory need for a local cache (eventually, speed).
 
-### Examples provided for DNS and DNS-over-HTTP beginners:
+To complexify the picture, HTTP/2 (TLS) makes cache rather uneasy to share.
+
+Should you be willing to perform forensics or "response caching and sharing"
+you can still rely on standard HTTPS proxy MITM techniques; *any HTTP(S) proxy*
+will work properly with DNSProxy as polipo, squid, nginx, charles, burp, ...
+
+**Though, the majority of DNSProxy users will directly run dnsp-h2 without any 
+proxy settings**. The DNSProxy server will therefore connect directly to the
+remote webservice (resolver) not leveraging any specific cache.
+
+### Examples for DNS-over-HTTP beginners:
 
 #### Use standard Google & Cloudflare DoH resolvers. Surf anonymously in the simplest mode.
 ```bash
@@ -168,9 +170,9 @@ dnsp -H http://192.168.3.93/ -r 8118
 dnsp -H http://remoteproxyservice.cloud/ -r 3128
 ```
 
-**IMPORTANT:** DNSP-H2 resolvers around the world increase global DNS privacy !
+**IMPORTANT:** DoH resolvers around the world increase global DNS privacy !
 
-## Using DNSP-H2
+## Using dnsp-h2
 
 ```bash
 user@machine:~/DNSProxy$ ./dnsp-h2 -h
@@ -245,18 +247,20 @@ make
 
 #### STEP 0. HTTPS webservices are hard-coded into dnsp-h2 server
 #### STEP 0. Optionally configure an HTTPS MITM proxy - for debug or caching reasons
-#### STEP 1. Invoke DNSP-H2 binary listener and start submitting standard DNS queries
+#### STEP 1. Invoke *dnsp-h2* binary, spawn listeners and start answering standard DNS queries
 
 ### Deploy pre-DoH non-standard infrastructure (only applies to **dnsp legacy binary**, not to dnsp-h2)
 
-#### STEP 1. Create and deploy the HTTP(S) nameserver webservice
+#### STEP 1. Create and deploy the PHP nameserver webservice - DEPRECATED
 Deploy **nslookup-doh.php** on a webserver, possibly not your local machine (see
 DISCLAIMER). If you ignore how-to carry on such deploy task or you do not have
-access to any of such services, just use my webservice as suggested in examples.
+access to any of such services, just use the generic webservice as in examples.
 
-#### STEP 2, Have access to an HTTP(S) proxy, optional but preferable
-Setup an HTTP caching proxy on the local machine or on a remote host. Feed host
-and port of your proxy server to the *dnsp* program arguments.
+#### STEP 2. Configure optional HTTP proxy access - DEPRECATED
+Setup an HTTP caching proxy on the local machine or eventually on a remote host.
+Provide host and port of your proxy server as *dnsp* program arguments.
+
+#### STEP 2. Invoke *dnsp* binary,answering standard DNS queries - DEPRECATED
 
 ## Integration
 
@@ -284,18 +288,18 @@ trackability via DNS. As you might question -YES- **DNS-over-HTTPS** may leave
 traces, maybe not anymore on UDP level but eventually on intermediate HTTP(S)
 webservers' logs, for example on am untrusted DoH server.
 
-I never meant to state that DNSP is faster or better than any other DNS server
-but is definitely original on its own. Is a buggy piece of threaded code which 
+I never meant to state that DNSProxy is faster or better than other DNS servers
+but it is definitely original on its own. A buggy piece of threaded code which
 I created to help people _transporting_ and _sharing_ DNS data in a fancy way.
 
 ### Launching an instance of dnsp or dnsp-h2
 Simply invoke one of the two available program binaries as follows.
 
-Start a fully-compliant DoH/h2 server with:
+Start a fully-compliant DoH/h2 server:
 ```bash
 dnsp-h2 -Q
 ```
-Start a pre-h2 pre-DoH (HTTP/1.1) DNSProxy server with:
+Start a pre-h2 pre-DoH (HTTP/1.1) server - DEPRECATED:
 ```bash
 dnsp -l 127.0.0.1 -s https://www.fantuz.net/nslookup-doh.php
 ```
@@ -342,8 +346,8 @@ following line and remove other _"nameserver"_ entries already present:
 ```
 nameserver 127.0.0.1
 ```
-NB: in case you use systemd-resolved, you would need to edit the proper
-systemd service file at /etc/systemd/resolved.conf or similar.
+NB: in case your OS resolution is configured via systemd-resolved, you would
+need to edit the proper systemd service file at /etc/systemd/resolved.conf.
 
 ### Debug deployment of dnsp-h2 using tcpdump and a MITM proxy
 At this point, you may already:
@@ -352,11 +356,12 @@ At this point, you may already:
 
 ![alt text](https://raw.githubusercontent.com/fantuz/DNSProxy/master/capture-http2.png)
 
-The capture shows an HTTP/2 dialog as seen by wireshark: this is the only way to show a 
-valid HTTP/2 capture without having to load certificate and key for MITM dissection.
-Obviously a correct negotiation doesn not happen due HTTP v1 URI without Upgrade support
-(deactivated in this test anyway) and insecure URI http://www.fantuz.net/nslookup-doh.php
+The capture shows an HTTP/2 dialog as seen by wireshark: this is the only way
+to show a valid MITM HTTP/2 capture without having to load key material intended
+for dissection.
 
+This old example dialog shows that a correct negotiation does not happen and an
+insecure URI is being used, a pre-DoH prototype: http://www.fantuz.net/nslookup-doh.php.
 ```
 max@trinity:~/DNSProxy$ sudo ./dnsp-h2 -w 443 -s http://www.fantuz.net/nslookup-doh.php -C
  *** verbose CURL ON
@@ -580,12 +585,12 @@ MIT license, all rights included.
 
 #### Version 3.0 - August 2020:
 * fixed TCP listener !
-* perfect parsing of HTTP reply (for TTL-rewriting purposes)
 * implement correct calculation of encapsulation overhead on TCP response messages
 
 #### Version 2.5 - February 2019:
-* testing different formatrs of GET and POST sumbission to DoH resolvers via HTTPS (unstable)
-* testing further TCP and UDP responses
+* perfect parsing of HTTP reply (for TTL-rewriting purposes)
+* testing different scenarios with GET and POST towards DoH resolvers (unstable)
+* testing further TCP and UDP sturdyness
 
 #### Version 2.5 - February 2019:
 * provide base64urlencode of DNS requests !
@@ -596,44 +601,45 @@ MIT license, all rights included.
 * make sure we set headers _accept_ and _content-type_ to _"application/dns"_ for both POST and GET scenarios
 
 #### Version 2.2 - January 2019:
-* conceived and implemented TCP & UDP listeners
+* designed and implemented both TCP and UDP listeners
 
 #### Version 2 - March 2018:
 * Added TCP query/response support !
-* backend RFC-compliancy: base64urlencode DNS query (DNSP client)
-* frontend RFC-compliancy: raw DNS printout (PHP script)
+* backend RFC-compliancy: base64urlencode DNS query (DNSProxy HTTP client)
+* frontend RFC-compliancy: raw DNS printout (PHP script, webservice resolver)
 * preemptive HTTP cache population as option. Using ad-hoc Location header, we
-  can force DNSP server to issue a parallel GET towards requested website, in
-  order to preemptively populate local and intermediate caches. (Not many
+  can force DNSProxy server to issue a parallel GET towards requested website 
+  in order to preemptively populate local and intermediate caches. (Not many
   use-cases except in a few scenarios i.e. surfing through high-delay network.
 * added the arduino+ethernet library with new select() function
-* legacy **dnsp** version freeze, development will proceed only for **dnsp-h2** 
+* legacy **dnsp** version freeze, development will proceed only for **dnsp-h2**
   (since Hackathon 101 London 3/2018).
 
 #### Version 1.6 - March 2018:
 * fixed implementation of intermediate proxy
-* commented references to different DNSP modes (threaded/forked, mutex, semaphores).
+* commented references to different modes (threaded/forked, mutex, semaphores)
 * updated examples for SQUID in place of POLIPO (unfortunately EOL)
 * almost REDIS-ready _via https://github.com/redis/hiredis_
+* other thought and implementations pending
 
 #### Version 1.5 - February 2018:
-* added IETF references and mentions to DoH (HTTP/2, single connection multiple streams)
-* added Arduino double ethernet shield script
-* fixed NS/CNAME answers (C) and resolver script (PHP)
-* added the GO version made by chinese people, inspired at my DNSP software
-* MIT License in accordance to transfer of rights operated via mail by Andrea
-* everything works as usual: caching is lazy, CURL follows redirects (301, I want less of them)
-* other thought and implementations pending
+* added references and mentions to IETF DoH (HTTP/2, single connection multiple
+  streams, opportunistic PUSH)
 * fixed README and easen installation/testing procedure
+* fixed NS/CNAME answers (C) and resolver script (PHP code)
+* added Arduino double ethernet shield script
+* added the GO version made by chinese contributors inspired at my software
+* MIT License in accordance to transfer of rights operated via mail by Andrea
+* lazy caching, CURL following redirects
 * deleted some junk files, renamed dirs for clarity
 * multiversion PHP 5/7, depending on hosting provider (due to slightly different
-    implementation of print(), random css, substantial differences between h1/h2, headers, etc).
+  implementation of print(), random css, substantial differences between h1/h2, headers, etc).
 
 #### Version 1.01 - March 2017:
-* going back to either threads or vfork...
-* having few issues caching on ClouFlare-alike caches (304 no-more ?). Probably fault of Etag
-* more crash-test, memory-leak hunting, strace & timing tests
 * works with millions query [not anymore since I added TCP]
+* few issues caching of CloudFlare-alike caches (304 no-more ?) or Etag header
+* going back to either threads or vfork...
+* more crash-test, memory-leak hunting, strace statistics and performance tests
 * published an improved Varnish configuration
 
 #### Version 1.01 - April 2015:
