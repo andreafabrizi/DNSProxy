@@ -1,9 +1,9 @@
-# DNSProxy - RFC8484-compliant DNS-over-HTTPS proxy
+# DNSProxy - RFC-compliant DNS-over-HTTPS proxy
 
 ## Why DNSProxy ?
 ### DNS transport tests, gone too far :)
 
-Historically, DNSProxy was born for two quite exotic reasons: simplify DNS
+Historically, DNSProxy was developed for very exotic reasons: simplify DNS
 messaging between satellite base-station and client airplanes, and to surf
 TOR anonymously - avoiding leaks.
 
@@ -19,10 +19,10 @@ standard protocol that could be -indeed- ecapsulated within TOR.
 
 The protocol of choice was HTTP, now in it's most secure implementation, HTTPS.
 
-That many many tests (started in 2010) got a bit out of control up to the point
-that I was invited to collaborate with IETF board to the developement and 
-publication of standard the state-of-the-art DNS-over-HTTPS, in RFC8484.
-(c.f. https://tools.ietf.org/html/rfc8484)
+I started testing the pseudo-protocol back in 2010 and things went bit out of
+control up to the point that I was invited to collaborate with IETF board to
+the developement and publication of standard the state-of-the-art DNS-over-HTTPS
+resulting in RFC8484. (c.f. https://tools.ietf.org/html/rfc8484)
 
 A new MIME type has since been defined (application/dns-message) and protocol
 design goals are perfectly clear. For more information about MIME types refer to
@@ -157,15 +157,15 @@ Robustness of architecture proves DNSP as a very scalable and smart solution.
 ```bash
 dnsp-h2 -Q
 ```
-#### Leverage the use of standard HTTPS caching proxy (i.e. charles, burp).
+#### Use DoH-compliant HTTPS caching proxy (i.e. charles, burp).
 ```bash
 dnsp-h2 -H http://192.168.3.93/ -r 8118
 dnsp-h2 -H http://aremoteproxyservice/ -r 3128
 ```
-#### Leverage the use of non-standard HTTP caching proxy (i.e. squid, polipo). WARNING: legacy mode, deprecated
+#### Use non-compliant non-DoH HTTP proxy (i.e. squid, polipo). WARNING: legacy mode, deprecated
 ```bash
 dnsp -H http://192.168.3.93/ -r 8118
-dnsp -H http://aremoteproxyservice/ -r 3128
+dnsp -H http://remoteproxyservice.cloud/ -r 3128
 ```
 
 **IMPORTANT:** DNSP-H2 resolvers around the world increase global DNS privacy !
@@ -173,40 +173,41 @@ dnsp -H http://aremoteproxyservice/ -r 3128
 ## Using DNSP-H2
 
 ```bash
-user@machine:~/DNSProxy$ ./dnsp-h2
+user@machine:~/DNSProxy$ ./dnsp-h2 -h
 
  dnsp-h2 v3.3.0, copyright 2010-2023 Massimiliano Fantuzzi HB3YOE/HB9GUS, MIT License
 
  usage: dnsp-h2 [-l <local_host_address>] [-p <local_port>] [-H <proxy_host>]
-	[-r <proxy_port>] [ -s <DNS_lookup_resolving_service_URL> ] [-w <lookup_port>]
+	[-r <proxy_port>] [-u <user>] [-k <pass>] [-d <path>] [-Q] 
+	[ -s <DNS_lookup_resolving_service_URL> ] [-w <lookup_port>]
 
  OPTIONS:
-  [ -Q           ]	 Use TTL from CURL, suggested
+  [ -Q           ]	 Extract TTL from DoH provider HTTP response (suggested)
   [ -l <IP/FQDN> ]	 Local server address, defaults to all active interfaces
   [ -p <53>      ]	 Local server port, defaults to 53
-  [ -H <IP/FQDN> ]	 Cache proxy address (HTTPS-capable)
-  [ -r <3128>    ]	 Cache proxy port
-  [ -u <user>    ]	 Cache proxy username
-  [ -k <pass>    ]	 Cache proxy password
-  [ -w <443>     ]	 Lookup port
-  [ -s <URL>     ]	 Lookup script URL (deprecated, only for dnsp-v1 and old RFCs)
-  [ -d <path>    ]	 File caching working directory
+  [ -H <IP/FQDN> ]	 MITM/Cache Proxy Address (HTTPS-capable as charles, burp)
+  [ -r <3128>    ]	 MITM/Cache Proxy Port
+  [ -u <user>    ]	 MITM/Cache Proxy Username
+  [ -k <pass>    ]	 MITM/Cache Proxy Password
+  [ -d <path>    ]	 Output directory for raw-DNS dump-to-file storage of responses
 
  ADVANCED OPTIONS:
-  [ -T <n> ]	 Override TTL [0-2147483647] defined in RFC2181
-  [ -Z <n> ]	 Override TCP response size to be any 2 bytes at choice
+  [ -T <n>       ]	 Override TTL [0-2147483647] defined in RFC2181
+  [ -Z <n>       ]	 Override TCP response size to be any 2 bytes at choice
 
-  [ -v     ]	 Enable debug
-  [ -n     ]	 Enable DNS raw dump
-  [ -C     ]	 Enable CURL debug
-  [ -N     ]	 Enable COUNTERS debug
-  [ -R     ]	 Enable THREADS debug
-  [ -L     ]	 Enable LOCKS debug
-  [ -X     ]	 Enable EXTRA debug
+  [ -v           ]	 Enable debug
+  [ -n           ]	 Enable raw DNS dump
+  [ -C           ]	 Enable CURL debug
+  [ -N           ]	 Enable COUNTERS debug
+  [ -R           ]	 Enable THREADS debug
+  [ -L           ]	 Enable LOCKS debug
+  [ -X           ]	 Enable EXTRA debug
 
  EXPERT OPTIONS:
-  [ -r     ]	 Enable CURL resolve mechanism, avoiding extra gethostbyname
-  [ -t <n> ]	 Stack size in format 0x1000000 (MB)
+  [ -s <URL>     ]	 Webservice Lookup Script URL (deprecated, only for dnsp-v1 and old RFCs)
+  [ -w <443>     ]	 Webservice Lookup Port (deprecated, only for dnsp-v1 and old RFCs)
+  [ -r           ]	 Enable CURL resolve mechanism, avoiding extra gethostbyname
+  [ -t <n>       ]	 Stack size in format 0x1000000 (MB)
 
 
  For a more inclusive list of DoH providers, clients, servers and protocol details, see:
