@@ -36,13 +36,13 @@ All the coding efforts -collected in this repository- aim to support the deploy
 of **DoH client/server** as a rudimental and non-intrusive system-resolver. 
 
 Since publication of RFC-8484 DNSProxy software has been split in two branches:
-- **dnsp-h2 supports only RFC8484-compliant format**.
+- **dnsp-h2 supports only RFC-8484-compliant format**.
 - **dnsp** - now legacy - used to support non-compliant pre-DoH formats.
 
 DNSProxy software did support different flavours of DoH formats, being:
- - **application/dns-message [RFC8484]**: RFC8484-compliant, purest DoH format
- - **application/dns+json    [RFC8427]**: JSON format, legacy - DO NOT USE
- - **application/dns         [RFC4027]**: text/data format - DO NOT USE
+ - **application/dns-message [RFC-8484]**: RFC8484-compliant, purest DoH format
+ - **application/dns+json    [RFC-8427]**: JSON format, legacy - DO NOT USE
+ - **application/dns         [RFC-4027]**: text/data format - DO NOT USE
 
 Further developement of support for newer QUIC/HTTP/3 is now work-in-progress.
 
@@ -105,10 +105,14 @@ Robustness of architecture proves DNSProxy a very scalable and smart solution.
     |   tunneled towards a DoH-aware resolver webservice  |
     +-----------------------------------------------------+
 ```
-We generally mention *DNSProxy* by considering both DoH and pre-DoH branches, as
-design is the same for both:
-- *dnsp-h2* will take care to craft well-formed DNS packets in accordance to RFC
-- *dnsp* is now **deprecated** and should not be used (pre-DoH formats only)
+We generally refer to *DNSProxy* software by considering both DoH and pre-DoH
+branches, as design foundations are the same for both. Consider dnsp-h2 as the
+"RFC-compliant spinoff" of old/abandoned dnsp:
+- *dnsp-h2* will take care of crafting well-formed DNS packets in accordance to
+  foundation RFCs RFC-1035 and RFC-8484.
+- *dnsp* is now **deprecated** and should not be used. It historically supported
+  RFC-1035 DNS responses, but had slightly different architecture and was born
+  long before the DoH draft (therefore, it only support pre-DoH formats).
 
 Also note that *dnsp* binary (pre-DOH version of DNSProxy) is only kept in
 repository for historical reasons, offers  no backward-compatibility and may
@@ -237,7 +241,7 @@ dnsp -H http://192.168.3.93/ -r 8118 -s https://abc.com/nslookup.php
 ```bash
 user@machine:~/DNSProxy$ ./dnsp-h2 -h
 
- dnsp-h2 v3.3.0, copyright 2010-2023 Massimiliano Fantuzzi HB3YOE/HB9GUS, MIT License
+ dnsp-h2 v3.3.0, copyright 2010-2023 Massimiliano Fantuzzi HB9GUS, MIT License
 
  usage: dnsp-h2 [-l <local_host_address>] [-p <local_port>] [-H <proxy_host>]
 	[-r <proxy_port>] [-u <user>] [-k <pass>] [-d <path>] [-Q] 
@@ -245,16 +249,16 @@ user@machine:~/DNSProxy$ ./dnsp-h2 -h
 
  OPTIONS:
   [ -Q           ]	 Extract TTL from DoH provider HTTP response (suggested)
-  [ -l <IP/FQDN> ]	 Local server address, defaults to all active interfaces
-  [ -p <53>      ]	 Local server port, defaults to 53
-  [ -H <IP/FQDN> ]	 MITM/Cache Proxy Address (HTTPS-capable as charles, burp)
+  [ -l <IP/FQDN> ]	 Local server address, default to all active interfaces
+  [ -p <53>      ]	 Local server port, default to 53
+  [ -H <IP/FQDN> ]	 MITM/Cache Proxy Address (HTTPS-capable as charles)
   [ -r <3128>    ]	 MITM/Cache Proxy Port
   [ -u <user>    ]	 MITM/Cache Proxy Username
   [ -k <pass>    ]	 MITM/Cache Proxy Password
-  [ -d <path>    ]	 Output directory for raw-DNS dump-to-file storage of responses
+  [ -d <path>    ]	 Output directory for storage of responses
 
  ADVANCED OPTIONS:
-  [ -T <n>       ]	 Override TTL [0-2147483647] defined in RFC2181
+  [ -T <n>       ]	 Override TTL [0-2147483647] defined in RFC-2181
   [ -Z <n>       ]	 Override TCP response size to be any 2 bytes at choice
 
   [ -v           ]	 Enable debug
@@ -266,9 +270,9 @@ user@machine:~/DNSProxy$ ./dnsp-h2 -h
   [ -X           ]	 Enable EXTRA debug
 
  EXPERT OPTIONS:
-  [ -s <URL>     ]	 Webservice Lookup Script URL (deprecated, only for dnsp-v1 and old RFCs)
-  [ -w <443>     ]	 Webservice Lookup Port (deprecated, only for dnsp-v1 and old RFCs)
-  [ -r           ]	 Enable CURL resolve mechanism, avoiding extra gethostbyname
+  [ -s <URL>     ]	 Webservice Lookup Script URL (deprecated, old dnsp)
+  [ -w <443>     ]	 Webservice Lookup Port (deprecated, old dnsp)
+  [ -r           ]	 Enable CURL resolve and avoid extra gethostbyname
   [ -t <n>       ]	 Stack size in format 0x1000000 (MB)
 
 
@@ -781,7 +785,7 @@ Concept of TTL has been taken in account since the foundation of DNSProxy
 developments for sake of caching purposes. With the advent of DNS-over-HTTPS RFC
 as a standard the need to serve and properly expire caches became imperative.
 
-TTL specifies a maximum time to live, not a mandatory time to live. RFC2181
+TTL specifies a maximum time to live, not a mandatory time to live. RFC-2181
 defines a _maximum of 2^31 - 1_. When transmitted, this value shall be encoded
 in the less significant 31 bits of the 32 bit TTL field, with the most
 significant, or sign, bit set to zero. Implementations should treat TTL values
