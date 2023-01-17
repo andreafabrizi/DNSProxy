@@ -51,8 +51,8 @@
 //#include "librb64u.h"
 //#include "base64.h"
 //#include "b64.h"
-#include "basetest/deps/ok/ok.h"
-#include "basetest/deps/b64/b64.h"
+#include "deps/ok/ok.h"
+#include "deps/b64/b64.h"
 
 /*
 #include <semaphore.h>

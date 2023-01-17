@@ -179,18 +179,19 @@ ca-certs brotli gnutls-bin openssl libtlsh-dev
 ```bash
 git clone https://github.com/clibs/clib.git /tmp/clib
 cd /tmp/clib
+make
 sudo make install
-sudo clib install littlstar/b64.c
+sudo clib install jwerle/b64.c
 sudo clib install jwerle/libok
 ```
 ### Building and Installing.
 Once pre-requisites checked, you will be able to *compile software* by running:
 ```bash
+cd -
 make
 ```
 ### Deploy DoH standard infrastructure
-Start a fully-compliant DoH/h2 server.
-Only applies to **standard dnsp-h2** binary, _not to dnsp_.
+Start a fully-compliant DoH/h2 server. _Only applies to **standard dnsp-h2** binary_.
 
 #### STEP 0. HTTPS webservices are hard-coded into dnsp-h2 server
 See APPENDIX E for extensive list.
@@ -206,8 +207,7 @@ dnsp-h2 -Q -H http://192.168.3.93/ -r 8118
 dnsp-h2 -Q -H http://aremoteproxyservice.internal/ -r 3128
 ```
 ### Deploy pre-DoH non-standard infrastructure - DEPRECATED
-Start a pre-h2 pre-DoH (HTTP/1.1) legacy server.
-Only applies to **dnsp legacy binary**, _not to dnsp-h2_.
+Start a pre-h2 pre-DoH (HTTP/1.1) legacy server. _Only applies to **dnsp legacy binary**_.
 
 #### STEP 1. Deploy the PHP nameserver webservice - DEPRECATED
 Deploy **nslookup-doh.php** on a webserver, possibly not your local machine (see
