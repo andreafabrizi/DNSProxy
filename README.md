@@ -83,36 +83,38 @@ to resolve domain names externally (TOR users, Chinese Wall of Fire, evil VPN).
 Robustness of architecture proves DNSProxy a very scalable and smart solution.
 ```
              +---------------------------+
-  +----------| DNSProxy re-uses original | <<----------+
-  |          |  sockets [ DNS & HTTPS ]  |             |     DNSProxy parses
-  |          +---------------------------+             |    HTTP raw response,
-  |                         ^                          |   builds DNS reply and
-  |                         ^                          |  sends back via TCP/UDP
-  |                         |   IF answer found        |     as per RFC-1035
-  |                         | on HTTP or disk cache    |
-  |                         |  THEN faster reply       |   libCURL handles HTTP
-  v                         |    same security         |  requests and responses
-  v                         :                          :
+  +----------| DNSProxy re-uses original | <<-----------+
+  |          |  sockets [ DNS & HTTPS ]  |              |    DNSProxy parses
+  |          +---------------------------+              |   libCURL response,
+  |                         ^                           |  builds DNS reply and
+  |                         ^                           |  sends back on socket
+  |                         |   IF answer found:        |    as per RFC-1035.
+  |                         |    on disk-cache          |
+  |                         |    on HTTP-cache          | libCURL handling:
+  |                         |                           |  - multiple sessions
+  |                         |  THEN faster reply        |  - request payload
+  v                         |    same security          |  - response payload
+  v                         :                           :
  +---------------+       +--------+---------+       /------------------\
  |   client OS   | --->> +  DNSProxy parser + --->> |   DoH resolver   |
  +---------------+       +--------+---------+       +------------------+
  | sends request |       |  blacklist, TTL  |       |Google, CF, custom|
  | to DNS server |       | pooling, caching |       | (RFC-8484-aware) |
  +---------------+       +------------------+       \------------------/
-    :                                                     ^
-    |                                                     ^
-    | DNS queries to DNSP daemon on 127.0.0.1:53 will be  |
-    |   tunneled towards a DoH-aware resolver webservice  |
-    +-----------------------------------------------------+
+    :                                                         ^
+    |                                                         ^
+    | dnsp-h2 tunnels received DNS queries towards DoH-aware  |
+    |  resolver webservice while libCURL handles HTTP session |
+    +---------------------------------------------------------+
 ```
 We generally refer to *DNSProxy* software by considering both DoH and pre-DoH
 branches, as design foundations are the same for both. Consider dnsp-h2 as the
 "RFC-compliant spinoff" of old/abandoned dnsp:
 - *dnsp-h2* will take care of crafting well-formed DNS packets in accordance to
   foundation RFCs RFC-1035 and RFC-8484.
-- *dnsp* is now **deprecated** and should not be used. It historically supported
-  RFC-1035 DNS responses, but had slightly different architecture and was born
-  long before the DoH draft (therefore, it only support pre-DoH formats).
+- *dnsp* is now **deprecated** and should not be used. It historically used to
+  provide RFC-1035 DNS responses, but had slightly different architecture and
+  was born long before DoH draft (therefore, it only support pre-DoH formats).
 
 Also note that *dnsp* binary (pre-DOH version of DNSProxy) is only kept in
 repository for historical reasons, offers  no backward-compatibility and may
