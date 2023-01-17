@@ -4,26 +4,29 @@
 ### DNS transport tests, gone too far :)
 
 Historically, DNSProxy was developed for very exotic reasons: simplify DNS
-messaging between satellite base-station and client airplanes, and to surf
-TOR anonymously - avoiding leaks.
+messaging between base-station and "client" airplanes over satellite link, and 
+protect myself while surfing TOR by avoiding DNS/UDP leaks.
 
 First _niche_ use-case: DNS UDP messages were lost within the satellite pipe
-but switching that very traffic on standard DNS-TCP was not an option as the
-platform was not able to receive such, hence I came up inventing this hybrid
-"transport and caching protocol" to carry the precious information.
+but migrating that class of traffic on standard DNS/TCP was not an option as the
+platform was not able to receive such datagrams, hence I came up inventing this
+hybrid "transport and caching protocol" to carry the precious information.
 
 The second source of inspiration came from the observation of another common
-and well-known issue: TOR leaks. UDP and DNS are not completely SOCKS-friendly.
-The one and only choice left was to vehiculate DNS message _inside_ another
-standard protocol that could be -indeed- easily ecapsulated within TOR.
+and well-known issue: TOR privacy leaks. One candidate protocol to try out was
+SOCKS, and multiple mini-proxy projects existed. After some successful testing
+socksifying DNS/TCP, it turned out that DNS/UDP cannot be SOCKS-encapsulated.
+The only choice left was to vehiculate DNS message _inside_ another standard
+protocol that could be -indeed- easily ecapsulated on TOR networks.
 
-The protocol of choice was HTTP, now in it's most secure implementation, HTTPS.
+The protocol of choice was then "HTTP" in it's secure implementation "HTTPS".
 
 ### Standardization of protocol
-I started testing with the pseudo-protocol back in 2010 and things went bit out
-of control up to the point that I was invited to collaborate with IETF board in
-the developement and publication of standard state-of-the-art DNS-over-HTTPS,
-RFC8484. (c.f. https://tools.ietf.org/html/rfc8484)
+I started focusing on different use-cases and came up with the definition of the
+pseudo-protocol around 2009 or 2010. Back then, I could not imagine that this
+humble invention would one day result in me collaborating with IETF (Internet
+Engineering Task Force) board in the developement and publication of standard
+state-of-the-art DNS-over-HTTPS, RFC-8484 (https://tools.ietf.org/html/rfc8484).
 
 A new MIME type has since been defined (application/dns-message) and protocol
 design goals are perfectly clear. For more information about MIME types refer to
@@ -80,22 +83,22 @@ to resolve domain names externally (TOR users, Chinese Wall of Fire, evil VPN).
 Robustness of architecture proves DNSProxy a very scalable and smart solution.
 ```
              +---------------------------+
-  +----------| DNSProxy re-uses original | <<---------+
-  |          |  sockets [ DNS & HTTPS ]  |            |     DNSProxy parses
-  |          +---------------------------+            |    HTTP raw response,
-  |                       ^                           |   builds DNS reply and
-  |                       ^                           |  sends back via TCP/UDP
-  |                       | IF answer found           |     as per RFC-1035
-  |                       |  in HTTP cache            |
-  |                       | THEN faster reply         |   libCURL handles HTTP
-  v                       |  same security            |  requests and responses
-  v                       :                           :
- +---------------+       +--------+---------+       /---------------\
- |   client OS   | --->> +  DNSProxy parser + --->> |  DoH resolver |
- +---------------+       +--------+---------+       \---------------/
- | sends request |       |  blacklist, TTL  |       |               |
- | to DNS server |       | pooling, caching |       | RFC8484-aware |
- +---------------+       +------------------+       +---------------+
+  +----------| DNSProxy re-uses original | <<----------+
+  |          |  sockets [ DNS & HTTPS ]  |             |     DNSProxy parses
+  |          +---------------------------+             |    HTTP raw response,
+  |                         ^                          |   builds DNS reply and
+  |                         ^                          |  sends back via TCP/UDP
+  |                         |   IF answer found        |     as per RFC-1035
+  |                         | on HTTP or disk cache    |
+  |                         |  THEN faster reply       |   libCURL handles HTTP
+  v                         |    same security         |  requests and responses
+  v                         :                          :
+ +---------------+       +--------+---------+       /------------------\
+ |   client OS   | --->> +  DNSProxy parser + --->> |   DoH resolver   |
+ +---------------+       +--------+---------+       +------------------+
+ | sends request |       |  blacklist, TTL  |       |Google, CF, custom|
+ | to DNS server |       | pooling, caching |       | (RFC-8484-aware) |
+ +---------------+       +------------------+       \------------------/
     :                                                     ^
     |                                                     ^
     | DNS queries to DNSP daemon on 127.0.0.1:53 will be  |
@@ -113,15 +116,18 @@ soon disappear. Please only use, refer to and commit towards *dnsp-h2* branch.
 
 Commits for other legacy components will not be accepted.
 
-### Basic and more advanced features
-- DNS-over-HTTPS compliant with RFC-8484 and other older non-standards
-- FOLLOWLOCATION, spawning threads to enable HTTP browser cache preemption
-    for the benefit of the user experience.
-- HTTP/2 is the minimum requirement for dnsp-h2 DoH (see RFC 8484), while dnsp
-    runs on pre-h2
-- ability to dump response packet and serve content via local HTTP webserver
-- ability to set specific headers according to cache requirements i.e. translate
-    HTTP cache Validity into DNS TTL value
+### Basic ideas and more advanced features
+- DNS-over-HTTPS proxy compliant with RFC-8484 and other older non-standards
+- HTTP/2 is the minimum requirement for DoH and **dnsp-h2** only supports >= h2
+- for non-standard non-DoH experiments, you may look at **dnsp**, now DEPRECATED
+- **dnsp-h2** provides ability to set specific headers according to cache
+  requirements, translating HTTP cache Validity into DNS TTL value
+- **dnsp-h2** offers an option to dump response packets, eventually to serve
+  those contents via another HTTP(S) DoH-compliant webserver (if you plan to
+  offer a DoH resolver for example).
+- both **dnps-h2** and **dnsp** offer a feature based on FOLLOWLOCATION which in
+  turn will spawn dedicated threads and enable browser cache preemption for the
+  benefit of user experience.
 
 To KISS, in order to start resolving anonymous DNS over HTTP(S) all you need is:
 - the C software, available as source or compiled **(dnsp-h2 and dnsp)**

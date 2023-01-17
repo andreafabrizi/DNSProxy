@@ -95,6 +95,7 @@ apple.stackexchange.com
 applicationlogmonitoring.net
 applicationlogmonitoring.org
 apps.facebook.com
+apps.feeligo.com
 apps.kalooga.com
 apps.ubuntu.com
 apps1.ubs.com
@@ -154,6 +155,7 @@ bbs.archlinux.org
 bcp.crwdcntrl.net
 bdbwww.ariadnedev.it
 be-x-old.wikipedia.org
+beacon-a-v2-596299490.eu-west-1.elb.amazonaws.com
 beacon.guim.co.uk
 beacon.krxd.net
 beapcsc1.ysm.yahoodns.net
@@ -182,6 +184,7 @@ blog.stackoverflow.com
 blog.superuser.com
 blog.zorinaq.com
 blogs.oracle.com
+blogs.oracle.com.edgekey.net
 blogspot.l.googleusercontent.com
 bloomberg.finanza.repubblica.it
 bn.urbandictionary.com
@@ -195,7 +198,9 @@ bootstrapcdn.jdorfman.netdna-cdn.com
 boredpanda.us7.list-manage.com
 borgomeo.blogautore.repubblica.it
 boutell.com
+box30026.wemfbox.ch
 box30027.wemfbox.ch
+box30030.wemfbox.ch
 bricks.stackexchange.com
 brightcove01.brightcove.com
 brindisireport.it
@@ -290,6 +295,7 @@ cdsweb.cern.ch
 centos.org
 centrofermi.it
 cern.ch
+cerngis03.cern.ch
 cernocs11.cern.ch
 certificates.godaddy.com
 cetrk.com
@@ -319,6 +325,7 @@ citeseerx.ist.psu.edu
 cityfan.repubblica.it
 civilsocietytv.org
 cjdavies.org
+clashofclanshack.kirkperkins.com
 clc.stackoverflow.com
 click.kataweb.it
 click.plista.com
@@ -373,8 +380,10 @@ conrad.ugc.bazaarvoice.com
 consent-st.truste.com
 consent.truste.com
 constantin.glez.de
+consult.cern.ch
 content-ssl.yieldmanager.com
 conversionsbox.com
+cooker.techsnail.com
 cooking.stackexchange.com
 cool.haxx.se
 coopliguria.promoipercoop.it
@@ -402,6 +411,7 @@ cs.uwaterloo.ca
 cs.wikipedia.org
 cs128.adn.edgecastcdn.net
 cs163.wpc.taucdn.net
+cs267.wpc.teliasoneracdn.net
 cs28.wpc.edgecastcdn.net
 cs322.wac.edgecastcdn.net
 cs38.adn.edgecastcdn.net
@@ -436,6 +446,9 @@ d1z2jf7jlzjs58.cloudfront.net
 d31qbv1cthcecs.cloudfront.net
 d33ichkjxy6iya.cloudfront.net
 d38v16rqg5mb6e.cloudfront.net
+d3qt5vpr7p9rgn.cloudfront.net
+d3unh2vgy6g2ke.cloudfront.net
+d5nxst8fruw4z.cloudfront.net
 d7.cf.b4.a1.top.list.ru
 d7x5nblzs94me.cloudfront.net
 da.urbandictionary.com
@@ -446,6 +459,7 @@ danielebellasio.blog.ilsole24ore.com
 dank.qemfd.net
 dart.l.doubleclick.net
 dashboards.cern.ch
+data-agkn-com-2105097999.eu-central-1.elb.amazonaws.com
 data.agkn.com
 data.kataweb.it
 data.promoqui.it
