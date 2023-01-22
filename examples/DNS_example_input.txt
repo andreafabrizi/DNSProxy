@@ -18,8 +18,6 @@ adclick.g.doubleclick.net
 add.my.yahoo.com
 add_ap.cedexis.com
 addictiontips.net
-adfarm-global.mplx.akadns.net
-adfarm.mediaplex.com
 adlev.neodatagroup.com
 admin.brightcove.com
 admpodcast.rai.it
@@ -2639,8 +2637,6 @@ www.wr6.rai.it
 www.wr7.rai.it
 www.wr8.rai.it
 www.wxwidgets.org
-www.xing.com
-www.xing.com.gtm4p-xing.com.akadns.net
 www.xiti.com
 www.yahoo.com
 www.yousty.ch
@@ -2682,6 +2678,5 @@ zfsonlinux.org
 zh.urbandictionary.com
 zh.wikipedia.org
 zn_0677zka58monfdl-idz.siteintercept.qualtrics.com
-zoopla.co.uk
 zucconi.blogautore.repubblica.it
 zumastor.blogspot.com

@@ -13,11 +13,14 @@ fi
 
 #cat DNS.txt | head -$NUM | \
 #xargs -n 10 -I {} -P $(echo $NUM/10| bc) \
-a=0
+a=1
+b=0
 WAIT=""
 
-for i in $(head -$NUM $FILE); do
-	if [ $a -lt $(echo $NUM/10| bc) ]; then
+# | xargs -n 5 -I {} -P $(echo $NUM/5| bc)
+for i in $(shuf -n $NUM $FILE); do
+	#if [ $a -lt $(echo $NUM/10 | bc) ]; then
+	if [ $a -gt $(($NUM % 10)) ]; then
 		dig +retry=0 -p $PORT $i @$DNS &
 		WAIT="$WAIT $!"
 		let a=a+1
@@ -26,6 +29,7 @@ for i in $(head -$NUM $FILE); do
 		let a=0
 		wait $WAIT 
 	fi
-done | grep -v 'timed out' | awk -v xxx=$NUM -F ' ' 'BEGIN{sum=0}{ if (/Query time/) sum+=$4 } END { print "\nAverage query time: "sum/xxx" ms ("sum","xxx")" }'
+done | tee mon.count | grep -v 'timed out' | awk -v xxx=$NUM -v tot=0 -F ' ' 'BEGIN{sum=0}{ if (/Query time/) {sum+=$4 ; tot+=1;} } END { print "\nAverage query time: "sum/xxx" ms ("tot"/"xxx")" }'
 #|grep time
 #dig {} @$DNS | grep -E '^[A-Za-z0-9]|Query time' | \
+echo "Failed requests: "$(grep -c 'timed out' mon.count)/$NUM
