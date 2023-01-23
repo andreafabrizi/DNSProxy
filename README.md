@@ -7,10 +7,17 @@ Historically, DNSProxy was developed for very exotic reasons: simplify DNS
 messaging between base-station and "client" airplanes over satellite link, and 
 protect myself while surfing TOR by avoiding DNS/UDP leaks.
 
-First _niche_ use-case: DNS UDP messages were lost within the satellite pipe
-but migrating that class of traffic on standard DNS/TCP was not an option as the
-platform was not able to receive such datagrams, hence I came up inventing this
-hybrid "transport and caching protocol" to carry the precious information.
+First _niche_ use-case: UDP datagrams were sometimes lost within the satellite
+pipe but migrating DNS traffic on standard DNS/TCP was not an option as the
+airplane platform was not configured to receive opportunely. This situation
+inspired me the invention (and ISP-scale production testing) of an hybrid
+"transport and caching protocol" albe to carry DNS information up in the sky.
+
+As a first goal, DNSProxy took take care of "shortening answers" to a minimal
+workable set, equivalent BIND's "minimal-responses=yes" with a further layer
+of "compression", algorithm very similar to one used today by CloudFlare DoH
+(used to alter the response received from upstream resolver and _always provide
+one singe A record_ even in case of longer original responses).
 
 The second source of inspiration came from the observation of another common
 and well-known issue: TOR privacy leaks. One candidate protocol to try out was
@@ -577,9 +584,11 @@ Request should end with bits _0D0A_ (HEX is easy to read with xxd):
 ### Changelog:
 #### Version 3.3.0 - January 2023:
 * adjusted to POST by default (no more GET with visible _dns=_ string)
+* improved TTL extraction capabilities, dump TTL to file, override
+* using libCURL structs to easen extraction (more efficient parse of http\_response)
 * reduced memory footprint
 * better debug, Makefile, debug symbols for GDB
-* caching of responses on disk
+* caching of responses on disk (both primary and alternative resolvers)
 * multiple requests are issues in parallel against different DoH providers
 * supporting multiple levels of subdomains, CNAME, mixed object responses
 * updated dependecies of OK and B64 libraries

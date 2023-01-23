@@ -300,7 +300,8 @@ struct thread_info {    	/* Used as argument to thread_start() */
 
 struct dns_request {
     uint16_t transaction_id, questions_num, flags, qtype, qclass, tcp_size;
-    char hostname[256], query[256], rfcstring[256];
+    char hostname[256], query[256], rfcstring[256]; // 20230107 - REVIEW
+    //char hostname[], query[], rfcstring[]; // 20230107 - REVIEW
     size_t hostname_len;
 };  
 
@@ -604,6 +605,7 @@ void append(char* s, char c) {
 /* Parses the dns request and returns the pointer to dns_request struct. Returns NULL on errors */
 struct dns_request *parse_dns_request(const char *wire_request, size_t request_len, int proton, int reset) {
 
+    //parsing incoming query
     struct dns_request *dns_req;
 
     if (reset  == 1) {
@@ -674,6 +676,7 @@ struct dns_request *parse_dns_request(const char *wire_request, size_t request_l
     //memcpy(dns_req->hostname, wire_request, sizeof(dns_req->hostname)-1);
     dns_req->hostname_len = 0;
 
+    // begin restamping packet and building response
     int dots = 0;
     int total = 0;
 
@@ -690,7 +693,7 @@ struct dns_request *parse_dns_request(const char *wire_request, size_t request_l
       wire_request++;
       
       if (dns_req->hostname_len + len >= sizeof(dns_req->hostname)) {
-        if (DNSDUMP) { printf("\n *** size issue ! maybe due to TCP request ?\n"); }
+        fprintf(stderr, "\n *** size issue ! maybe due to TCP request ?\n");
         //free(dns_req);
         return NULL;
       }
@@ -698,7 +701,7 @@ struct dns_request *parse_dns_request(const char *wire_request, size_t request_l
       strncat(dns_req->hostname, wire_request, len);  /* Append the current label to dns_req->hostname */
       strncat(dns_req->hostname, ".", 1);             /* Append a dot '.' */
       dns_req->hostname_len+=len+1;
-      dots++;
+      dots++;                                         // increase dots by 1
       wire_request+=len;
     }
 
@@ -710,7 +713,8 @@ struct dns_request *parse_dns_request(const char *wire_request, size_t request_l
     dns_req->qclass = (uint8_t)wire_request[1] + (uint16_t)(wire_request[0] << 8); 
     wire_request+=2;
 
-    // fixed length: 12 (qid,flags,qnum,anum,rnum,addnum) + 4 (type,class)
+    // 20230107 - based on minimal DNS overhead = 16~17 bytes
+    // composed of: 12 (2 qid 2 flags 2 qnum 2 anum 2 rnum 2 addnum) + 4 (2 type 2 class)
     char str[strlen(dns_req->hostname)+16];
 
     bzero(str, sizeof(str));
@@ -726,31 +730,50 @@ struct dns_request *parse_dns_request(const char *wire_request, size_t request_l
     //str[0] = 0xAB;
     //str[1] = 0xCD;
 
-    // QR (1) OPCODE (4) AA (1) TC (1) RD (1) RA (1) Z (3) RCODE (4)
-    //str[2] = (uint8_t)(dns_req->flags >> 8);
-    //str[3] = (uint8_t)dns_req->flags;
-
-    str[2] = 0x01; // standard
-    str[3] = 0x00; // standard
-    //str[3] = 0x20; // cloudflare
+    // flags: QR (1) OPCODE (4) AA (1) TC (1) RD (1) RA (1) Z (3) RCODE (4)
+    // flags in a 0x0120 request:
+    // - 0 -> 0 query, 1 response
+    // - 0 -> opcode ( 0 query, 1 iquery, 2 status, 3 reserved, 4 notify, 5 update )
+    // - 0 -> opcode
+    // - 0 -> opcode
+    // - 0 -> opcode
+    // - 0 -> AA flag set to 0 in request
+    // - 0 -> not truncated
+    // - 1 -> recursion desired
+    //
+    // - 0 -> recursion available (empty in request)
+    // - 0 -> Z: 0 reserved
+    // - 1 -> AD flag: 0 no auth, 1 authenticated data (see cookie section)
+    // - 0 -> unauthenticated data: 0 unacceptable, 1 acceptable
+    // - 0 -> empty in request
+    // - 0 -> empty in request
+    // - 0 -> empty in request
+    // - 0 -> empty in request
+    //str[2] = 0x01;
+    //str[3] = 0x00; // cloudflare uses AD 0x20
+    str[2] = (uint8_t)(dns_req->flags >> 8);
+    str[3] = (uint8_t)dns_req->flags;
     
+    // count questions
     str[4] = (uint8_t)(dns_req->questions_num >> 8);
     str[5] = (uint8_t)dns_req->questions_num;
 
-    // answer RR
+    // answer RR // override
     str[6] = 0x00;
     str[7] = 0x00;
-    // authority RR
+    // authority RR // override
     str[8] = 0x00;
     str[9] = 0x00;
-    // additional RR (often 0001)
+    // additional RR // override
+    // (0x0001 if you want to use DNSSEC, EDNS, cookies)
     str[10] = 0x00;
     str[11] = 0x00;
 
+    // first block of fixed 12 bytes overhead
     //*str+=12;
 
     // 20230107 - WARNING - dots represents the subdomain-separators' "." count
-    printf(" --- PRB dots : %d\n", dots);
+    fprintf(stderr," --- PRB dots : %d\n", dots);
     //for (int k=0;k < (dns_req->hostname_len+dots+1); k++) // 20230107
     //for (int k=0;k < (strlen(dns_req->query)+dots+2); k++) // 20230107
     for (int k=0;k < (strlen(dns_req->query)+strlen(dns_req->hostname)-dots-2*dots); k++) {
@@ -759,43 +782,38 @@ struct dns_request *parse_dns_request(const char *wire_request, size_t request_l
       //*str++ = dns_req->query[k];
       
       //termination of query record field // 20230107 - WARNING
-      //if (k%2 == 0) { total=k+13; } else { total=k+12; } // 20230107
-      total=k+12;
+      if (k%2 == 0) { total=k+13; } else { total=k+12; } // 20230107
+      //total=k+12;
       //*str+= 0x00;
-      printf(" --- PRB k\%2 == 0 k    : %d\n", k);
+      fprintf(stderr," --- PRB k\%2 == 0 k    : %d\n", k);
     }
-    printf(" --- PRB total: %d\n", total);
-    printf(" --- PRB ocalc: %d\n", strlen(dns_req->query)+dots+2);
-    printf(" --- PRB ncalc: %d\n", strlen(dns_req->query)+strlen(dns_req->hostname)-2*dots-dots);
+    fprintf(stderr," --- PRB total: %d\n", total);
+    fprintf(stderr," --- PRB ocalc: %d\n", strlen(dns_req->query)+dots+2);
+    fprintf(stderr," --- PRB ncalc: %d\n", strlen(dns_req->query)+strlen(dns_req->hostname)-2*dots-dots);
 
     //*str+=0x01;
     //str[total+1]++;
     //str[total+1]= 0x0001;
 
-    // 20230701 - TODO ADD COMMENT
-    str[total+1] = 0x00;
-    str[total+2] = 0x01;
-    str[total+3] = 0x00;
-    str[total+4] = 0x01;
+    // add default flags to each query object
+    // type A 0001
+    //str[total+1] = 0x00; // type A
+    //str[total+2] = 0x01; // type A
+    // class IN 0001
+    //str[total+3] = 0x00; // class IN
+    //str[total+4] = 0x01; // class IN
 
-    // type host 0001
-    //str[0] = (uint8_t)(dns_req->qtype >> 8);
-    //str[1] = (uint8_t)dns_req->qtype;
-    // type class 0001
-    //str[0] = (uint8_t)(dns_req->qclass >> 8);
-    //str[1] = (uint8_t)dns_req->qclass;
+    str[total+1] = (uint8_t)(dns_req->qtype >> 8);
+    str[total+2] = (uint8_t)dns_req->qtype;
+    str[total+3] = (uint8_t)(dns_req->qclass >> 8);
+    str[total+4] = (uint8_t)dns_req->qclass;
 
     if (DNSDUMP) { 
-      printf(" --- HEX dns_req->query\n");
+      printf(" --- dns_req->query    : %s\n",b64_encode(dns_req->query,strlen(dns_req->query)));
       hexdump(dns_req->query,strlen(dns_req->query));
-      printf(" --- HEX dns_req->hostname\n");
+      printf(" --- dns_req->hostname : %s\n",b64_encode(dns_req->hostname,strlen(dns_req->hostname)));
       hexdump(dns_req->hostname,strlen(dns_req->hostname));
-    }
-
-    if (EXT_DEBUG) {
-      printf(" --- B64 dns_req->query    : %s\n",b64_encode(dns_req->query,strlen(dns_req->query)));
-      printf(" --- B64 dns_req->hostname : %s\n",b64_encode(dns_req->hostname,strlen(dns_req->hostname)));
-      printf(" --- B64 len dns_req->hostname_len : %d\n",dns_req->hostname_len);
+      printf(" --- dns_req->hostname_len : %d\n",dns_req->hostname_len);
       hexdump(str,sizeof(str)+1);
     }
 
@@ -852,13 +870,13 @@ struct dns_request *parse_dns_request(const char *wire_request, size_t request_l
     if (DNSDUMP) { 
       printf(" *** dns_req->rfcstring\n");
       hexdump(dns_req->rfcstring,sizeof(str)+1);
-      printf(" *** dns_req->rfcstring\n");
-      hexdump(dns_req->rfcstring,sizeof(dns_req->rfcstring));
-      printf(" *** DNS RAW packet:\n");
-      //hexdump(dns_req->rfcstring,sizeof(dns_req->rfcstring)+9); // 20221225
-      hexdump(dns_req->rfcstring,sizeof(dns_req->rfcstring)+strlen(dns_req->rfcstring)+9); // 20221225
+      //printf(" *** dns_req->rfcstring\n");
+      //hexdump(dns_req->rfcstring,sizeof(dns_req->rfcstring));
+      //printf(" *** DNS RAW packet:\n");
+      //hexdump(dns_req->rfcstring,sizeof(dns_req->rfcstring)+strlen(dns_req->rfcstring)+9); // 20221225
     }
     
+    //free(str); // 20230107
     return dns_req;
 }
 
@@ -991,7 +1009,7 @@ void build_dns(int sd, struct sockaddr_in *yclient, struct dns_request *dns_req,
     close(sd);
     //free(response_ptr);
     //free(finalresponse_ptr);
-    //fdatasync(sd);
+    //fdatasync(sd); // 20230107 REVIEW
     free(dns_req);
     return;
 
@@ -1063,9 +1081,7 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
   finalresponse = malloc(TCP_DATAGRAM_SIZE);
   bzero(finalresponse, TCP_DATAGRAM_SIZE);
 
-  if (DNSDUMP) { 
-    hexdump(dns_req->rfcstring,sizeof(dns_req->rfcstring));
-  }
+  if (DNSDUMP) { hexdump(dns_req->rfcstring,sizeof(dns_req->rfcstring)); }
 
   //bzero(dns_req->query, sizeof(dns_req->query));
   //memcpy(dns_req->query, udp_request, sizeof(dns_req->query)-1);
@@ -1111,10 +1127,27 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
   */
 
   if (mode == DNS_MODE_ANSWER) {
-    // Default flags for a standard query (0x8580)
     // Shall it return authoritative answer... or not ?
-    response[0] = 0x81;
-    //response[0] = 0x85;
+    // Default flags for a standard query response (0x8180)
+    // 1 - 1 response
+    // 0 - opcode standard query
+    // 0 - opcode standard query
+    // 0 - opcode standard query
+    // 0 - opcode standard query
+    // 0 - not authoritate answer
+    // 0 - not truncated
+    // 1 - recursion desired
+    // 1 - recursion available
+    // 0 - reserved
+    // 0 - AD answer, 0 not authenticated
+    // 0 - non authenticated data: 0 unacceptable 
+    // 0 - reply code noerror
+    // 0 - reply code noerror
+    // 0 - reply code noerror
+    // 0 - reply code noerror
+
+    // flags
+    response[0] = 0x81; // 0x85
     response[1] = 0x80;
     response+=2;
     /* Questions: 1 */
@@ -1125,6 +1158,7 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
     response[0] = 0x00;
     response[1] = 0x01;
     response+=2;
+
     if (EXT_DEBUG) { printf(" *** EXITING MODE_ANSWER\n"); }
   
   } else if (mode == DNS_MODE_ERROR) {
@@ -1145,10 +1179,11 @@ void build_dns_response(int sd, struct sockaddr_in *yclient, struct dns_request 
 
     // "No such name" ? ... or just an NXDOMAIN ??
     //*response++ = 0x00;
+
     if (EXT_DEBUG) { printf(" *** EXITING MODE_ERROR\n"); }
   }
   
-  // One of the initial goals of DNSP was to minimise answer size // 20230107
+  // One of the initial goals of DSNProxy was to minimise answer size // 20230107
   /* Authority RRs 0 */
   response[0] = 0x00;
   response[1] = 0x00;
@@ -1682,7 +1717,7 @@ static size_t WriteMemoryCallback(void *contents, size_t size, size_t nmemb, voi
   memcpy(&(mem->memory[mem->size]), contents, realsize);
   mem->size += realsize;
   mem->memory[mem->size] = 0;
-  //printf("\n --- CURL - WriteMemoryCallback\n%s\n",userp);
+  //printf("\n --- CURL - WriteMemoryCallback\n%s\n", userp);
  
   return realsize;
 }
@@ -1703,7 +1738,12 @@ static size_t write_callback_aa(void *ptr, size_t size, size_t nmemb, void *stre
   snprintf(bfilename, 256, "%s/xxx.response", workdir);
   FILE *file = fopen(bfilename, "wb");
 
-  if (file == NULL) { perror("Error opening file!"); return 1; }
+  if (file == NULL) {
+    fprintf(stderr, "Error opening file: n%s\n", bfilename);
+    perror("Error opening file!");
+    return 1;
+  }
+
   char *buffer = (char *)stream;
   memcpy(buffer, ptr, size * nmemb + 1); // tribute to chatgpt
   buffer[size * nmemb] = '\0'; // tribute to chatgpt
@@ -1716,6 +1756,7 @@ static size_t write_callback_aa(void *ptr, size_t size, size_t nmemb, void *stre
   //  fputc(((char *)ptr)[i], (FILE *)file);
   //  written++;
   //}
+  //printf("\n --- CURL - write_callback_aa\n%s\n",stream);
   return written;
 }
 
@@ -1888,21 +1929,21 @@ void set_ttl(int new_value) {
         ttl_out_test = new_value;
 }
 
-struct data {
+struct ttl_data {
   char trace_ascii; /* 1 or 0 */ 
   int ttl_out_test_data;
 };
 
-//static int my_trace(CURL *handle, curl_infotype type, char *data, size_t size, struct data *userp) {
-static int my_trace(CURL *handle, curl_infotype type, char *data, size_t size, void *userp) {
+// static int my_trace(CURL *handle, curl_infotype type, char *data, size_t size, void *userp)
+static int my_trace(CURL *handle, curl_infotype type, char *data, size_t size, struct ttl_data *userp) {
   const char *text;
   int num = hnd2num(handle);
   /* prevent compiler warning */ 
   (void)handle;
   
   // 20200921 20230107 - review use of userp - now as void
-  //struct data *config = (struct data *)userp;
-  (void)userp;
+  struct ttl_data *config = (struct ttl_data *)userp;
+  //(void)userp;
 
   switch(type) {
   case CURLINFO_TEXT:
@@ -1930,8 +1971,7 @@ static int my_trace(CURL *handle, curl_infotype type, char *data, size_t size, v
   case CURLINFO_HEADER_IN:
     text = "<= Recv header";
 
-    /* Parse headers as tokens, find "cache-control" header */
-    /* Then extract TTL validity out of either maxage/s-maxage */
+    // Parse headers as tokens, find "cache-control" header and extract TTL out of either maxage/s-maxage
     char** tokens, tokens2;
     char *compare;
     char ref[14] = "cache-control";
@@ -1939,22 +1979,21 @@ static int my_trace(CURL *handle, curl_infotype type, char *data, size_t size, v
     strcpy(ref, "cache-control");
     int cacheheaderfound = strcmp(compare,ref), ttl_out;
 
-    /* dumping all headers */
-    //dump(text, num, (unsigned char *)data, size, 1);
+    //dump(text, num, (unsigned char *)data, size, 1); // dumping all headers
 
-    // from: see https://developer.mozilla.org/fr/docs/Web/HTTP/Headers/Cache-Control
     // max-age=<secondes>
+    // from: see https://developer.mozilla.org/fr/docs/Web/HTTP/Headers/Cache-Control
     // Indique la durée pendant laquelle la ressource doit être considérée comme valide (non expirée).
     // Contrairement à expires, la durée indiquée dans cette directive commence à la date de la requête.
     // s-maxage=<secondes>
     // Indique une valeur pour écraser les valeurs définies par max-age ou Expires pour les caches
     // partagés (comme les proxies). Il est donc ignoré par les caches privés (dont les navigateurs).
   
-    if(cacheheaderfound == 0) {
-      if (DEBUGCURL == 1) { fprintf(stderr, "== %d Header in   : %s\n", num, data); }
+    if (DEBUGCURL == 1) { fprintf(stderr, "== %d Header in   : %s", num, data); }
 
+    if(cacheheaderfound == 0) {
       /* debug TTL header */
-      if ( DEBUGCURLTTL == 1) { dump(text, num, (unsigned char *)data, size, 0); }
+      if ( EXT_DEBUG == 1) { dump(text, num, (unsigned char *)data, size, 0); }
 
       const char *my_str_literal = data;
       char *token, *str, *tofree;
@@ -1967,14 +2006,13 @@ static int my_trace(CURL *handle, curl_infotype type, char *data, size_t size, v
       //}
 
       char *str2, *tofree2;
-      //tofree2 = str2 = strdup(my_str_literal); // We own str's memory now.
       tofree2 = str2 = strdup(my_str_literal); // We own str's memory now.
       tokens = str_split(data, ',');
       //tokens2 = str_split(data, '\n');
   
-      char *compare2;
-      char ref2[8];
-      strcpy(ref2, "max-age");
+      char *str_cmp_src;
+      char str_cmp_target[8];
+      strcpy(str_cmp_target, "max-age");
 
       //if (tokens2 != NULL) { fprintf(stderr, "\nFOUND SEPARATOR\n"); break; }
       //while ((token2 = strsep(&str, "\n"))) {
@@ -1987,54 +2025,56 @@ static int my_trace(CURL *handle, curl_infotype type, char *data, size_t size, v
       if (tokens == NULL) {
         fprintf(stderr, "\n --- ERR: cache header NOT FOUND\n");
 	//break;
-	//continue;
       } else {
-
         //while ((tokens = strsep(&str2, "\n") || (tokens2 != NULL))) printf(" ---> %s\n ---> %s\n",tokens,tokens2);
         //while ((tokens = strsep(&str2, "=") )) printf(" ---> %s\n",tokens);
   
         for (int ff = 0; *(tokens + ff); ff++) {
           char *p = *(tokens + ff);
-          //compare2 = substring(tokens, 1, 6);
-          compare2 = substring(*(tokens + ff), 2, 7);
-          int maxagevaluefound = strcmp(compare2,ref2);
+          //str_cmp_src = substring(tokens, 1, 6);
+          str_cmp_src = substring(*(tokens + ff), 2, 7);
+          int maxagevaluefound = strcmp(str_cmp_src,str_cmp_target);
+
           while (*p) {
-            if (DEBUGCURL == 1) { fprintf(stderr,"\n -------- ALFA ------ %x", *p); }
+            if (EXT_DEBUG == 1) { fprintf(stderr,"\n -------- ALFA ------ %x", *p); }
             //if ( (isdigit(*p) || ( (*p=='-' || *p=='+')) && (isdigit(*(p+1)) ) ) )
             if ( (isdigit(*p) || ( (*p=='-' || *p=='+')) && (isdigit(*(p+1)) && *p!='\n' ) ) ) {
               long val = strtol(p, &p, 10); // Read number
               if (maxagevaluefound == 0) {
-                set_ttl(val); // 20230107 // REVIEW
+                set_ttl(val);
                 ttl_out_test = 666;
-                userp = 666;
+                userp = val;
                 if (DEBUGCURLTTL == 1) {
                   fprintf(stderr, "\n ----> max-age token: %ld", val);
                   fprintf(stderr, "\n ----> get_ttl token: %d", get_ttl());
-                  //dumptwo(text, stderr, (unsigned char *)data, size, config->trace_ascii);
+                  fprintf(stderr, "\n ----> userp token  : %d\n", userp);
                 }
+                if (EXT_DEBUG == 1) { dumptwo(text, stderr, (unsigned char *)data, size, config->trace_ascii); }
               }
             } else {
-              //fprintf(stderr, "\nINCREASING p\n");
               p++;
-	      //break; // 20230107 // NEW
+	      //break;
             }
           }
+
           free(*(tokens + ff));
 	  //free(ff);
         }
+
         fprintf(stderr,"\n");
         free(tokens);
         free(tokens2);
         ref == NULL;
-        ref2 == NULL;
+        str_cmp_target == NULL;
         //return 0;
-        //break; // 20230107 // NEW
+        //break;
       }
 
       free(tofree);
       free(tofree2);
 
     }
+    // fprintf(stderr, "\n --- CURL - my_trace - %d\n", userp);
     break;
   case CURLINFO_DATA_IN:
     text = "<= Recv data";
@@ -2063,9 +2103,10 @@ static void setup(CURL *hndin, char *script_target, struct dns_request *post_dat
   char q_url[512];
   char filename[128];
   char c_length_header[512];
-  struct data config;
+  struct ttl_data config;
   struct curl_slist *list2;
 
+  // 20230107 - WARNING - REVIEW
   struct dns_post_data {
     char hostname[1025];  //1025
     char rfcstring[1050]; //1050
@@ -2087,12 +2128,11 @@ static void setup(CURL *hndin, char *script_target, struct dns_request *post_dat
   int cll2 = strlen(post_data_2->rfcstring) + strlen(post_data_2->hostname) + 5 + 12;
   snprintf(c_length_header, cll2+16, "content-length: %d", cll2);
 
-  // avoid hardcoding services - TODO provide as parameter // 20230107
+  // avoid hardcoding services - TODO provide as parameter
   //snprintf(q_url, URL_SIZE-1, "%s", script_target);
   snprintf(q_url, sizeof(q_url)-1, "%s", script_target);
 
   list2 = NULL;
-  // "accept: application/dns-udpwireformat") // "accept: application/dns-json")
   list2 = curl_slist_append(list2, "accept: application/dns-message; charset: utf-8");
   list2 = curl_slist_append(list2, "content-type: application/dns-message");
   list2 = curl_slist_append(list2, c_length_header);
@@ -2102,28 +2142,37 @@ static void setup(CURL *hndin, char *script_target, struct dns_request *post_dat
 
   //hexdump(post_data_2,sizeof(post_data_2)+strlen(post_data_2->rfcstring)+strlen(post_data_2->hostname));
   if (DNSDUMP == 1) { hexdump(post_data_2,cll2); }
+  
   if (EXT_DEBUG == 1) {
     printf("\n *** debug data: %x", post_data_2);
     printf("\n *** debug url : %s", q_url);
     printf("\n *** debug len : %s\n", c_length_header);
   }
 
-  curl_easy_setopt(hndin, CURLOPT_HTTP_VERSION, (long)CURL_HTTP_VERSION_2TLS);
+  //curl_easy_setopt(hndin, CURLOPT_HTTP_VERSION, (long)CURL_HTTP_VERSION_2TLS);
   curl_easy_setopt(hndin, CURLOPT_POSTFIELDSIZE, cll2);
   curl_easy_setopt(hndin, CURLOPT_POSTFIELDS, post_data_2); // 20221225 20230107 // post_data_2->rfcstring
 
+  // here we only interested in the raw response body, no headers to write. may be enabled for extended debug
+  curl_easy_setopt(hndin, CURLOPT_HEADER, 0L); // 20221225
+  curl_easy_setopt(hndin, CURLOPT_HTTPHEADER, list2);
   //curl_easy_setopt(hndin, CURLOPT_HEADERDATA, NULL);
   curl_easy_setopt(hndin, CURLOPT_HEADERFUNCTION, header_handler);
-  curl_easy_setopt(hndin, CURLOPT_HTTPHEADER, list2);
-  // here we only interested in the raw response body, no headers to write out. may be enabled for extended debug
-  curl_easy_setopt(hndin, CURLOPT_HEADER, 0L); // 20221225
+  //curl_easy_setopt(hndin, CURLINFO_HEADER_OUT, 1L );
 
   curl_easy_setopt(hndin, CURLOPT_NOSIGNAL, 1L);
   curl_easy_setopt(hndin, CURLOPT_NOPROGRESS, 1L);
   curl_easy_setopt(hndin, CURLOPT_NOBODY, 0L); // placeholder for HEAD method
+
+  curl_easy_setopt(hndin, CURLOPT_HTTPPROXYTUNNEL, 1L); // 20230107
+  curl_easy_setopt(hndin, CURLOPT_MAXCONNECTS, MAXCONN);
+  curl_easy_setopt(hndin, CURLOPT_FRESH_CONNECT, 0);
+  curl_easy_setopt(hndin, CURLOPT_FORBID_REUSE, 0);
+  curl_easy_setopt(hndin, CURLOPT_TIMEOUT, 2);
+  curl_easy_setopt(hndin, CURLOPT_CONNECTTIMEOUT, 36000);
   curl_easy_setopt(hndin, CURLOPT_TCP_FASTOPEN, 0L);
   curl_easy_setopt(hndin, CURLOPT_TCP_KEEPALIVE, 1L);
-  curl_easy_setopt(hndin, CURLOPT_TCP_NODELAY, 0L);
+  curl_easy_setopt(hndin, CURLOPT_TCP_NODELAY, 0L); // disable Nagle with 0, for bigger packets (full MSS)
 
   snprintf(filename, 128, "%s/response.%x.%x.alt", workdir, post_data_2, (char *)post_data_2->rfcstring);
   fprintf(" *** FILE: %s", filename);
@@ -2135,21 +2184,17 @@ static void setup(CURL *hndin, char *script_target, struct dns_request *post_dat
   
   curl_easy_setopt(hndin, CURLOPT_WRITEFUNCTION, write_file);
   curl_easy_setopt(hndin, CURLOPT_WRITEDATA, out_aa);
-  // control TTL restamping here // 20230107 to review, very ugly
+  // control TTL restamping here
   curl_easy_setopt(hndin, CURLOPT_VERBOSE,  0);
   //if (DEBUGCURL == 1) { curl_easy_setopt(hndin, CURLOPT_VERBOSE,  1); } else { curl_easy_setopt(hndin, CURLOPT_VERBOSE,  0); }
   //curl_easy_setopt(hndin, CURLOPT_DEBUGFUNCTION, my_trace); // 20230107
   //curl_easy_setopt(hndin, CURLOPT_DEBUGDATA, &config); // 20230107
 
-  curl_easy_setopt(hndin, CURLOPT_CONNECTTIMEOUT, 36000);
-  curl_easy_setopt(hndin, CURLOPT_TIMEOUT, 36000);
   curl_easy_setopt(hndin, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_2_0);
   curl_easy_setopt(hndin, CURLOPT_SSL_VERIFYPEER, 0L);
   curl_easy_setopt(hndin, CURLOPT_SSL_VERIFYHOST, 0L);
   curl_easy_setopt(hndin, CURLOPT_SSLENGINE_DEFAULT, 1L);
-  curl_easy_setopt(hndin, CURLOPT_HTTPPROXYTUNNEL, 1L); // 20221225
-  curl_easy_setopt(hndin, CURLOPT_NOSIGNAL, 1L); // 20221225
- 
+
   if (DEBUGCURL == 1) {
     fprintf(stderr, " *** CURL SETUP POST data: %02x\n", post_data_2);
     //hexdump(post_data_2,sizeof(post_data_2)+strlen(post_data_2->hostname)+9);
@@ -2232,7 +2277,7 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
   struct curl_slist *cresolve = NULL;
   //struct curl_slist *slist1;
   struct curl_slist *list;
-  struct data config;
+  struct ttl_data config;
   struct CURLMsg *m;
 
   config.trace_ascii = 1;                 /* enable ascii tracing */ 
@@ -2277,14 +2322,14 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
     printf(" *** url script_url_g : %s\n",script_url_g);
     printf(" *** ndebug           : %x\n", ndebug);
 
-    printf(" *** post sizeof      : %x\n",post_data);
+    printf(" *** post sizeof      : %x\n", post_data);
     hexdump(post_data,sizeof(post_data));
-    printf(" *** post strlen      : %x\n",post_data);
+    printf(" *** post strlen      : %x\n", post_data);
     hexdump(post_data,strlen(post_data));
-    printf(" *** rfcstring sizeof : %x\n",rfcstring);
-    hexdump(rfcstring,sizeof(rfcstring)+strlen(host)+9);
-    printf(" *** rfcstring strlen : %x\n",rfcstring);
-    hexdump(rfcstring,strlen(rfcstring));
+    printf(" *** rfcstring sizeof : %x\n", rfcstring);
+    hexdump(rfcstring, sizeof(rfcstring)+strlen(host)+9);
+    printf(" *** rfcstring strlen : %x\n", rfcstring);
+    hexdump(rfcstring, strlen(rfcstring));
     printf(" *** sizeof(rfcstring)+strlen(host)+9): %d\n", sizeof(rfcstring)+strlen(host)+9);
     //printf("URL: https://dns.google.com/query?name=%s&type=%s&dnssec=true\n",host,typeq);
     //printf(" *** debug: %s",base64_encode(host,strlen(host),((4 * strlen(host) / 3) + 3) & ~3));
@@ -2318,10 +2363,9 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
   /* set specific nifty options for multi handlers or none at all */
   //hnd = curl_easy_init();
   
-  // GET : snprintf(script_url_alt, URL_SIZE-1, "https://cloudflare-dns.com/dns-query?name=%s", temp);
-  // POST: snprintf(script_url_alt, URL_SIZE-1, "https://dns.google/dns-query");
-  snprintf(script_url_alt, URL_SIZE-1, "https://cloudflare-dns.com/dns-query");
-  setup(hnd,script_url_alt,post_data); // rfcstring
+  // snprintf(script_url_alt, URL_SIZE-1, "https://cloudflare-dns.com/dns-query?name=%s", temp); // GET
+  snprintf(script_url_alt, URL_SIZE-1, "https://cloudflare-dns.com/dns-query"); // POST
+  setup(hnd,script_url_alt,post_data); // or rfcstring
 
   if (DEBUGCURL == 1) {
     //printf(" *** API URL: %s\n",script_url_alt);
@@ -2337,26 +2381,11 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
   // Additionally, “TE” header field must not include any value other than “trailers”.
 
   curl_easy_setopt(ch, CURLOPT_HTTP_VERSION, (long)CURL_HTTP_VERSION_2TLS);
-  curl_easy_setopt(ch, CURLOPT_PROXY, proxy_host);
-  curl_easy_setopt(ch, CURLOPT_PROXYPORT, proxy_port);	
-  curl_easy_setopt(ch, CURLOPT_PROXYTYPE, CURLPROXY_HTTP);
-
-  if ((proxy_user != NULL) && (proxy_pass != NULL)) {
-      curl_easy_setopt(ch, CURLOPT_PROXYUSERNAME, proxy_user);
-      curl_easy_setopt(ch, CURLOPT_PROXYPASSWORD, proxy_pass);
-  }
-
-  //curl_easy_setopt(ch, CURLOPT_MAXCONNECTS, MAXCONN); //curl_easy_setopt(ch, CURLOPT_FRESH_CONNECT, 0);
-  //curl_easy_setopt(ch, CURLOPT_FORBID_REUSE, 0); //curl_setopt($curl, CURLOPT_AUTOREFERER, 1);
 
   // send all data to this function
   //curl_easy_setopt(ch, CURLOPT_WRITEFUNCTION, WriteMemoryCallback);
   // we pass our 'chunk' struct to the callback function
   //curl_easy_setopt(ch, CURLOPT_WRITEDATA, (void *)&chunk);
-
-  // OCSP validation, avoided in the test phase, as some cloud including Google GCP do not provide it.
-  // Cloudflare CDN does well with terminated frontend-SSL certificate
-  curl_easy_setopt(ch, CURLOPT_SSL_VERIFYSTATUS, 0L);
 
   // SSL engine config
   //static const char *pCertFile = "testcert.pem"; //static const char *pCACertFile="fantuznet.pem"; //static const char *pHeaderFile = "dumpit";
@@ -2365,19 +2394,9 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
   //curl_easy_setopt(ch, CURLOPT_ENCODING, "gzip, deflate, br, sdch");
   //curl_easy_setopt(ch, CURLOPT_ENCODING, "br");
 
-  // This timeout is deemed to become a parameter
-  curl_easy_setopt(ch, CURLOPT_TIMEOUT, 5);
-  curl_easy_setopt(ch, CURLOPT_TCP_KEEPALIVE, 1L);
-  curl_easy_setopt(ch, CURLOPT_TCP_FASTOPEN, 1L);
-  curl_easy_setopt(ch, CURLOPT_TCP_NODELAY, 0L);            // disable Nagle with 0, for bigger packets (full MSS)
   curl_easy_setopt(ch, CURLOPT_DNS_CACHE_TIMEOUT, 15);
   curl_easy_setopt(ch, CURLOPT_DNS_USE_GLOBAL_CACHE, 1);    // DNS CACHE WITHIN CURL, yes or not ?
-  curl_easy_setopt(ch, CURLOPT_NOPROGRESS, 1L);
   curl_easy_setopt(ch, CURLOPT_BUFFERSIZE, 8192L);          // lowering from 100K to 8K
-
-  if (DEBUGCURLTTL) { curl_easy_setopt(ch, CURLOPT_VERBOSE, 1); } else { curl_easy_setopt(ch, CURLOPT_VERBOSE, 0); }
-
-  curl_easy_setopt(ch, CURLOPT_NOSIGNAL, 1L);
   */
 
   /* wait for pipe to confirm */
@@ -2410,11 +2429,6 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
   //list = curl_slist_append(list, "HTTP2-Settings: AAMAAABkAAQAAP__");
   
   /*
-  curl_easy_setopt(ch, CURLOPT_HEADER, 1L);
-  curl_easy_setopt(ch, CURLOPT_HEADERDATA, NULL);
-  curl_easy_setopt(ch, CURLOPT_HEADERFUNCTION, header_handler);
-  curl_easy_setopt(ch, CURLINFO_HEADER_OUT, 1L );
-
   // CURL_LOCK_DATA_SHARE, quite advanced and criptic, useful in H2
   //  curlsh = curl_share_init();
   //  curl_easy_setopt(curl2, CURLOPT_SHARE, curlsh);
@@ -2427,10 +2441,9 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
 
   // CURL multi-handler spawner
   //curl_multi_perform(multi_handle, &still_running);
-
-  // PUSH implementations. As long as we have transfers going, do work ...
   
   /*
+  // PUSH implementation. As long as we have transfers going, do work ...
   do {
       struct timeval timeout;
   
@@ -2534,8 +2547,6 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
   //   curl_multi_add_handle(multi_handle, easy[i]);
   // }
 
-  // res = curl_easy_perform(ch);
-  // if(res != CURLE_OK) { fprintf(stderr, "curl_easy_perform() failed: %s\n", curl_easy_strerror(res)); } else { printf("%lu bytes retrieved\n", (long)chunk.size); }
   // Now chunk.memory points to memory block chunk.size bytes big and contains the remote file
 
   list = NULL;
@@ -2545,13 +2556,12 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
   if (DEBUGCURL == 1) { printf(" *** debug data: %x\n *** debug len : %d\n",post_data,cll);}
   if (DNSDUMP == 1) { hexdump(post_data,cll); }
 
-  // GET mode
-  //snprintf(script_url_g, URL_SIZE-1, "https://cloudflare-dns.com/dns-query?dns=%s", temp);
-  // POST mode
-  snprintf(script_url_g, URL_SIZE-1, "https://dns.google/dns-query");
+  snprintf(script_url_g, URL_SIZE-1, "https://dns.google/dns-query"); // POST mode
+  //snprintf(script_url_g, URL_SIZE-1, "https://cloudflare-dns.com/dns-query?dns=%s", temp); // GET mode
+
+  // 20230107 - issues here with bigger payloads ? - TODO REVIEW
   // 16 is length of header itself including punctuation
   snprintf(content_length_header, cll+16, "content-length: %d", cll);
-  // 20230107 - issues here with bigger payloads ? - to check
 
   //list = curl_slist_append(list, content);
   list = curl_slist_append(list, "accept: application/dns-message; charset: utf-8");
@@ -2562,9 +2572,6 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
   curl_easy_setopt(hnd, CURLOPT_URL, script_url_g);
   curl_easy_setopt(hnd, CURLOPT_POSTFIELDS, post_data);
   curl_easy_setopt(hnd, CURLOPT_POSTFIELDSIZE, cll);
-  curl_easy_setopt(hnd, CURLOPT_TCP_FASTOPEN, 1L);
-  curl_easy_setopt(hnd, CURLOPT_TCP_KEEPALIVE, 1L);
-  curl_easy_setopt(hnd, CURLOPT_TCP_NODELAY, 0L);
 
   // set whether or not fetching headers and including in response. set 1 for custom TTL extraction
   // WARNING: will write into file-body
@@ -2572,43 +2579,66 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
   curl_easy_setopt(hnd, CURLOPT_HTTPHEADER, list);
   //curl_easy_setopt(hnd, CURLOPT_HEADERDATA, NULL);
   //curl_easy_setopt(hnd, CURLOPT_HEADERFUNCTION, header_handler); // removed as no further print needed
-  curl_easy_setopt(hnd, CURLOPT_FOLLOWLOCATION, 1);
-  curl_easy_setopt(hnd, CURLOPT_NOSIGNAL, 1L);
-  curl_easy_setopt(hnd, CURLOPT_NOPROGRESS, 1L);
-  //curl_easy_setopt(hnd, CURLOPT_NOBODY, 0L); // placeholder for HEAD method
+  //curl_easy_setopt(hnd, CURLINFO_HEADER_OUT, 1L );
+  curl_easy_setopt(hnd, CURLOPT_FOLLOWLOCATION, 1); // follow redirects // check CURLINFO_REDIRECT_COUNT
+  curl_easy_setopt(hnd, CURLOPT_AUTOREFERER, 1L); // set Referer: automatically when following redirects
   //curl_easy_setopt(hnd, CURLOPT_MAXREDIRS, 2L); // delegation, RD bit set ? default 50, nice 2
 
+  // OCSP validation, avoided in the test phase, as some cloud including Google GCP do not provide it.
+  // Cloudflare CDN does well with terminated frontend-SSL certificate
   //curl_easy_setopt(hnd, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_2_0);
+  //curl_easy_setopt(hnd, CURLOPT_HTTP_VERSION, (long)CURL_HTTP_VERSION_2TLS);
   curl_easy_setopt(hnd, CURLOPT_SSL_VERIFYPEER, 0L);
   curl_easy_setopt(hnd, CURLOPT_SSL_VERIFYHOST, 0L);
   curl_easy_setopt(hnd, CURLOPT_SSL_VERIFYSTATUS, 0L);
   curl_easy_setopt(hnd, CURLOPT_SSLENGINE_DEFAULT, 1L);
-  curl_easy_setopt(hnd, CURLOPT_HTTP_VERSION, (long)CURL_HTTP_VERSION_2TLS);
   //curl_easy_setopt(hnd, CURLOPT_FILETIME, 1L);
 
   char afilename[256],oldfilename[256],newfilename[256];
   snprintf(afilename, 256, "%s/response.%x.%sttl", workdir, rfcstring, host);
   char buffer[4096];
   size_t nread;
-  FILE *file = fopen(afilename, "a"); // no wb, only append
-  if (file == NULL) { perror("Error opening file!"); return 1; }
+  FILE *file = fopen(afilename, "w+"); // not in wb, a
+
+  if (file == NULL) {
+    fprintf(stderr, "Error opening file: %s\n", afilename);
+    perror("Error opening file!");
+    //return 1;
+  }
 
   curl_easy_setopt(hnd, CURLOPT_WRITEFUNCTION, write_callback_aa); // 20230107
   curl_easy_setopt(hnd, CURLOPT_WRITEDATA, http_response); // 20230107
   curl_easy_setopt(hnd, CURLOPT_DEBUGFUNCTION, my_trace);
   curl_easy_setopt(hnd, CURLOPT_DEBUGDATA, &config);
 
-  // control TTL restamping here // 20230107 to review
+  // control TTL restamping here // 20230107 - REVIEW
   if (DEBUGCURLTTL == 1) { curl_easy_setopt(hnd, CURLOPT_VERBOSE, 1); } else { curl_easy_setopt(hnd, CURLOPT_VERBOSE, 0); }
 
   if ((proxy_host != NULL) && (proxy_port != NULL)) {
     curl_easy_setopt(hnd, CURLOPT_PROXY, proxy_host);
     curl_easy_setopt(hnd, CURLOPT_PROXYPORT, proxy_port);	
-    curl_easy_setopt(hnd, CURLOPT_PROXYTYPE, CURLPROXY_HTTP);
-    printf(" *** proxy set -> %s:%d\n",proxy_host,proxy_port);
-    if ((proxy_user != NULL) && (proxy_pass != NULL)) { fprintf(stderr, " --- provided credentials to intermediate proxy"); }
+    curl_easy_setopt(hnd, CURLOPT_PROXYTYPE, CURLPROXY_HTTP); // or CURLPROXY_HTTPS
+    printf(" *** proxy set -> %s:%d\n", proxy_host,proxy_port);
+    if ((proxy_user != NULL) && (proxy_pass != NULL)) {
+      fprintf(stderr, " *** provided credentials to intermediate proxy\n");
+      //curl_easy_setopt(hnd, CURLOPT_PROXYUSERNAME, proxy_user);
+      //curl_easy_setopt(hnd, CURLOPT_PROXYPASSWORD, proxy_pass);
+    }
   }
+
+  curl_easy_setopt(hnd, CURLOPT_NOSIGNAL, 1L);
+  curl_easy_setopt(hnd, CURLOPT_NOPROGRESS, 1L);
+  //curl_easy_setopt(hnd, CURLOPT_NOBODY, 0L); // placeholder for HEAD method
+
   curl_easy_setopt(hnd, CURLOPT_HTTPPROXYTUNNEL, 1L); // 20230107
+  curl_easy_setopt(hnd, CURLOPT_MAXCONNECTS, MAXCONN);
+  curl_easy_setopt(hnd, CURLOPT_FRESH_CONNECT, 0);
+  curl_easy_setopt(hnd, CURLOPT_FORBID_REUSE, 0);
+  curl_easy_setopt(hnd, CURLOPT_TIMEOUT, 2);
+  curl_easy_setopt(hnd, CURLOPT_CONNECTTIMEOUT, 36000);
+  curl_easy_setopt(hnd, CURLOPT_TCP_FASTOPEN, 0L);
+  curl_easy_setopt(hnd, CURLOPT_TCP_KEEPALIVE, 1L);
+  curl_easy_setopt(hnd, CURLOPT_TCP_NODELAY, 0L); // disable Nagle with 0, for bigger packets (full MSS)
 
   if (DEBUGCURL == 1) {
       fprintf(stderr, " *** DOH string : %s?dns=%s\n",script_url_g,b64_encode(rfcstring,sizeof(rfcstring)+strlen(host)+9));
@@ -2635,15 +2665,31 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
     curl_off_t dl;
     long http_version;
     curl_socket_t csockfd;
+    curl_off_t total;
     
     fprintf(stderr," *** %s ***\n", host);
     //ret = curl_multi_perform(multi_handle,&still_running);
-    //setup(hnd,script_url_g,post_data);
+    setup(hnd,script_url_g,post_data);
     //curl_easy_setopt(hnd, CURLOPT_CONNECT_ONLY, 1L);
     res = curl_easy_perform(hnd);
+
+    if(res == CURLE_PROXY) {
+      long proxycode;
+      res = curl_easy_getinfo(hnd, CURLINFO_PROXY_ERROR, &proxycode);
+      if(!res && proxycode)
+        printf("The detailed proxy error: %ld\n", proxycode);
+    }
+
     res = curl_easy_getinfo(hnd, CURLINFO_ACTIVESOCKET, &csockfd);
     printf("Error: %s\n", curl_easy_strerror(res));
     //res = curl_easy_recv(hnd, buffer, sizeof(buffer), &nread);
+
+    if(CURLE_OK == res) {
+      res = curl_easy_getinfo(hnd, CURLINFO_TOTAL_TIME_T, &total);
+      if(CURLE_OK == res) {
+        printf("TT: %" CURL_FORMAT_CURL_OFF_T ".%06ld\n", total / 1000000, (long)(total % 1000000));
+      }
+    }
 
     if(res != CURLE_OK) {
       fprintf(stderr, "curl_easy_perform() failed: %s\n", curl_easy_strerror(res));
@@ -2683,21 +2729,21 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
       //fprintf(stderr,"aaaaaaaaaaaaaaaaa - %.*x\n", (int)nread, buffer);
       //fprintf(stderr,"aaaaaaaaaaaaaaaaa - %.*x\n", (int)dl, buffer);
 
-      //fputs(http_response, file);
+      if (file != NULL) fseek( file, 0, SEEK_SET );
+      //fputs(http_response, file); // replaced
       do {
-	//int ttl_offset = 17 + strlen(host);
-	int ttl_offset = 25 + strlen(host);
+        int ttl_offset = 23 + strlen(host);
         if (nread >= 0 && nread <= dl) {
           //printf("%.*x\n", (int)nread, &http_response);
           //printf("%.*x\n", (int)dl-1, &http_response);
-          if (nread >= ttl_offset && nread < (ttl_offset + 2)) {
-	    fwrite(&http_response[nread], sizeof(char), sizeof(http_response[dl-1]), file);
+          if (nread >= ttl_offset && nread < (ttl_offset + 4)) {
+            if (file != NULL) fwrite(&http_response[nread], sizeof(char), sizeof(http_response[dl-1]), file);
 	  }
 	  //if (nread != dl-1) nread++;
           nread++;
-	} else {
-	  fprintf(stderr," *** ISSUE EXTRACTING TTL ***\n");
-	}
+        } else {
+          fprintf(stderr," *** ISSUE EXTRACTING TTL ***\n");
+        }
       } while (nread < dl);
       //if (nread != dl) nread++;
 
@@ -2705,8 +2751,9 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
       fprintf(stderr," *** dl value after      \t: %d\n", dl);
       snprintf(oldfilename, 256, "%s/xxx.response", workdir);
       snprintf(newfilename, 256, "%s/response.%x.%smain", workdir, rfcstring, host);
-      rename(oldfilename,newfilename);
+      rename(oldfilename, newfilename);
     }
+    nread = 0;
 
     //if(ret != CURLE_OK) { fprintf(stderr, " *** CURL: curl_multi_perform() failed: %s\n", curl_multi_strerror(ret)); } //else { printf("\n *** MULTI -> OK !\n"); }
     //free(host);
@@ -2748,19 +2795,17 @@ char *lookup_host(const char *host, const char *proxy_host, unsigned int proxy_p
  
   free(script_url_g);
   free(script_url_alt);
-  //free(proxy_url);
   free(chunk.memory);
   //curl_multi_cleanup(multi_handle);
   //curl_share_cleanup(curlsh);
 
+  if (file != NULL) fclose(file);
   //curl_slist_free_all(list);
-  //curl_easy_cleanup(hnd);
+  curl_easy_cleanup(hnd); // 20230107
   //curl_global_cleanup();
-  //hnd = NULL;
   //free(hnd);
   //free(n);
 
-  fclose(file);
   return http_response;
 }
 
@@ -2808,17 +2853,14 @@ void *threadFunc(void *arg) {
   }
 
   if (DNSDUMP) { 
-    //hexdump(dns_req->rfcstring,sizeof(dns_req->rfcstring));
     printf(" *** params->xhostname->rfcstring\n");
-    hexdump(params->xhostname->rfcstring,sizeof(params->xhostname->rfcstring));
-    //printf(" *** params->xhostname->rfcstring\n");
-    //hexdump(dns_req->rfcstring,sizeof(dns_req->rfcstring));
+    hexdump(params->xhostname->rfcstring, strlen(params->xhostname->rfcstring)); // sizeof
+    //hexdump(dns_req->rfcstring, sizeof(dns_req->rfcstring));
     //printf(" *** YYY SENT %d bytes\n", (uint32_t)bytes_sent);
   }
 
   if (!(params->xhostname->hostname == NULL) && !(yhostname == NULL)) {
-    //www = lookup_host(yhostname, proxy_host_t, proxy_port_t, proxy_user_t, proxy_pass_t, lookup_script, typeq, wport, rfcstring, params->xhostname->rfcstring); // 20230107
-    www = lookup_host(yhostname, proxy_host_t, proxy_port_t, proxy_user_t, proxy_pass_t, lookup_script, typeq, wport, rfcstring, params->xhostname->rfcstring,params->xworkdir);
+    www = lookup_host(yhostname, proxy_host_t, proxy_port_t, proxy_user_t, proxy_pass_t, lookup_script, typeq, wport, rfcstring, params->xhostname->rfcstring, params->xworkdir);
     // (char *)params->xhostname->rfcstring, dns_req->rfcstring, post_data
     yhostname == NULL;
     params->xhostname->hostname == NULL;
@@ -3085,6 +3127,7 @@ int main(int argc, char *argv[]) {
 
       case 'l':
         bind_address = (char *)optarg;
+        bind_address_tcp = (char *)optarg;
       break;
 
       case 'H':
@@ -3408,39 +3451,29 @@ int main(int argc, char *argv[]) {
     //if (pid == 0) 
     //if (clone(parse_dns_request, stack_aligned, CLONE_VM | SIGCHLD, request, request_len)) 
     
-    /* Monolithic, should be parallelised in C or in libcurl */
+    /*
+     * Corresponding DNS lookup is made ONCE (via DoH resolver, using h2) 
+     * Retry methods have not been specified by RFC-8484 IETF working-group.
+     * Some answers MAY be cache "IN THE NETWORK" (CDN, CloudFlare, GCP, AMZ)
+    */
+    
+    /* Monolithic, should be parallelised in dnsp-h2.c or via libCURL */
     if (vfork() == 0) {
     
-      /* housekeeping, semaphores' logic */
+      // deprecated semaphores logic
       //sem_wait(&mutex);
     
-      /*
-       * A corresponding DNS lookup is made ONCE (via HTTP 1 or 2 against nslookup.php or DoH resolver) 
-       * Retry methods have not been specified in RFC-8484 by DoH IETF working-group.
-       * SUCH ANSWER MIGHT BE CACHED IN THE NETWORK (polipo, memcache, CDN, CloudFlare, Varnish, GCP, ...)
-      */
-    
       // xproto
-      int ret, xsockfd, xwport = wport;
-      int ttl;
-      char* xlookup_script = lookup_script, xtypeq = typeq;
+      int ret, xsockfd, xwport = wport, xproxy_port = proxy_port, ttl;
+      char* xlookup_script = lookup_script, xtypeq = typeq, xworkdir = workdir;
+      char* xproxy_user = proxy_user, xproxy_pass = proxy_pass, xproxy_host = proxy_host;
 
-      //char* xpost_data = post_data; // 20230107
-      struct dns_request *xpost_data;
-
-      //char* xrfcstring = xrfcstring; //20230107
-      struct dns_request *xrfcstring;
-
+      struct dns_request *xpost_data; //char* xpost_data = post_data; // 20230107
+      struct dns_request *xrfcstring; //char* xrfcstring = xrfcstring; //20230107
       struct dns_request *xhostname;
       struct sockaddr_in *xclient, *yclient;
+      //struct readThreadParams *readParams = malloc(sizeof(*readParams)); // 20221225
       struct readThreadParams *readParams = malloc(sizeof(*readParams)); // 20221225
-
-      int xproxy_port = proxy_port;
-      char* xproxy_user = proxy_user;
-      char* xproxy_pass = proxy_pass;
-      char* xproxy_host = proxy_host;
-
-      char* xworkdir = workdir;
 
       //if (dns_req == NULL) { flag = 0; }
       //if (dns_req_tcp == NULL) { flag = 1; } 
@@ -3770,12 +3803,15 @@ int main(int argc, char *argv[]) {
       pthread_attr_destroy(&attr);
       pthread_setspecific(glob_var_key_ip, NULL);
 
-      if (nnn > 20) {
+      // 20230107 - free more sockets
+      if (nnn < 20) {
           wait(NULL);
       } else {
           continue;
       }
 
+      free(readParams); // 20230107
+      free(dns_req); // 20230107
       continue;
     
     } else {
@@ -3829,6 +3865,7 @@ int main(int argc, char *argv[]) {
       if (THR_DEBUG) { fprintf(stderr, "---> Finished joining thread i-> %d, nnn-> %d \n",i,nnn); }
       continue;
       //exit(EXIT_FAILURE); // did we ?
+
     }
   }
 }
