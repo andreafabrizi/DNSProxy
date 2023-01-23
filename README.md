@@ -153,10 +153,10 @@ legacy components will not be accepted.
 - **dnsp** offer a feature (based on FOLLOWLOCATION) to issue chained requests,
   thus enabling browser cache preemption for the benefit of user experience.
 
-To reacp, in order to start resolving anonymous DNS over HTTP(S) all you need is:
-- the C software, available as source or compiled **(dnsp-h2 and dnsp)**
-- -a PHP-server hosting *nslookup-doh.php* resolver script **(needed only by
-legacy dnsp)**-
+In order to start resolving anonymous DNS over HTTP(S) all you need is:
+- the C software, available as source or compiled **(both dnsp-h2 and dnsp)**
+- a PHP-server hosting *nslookup-doh.php* resolver script **(step only needed
+  by legacy _dnsp_)**
 
 This software is OSS, TOR-friendly and requires minimal resources. Enjoy !
 
@@ -186,22 +186,30 @@ Be aware that some intermediate network (or evil ISPs) will still try to mangle
 
 Tested: CloudFlare, Google Cloud Platform, NGINX, Apache, SQUID, polipo, REDIS.
 
-### Proxifying your proxy, for debug, access or caching reasons
-**DNSProxy may be configured to pass-through additional chain of proxies**
-(i.e. TOR, enterprise-proxy, locked-down countries, you name it). Important to
-note that "a cache" is often availaible "in the network" (i.e. on CDN) therefore
-there is no impellent need for a local cache (eventually, for perf and speed).
+### Proxifying your proxy
+**DNSProxy may be configured to pass-through an additional chain of proxies**
+for debug, access control or caching reasons. Useful if you are behing an
+enterprise-proxy, a locked-down country, or faulty TOR network. You name it.
 
-To complexify the picture, HTTP/2 (TLS) makes it rather uneasy to share cache.
+Important to note that a semi-obsure cache is often availaible "in the network"
+(see previous section) therefore there is no impellent need for a local cache
+(eventually, for perf and speed). To complexify the picture - HTTP/2 (TLS) makes
+it rather uneasy to share cache.
 
-Should you be willing to perform forensics or "response caching/sharing" you can
-rely on standard HTTPS proxy MITM techniques; *any HTTP(S) proxy*
-will work properly with DNSProxy as polipo, squid, nginx, charles, burp, ...
-**Though, the majority of users will directly run dnsp-h2 without any chained
-proxy settings**.
+Should you be willing to perform forensics or "response caching and sharing" you
+can rely on standard HTTPS proxy MITM techniques; *any HTTP(S) proxy* will work
+properly with DNSProxy: polipo, squid, nginx, charles, burp, ...
 
-DNSProxy server will -by default- try to connect **directly** to the remote
-webservice (resolver) and will not try to pass through any specific proxy.
+Though, **the majority of users will just run dnsp-h2 in direct mode** without
+any chained proxy, hence _dnsp-h2_ defaults to **connecting directly** to the
+remote webservice (resolver) and will not try to pass through any further proxy.
+
+Running through an intermediate HTTP/HTTPS proxy may as well improve overall
+performances, as some small optimization is done via TLS session renegotiation,
+Generally, and especially when connecting without an intermediate proxy, the
+connection socket itself will not be recycled nor reused. The current DNSProxy
+implementation of h2 and TCP sessions prevents such recycle, at least for the
+time being.
 
 **IMPORTANT:** DoH resolvers around the world increase global DNS privacy !
 
@@ -236,10 +244,10 @@ Start a fully-compliant DoH/h2 server. _Only applies to **standard dnsp-h2** bin
 (OPTIONAL) - For the time being, services are hard-coded into dnsp-h2 server.
 Reconfigure and compile again. See APPENDIX E for extensive list of providers.
 #### STEP 0. Configure an HTTPS MITM proxy
-For debug or caching reasons you may want to configure an SSL MITM intercepting
-proxy as charles or burp
+(OPTIONAL) - For debug or caching reasons you may want to configure an SSL MITM
+intercepting proxy as charles or burp proxies.
 #### STEP 1. Start *dnsp-h2* server
-Invoke *dnsp-h2* and start answering DNS queries on the given UDP & TPC port.
+Run *dnsp-h2* and start responding to DNS queries on the given UDP & TCP port.
 ```bash
 # Run DNSProxy with standard Google & Cloudflare DoH resolvers. Surf anonymously in the simplest direct mode
 dnsp-h2 -Q -p 53
@@ -260,9 +268,9 @@ Deploy **nslookup-doh.php** on a webserver, possibly not your local machine (see
 DISCLAIMER). If you ignore how-to carry on such deploy task or you do not have
 access to any of such services, just use the generic webservice as in examples.
 
-#### STEP 2. Start *dnsp* server
-Start answering DNS queries in a DEPRECATED legacy mode.
-Answer DNS queries by  using NON-STANDARD resolvers.
+#### STEP 2. Start *dnsp* server - DEPRECATED
+(DEPRECATED) - Start answering DNS queries in a DEPRECATED legacy mode.
+Answer DNS queries by using NON-STANDARD resolvers.
 ```bash
 # Run non-compliant pre-DoH DNSProxy without any chained proxy:
 dnsp -l 127.0.0.1 -s https://www.fantuz.net/nslookup-doh.php
@@ -270,7 +278,8 @@ dnsp -l 127.0.0.1 -s https://www.fantuz.net/nslookup-doh.php
 # Run non-compliant non-DoH HTTP proxy (i.e. squid, polipo) behind another proxy
 dnsp -H http://192.168.3.93/ -r 8118 -s https://abc.com/nslookup.php
 ```
-### Getting help on every advanced, experimental and deprecated option
+### Getting help
+Every basic, advanced, experimental and deprecated option is shown by **help**.
 ```bash
 user@machine:~/DNSProxy$ ./dnsp-h2 -h
 
