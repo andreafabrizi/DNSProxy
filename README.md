@@ -92,13 +92,13 @@ feature is logged in changelog.
 ## Architecture
 ### Design Overview
 
-A classic DNS messaging schema except that raw packets are carried over HTTP/2
+Classic DNS messaging schema except that raw packets are carried over HTTP/2
 guaranteeing against _privacy leaks_ (see PRIVACY disclaimer below).
 
 DNSProxy is a rapid and efficient solution if you can't access "secured" tunnels
 to resolve domain names externally (TOR users, Chinese Wall of Fire, evil VPN).
 
-Robustness of architecture proves DNSProxy a very scalable and smart solution.
+Robustness of architecture proves DNSProxy as a scalable and smart solution.
 ```
              +---------------------------+
   +----------| DNSProxy re-uses original | <<-----------+
@@ -131,32 +131,29 @@ dnsp-h2 as the "RFC-compliant spinoff" of the "abandoned" dnsp:
 - *dnsp-h2* will take care of crafting well-formed DNS packets in accordance to
   foundation RFCs RFC-1035 and RFC-8484.
 - *dnsp* is now **deprecated and should not be used**. It used to provide
-  RFC-1035 DNS responses but used a slightly different implementation of HTTP
-  request/response dialogue. Ancestor of DoH, only support pre-DoH format(s).
+  RFC-1035 DNS responses but relied on slightly different implementation of HTTP
+  request/response dialogue. Ancestor of DoH, only support pre-DoH format(s) and
+  shall only be used in demonstrations and experiments.
 
-Also note that *dnsp* binary (pre-DOH version of DNSProxy) is only kept in
-repository for historical reasons, offers  no backward-compatibility and may
-soon disappear.
+Also note that *dnsp* binary is only kept in repository for historical reasons,
+offers no forward/backward-compatibility and may soon disappear.
 
 Please only use, refer to and commit towards *dnsp-h2* branch. Commits for other
 legacy components will not be accepted.
 
-### Advanced features
-- Compatible with "DNS-over-HTTPS" RFC-8484 protocol
-- HTTP/2 being the minimum requirement, **dnsp-h2** only supports versions >= h2
-- **dnsp-h2** provides ability to set specific headers according to cache
-  requirements, translating HTTP cache Validity into DNS TTL value
-- **dnsp-h2** offers an option to dump DNS and HTTP packets, eventually to serve
-  those contents via another HTTP(S) DoH-compliant webserver (i.e. you plan to
-  run a DoH resolver).
-- for non-standard non-DoH experiments, you may look at **dnsp**, now DEPRECATED
-- **dnsp** offer a feature (based on FOLLOWLOCATION) to issue chained requests,
-  thus enabling browser cache preemption for the benefit of user experience.
 
-In order to start resolving anonymous DNS over HTTP(S) all you need is:
-- the C software, available as source or compiled **(both dnsp-h2 and dnsp)**
-- a PHP-server hosting *nslookup-doh.php* resolver script **(step only needed
-  by legacy _dnsp_)**
+- Compatible with "DNS-over-HTTPS" RFC-8484 protocol
+- **dnsp-h2** only supports versions >= h2, as HTTP/2 is an RFC requirement
+- **dnsp-h2** provides ability to set specific headers, translating HTTP cache
+  Validity or Cache-Control into the TTL value of DNS response packet.
+- **dnsp-h2** offers an option to dump DNS and HTTP conversations, leveraging
+  ability to eventually serve those contents via another HTTP(S) DoH-compliant
+  webserver (i.e. you plan to run a DoH resolver).
+- for non-standard non-DoH experiments, you may look at **dnsp**, now DEPRECATED
+- **dnsp** offered a feature (based on FOLLOWLOCATION) to issue subsequent
+  requests enabling browser cache preemption for the benefit of user experience.
+- **dnsp** offered a feature to shorten DNS A answers to a minimal working set.
+  This feature has not yet beed ported to _dnsp-h2_.
 
 This software is OSS, TOR-friendly and requires minimal resources. Enjoy !
 
@@ -214,7 +211,14 @@ time being.
 **IMPORTANT:** DoH resolvers around the world increase global DNS privacy !
 
 ## Running DNSProxy
-### Pre-requisites check
+In order to start resolving anonymous DNS over HTTP(S) all you need is:
+- compiled source of either **dnsp-h2** or **dnsp**
+- a PHP-server hosting *nslookup-doh.php* resolver script **(NB: this step is only
+  needed by legacy _dnsp_)**
+
+But first, some pre-flight checks.
+
+### Pre-requisites check, build and install
 Build is easy on Linux, Mac, UNIX and even Windows; DNSProxy is based on common
 dependancies as: libCURL C library, pthread, SSL/TLS. A recent version of 
 nghttp2 is needed to leverage HTTP/2 CURL capabilities.
@@ -232,7 +236,6 @@ sudo make install
 sudo clib install jwerle/b64.c
 sudo clib install jwerle/libok
 ```
-### Building and Installing.
 Once pre-requisites checked in, you will be able to *compile software* by running:
 ```bash
 make
